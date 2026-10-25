@@ -1,0 +1,23 @@
+{
+  "name": "specula",
+  "version": "0.1.0",
+  "description": "The specification layer for software engineering. Extract, formally verify, and manage specifications as the single source of truth.",
+  "type": "module",
+  "main": "./src/index.js",
+  "bin": {
+    "specula": "./bin/specula.mjs"
+  },
+  "scripts": {
+    "test": "node --test tests/**/*.test.js"
+  },
+  "keywords": [
+    "specification",
+    "formal-methods",
+    "alloy",
+    "model-checking",
+    "ast",
+    "bdd"
+  ],
+  "author": "itomaAI",
+  "license": "MIT"
+}
