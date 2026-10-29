@@ -26,26 +26,42 @@ Specula operates on the fundamental principle that **LLMs must not perform logic
 | Actor | Role | Responsibilities | Anti-patterns to Avoid |
 | :--- | :--- | :--- | :--- |
 | **Human (PdM / Decision Maker)** | Definition of Intent & Value | • Write scenarios & requirements in natural language / BDD.<br>• Commit & approve Domain Questions. | Exhaustive state enumeration, mathematical formalization. |
-| **LLM (Agent)** | Translation & Orchestration | • Parse requirements/code into decision tables.<br>• Synthesize counterexamples into human Domain Questions. | Guessing specification gaps, autonomous mathematical proofs. |
-| **Deterministic Solver** | Formal Proof & State Space Exploration | • Compile formal specifications (Alloy 6).<br>• $N \times M$ exhaustive state space search for deadlocks, unreachable states, and unhandled transitions. | Natural language parsing, business judgment. |
+| **LLM (Agent)** | Summarizing & Translation | • Give readable names to events and operations that the parser (@babel/parser) extracted.<br>• Write counterexamples found by the solver as questions a person can answer. | Parsing code, guessing specification gaps, filling missing output with guesses, mathematical proofs. |
+| **Deterministic Solver** | Bounded Model Checking | • Run the formal specification (Alloy 6) within explicit bounds (scope, temporal steps).<br>• Look for undefined transitions, overlapping operations, unreachable operations, and deadlocks. A report states the bounds it used, or says "unverified" when the engine could not be reached. | Natural language parsing, business judgment. |
 
 ---
 
 ## 2. Architecture: Ports & Adapters
 
-Specula is architected with a strict separation between the **Controller/Pipeline** and the **FileSystem/Runtime environment**:
+The core never touches the runtime environment directly. It talks to three ports, and each environment provides its own adapters.
 
-- **Core Engine (`src/core/`)**:
-  - `ContextExtractor`: Extracts AST syntax facts and visual facts without domain guessing.
-  - `FormalTranspiler`: Compiles facts into formal logic (Alloy 6), detecting ambiguities for human clarification.
-  - `FormalSolver`: Builds check commands and normalizes results. The engine itself is **Alloy 6 only**, run as an external process through `SolverPort` (no environment-specific fallback engine).
-  - `LedgerSynthesizer`: Translates machine counterexamples into actionable Domain Questions.
-  - `SpecProjector`: Pure-function deterministic projection to Markdown, DAGs, and sequence views.
-- **Ports & Adapters (`src/ports/`, `src/adapters/`)**:
-  - `FileSystemPort`: Decouples file I/O. Runs seamlessly inside **Itera OS** (Virtual VFS) and **Standalone Node.js / CI** (`node:fs`).
+| Port | What it does | Node.js / CI adapter | Itera OS adapter |
+| :--- | :--- | :--- | :--- |
+| `FileSystemPort` | Reads and writes text files | `NodeFsAdapter` (`node:fs`) | `IteraVfsAdapter` (`MetaOS.fs`, passed in by the launcher) |
+| `LanguageModelPort` | Asks an LLM for names, paraphrases, and sentences | `ClaudeCodeCli` (planned) | `IteraLlm` (planned) |
+| `SolverPort` | Runs Alloy 6 as an external process | `CliAlloy` (planned) | `LocalBridgeAlloy` (planned) |
+
+- **LLM output is recorded.** `RecordingLanguageModel` wraps a real LLM client. It stores each output under `llm-records/<sha256 of task, prompt version and input>.json` and reuses it on the next run, so a run can be repeated without calling the LLM again. Outputs that never arrived or failed the shape check are not recorded; the result says "not generated" instead of being filled with a guess.
+- **The core modules M0–M5 are being rewritten one at a time** (see `docs/design/`). This stage contains only the shared foundation: the ports, the LLM recording, and the build.
 
 ---
 
-## 3. License
+## 3. Build & Test
+
+Requires Node.js 22.18 or later.
+
+```sh
+npm install
+npm run typecheck   # tsc --noEmit
+npm run build       # tsc → dist/
+npm test            # node --test on dist/tests
+npm run build:itera # bundle for Itera OS → dist/specula.itera.js
+```
+
+`dist/` is not committed. CI (GitHub Actions) runs the type check, the build, and the tests on every push and pull request.
+
+---
+
+## 4. License
 
 MIT License © 2026 itomaAI

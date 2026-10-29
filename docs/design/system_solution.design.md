@@ -27,7 +27,7 @@ LLMを「計算機」ではなく、**「人間と数学的決定論的ソルバ
 | M1 ContextExtractor | なし | AST による事実抽出のすべて | 再実行で一致 |
 | M2 FormalTranspiler | 実装の識別子からドメイン語彙への言い換え（DomainVocabularyMapper） | 状態の組み立て、Alloy の構文木の組み立て、曖昧性の検知、正準化出力 | 言い換えの結果は対応表として記録して再利用する。それ以外は再実行で一致 |
 | M3 FormalSolver | なし | 検査コマンドの組み立て、Alloy 6 の実行、結果の正規化 | 同一の実行条件のもとで一致 |
-| M4 LedgerSynthesizer | 反例の自然言語化（主張・観測事実・判断質問・選択肢の文） | 反例どうしの依存の分析、トポロジカルソート、グルーピング | 文は記録して再利用する。論点の構成は再実行で一致 |
+| M4 LedgerSynthesizer | 反例の自然言語化（主張・観測事実・判断質問の文） | 同じ状態を指す反例を 1 つの論点にまとめる、反例の種類ごとに決まった選択肢を付ける、検証の状態を写す（反例どうしの依存の分析とトポロジカルソートは初回の範囲外） | 文は記録して再利用する。論点の構成は再実行で一致 |
 | M5 SpecProjector | なし | 射影のすべて | 再実行で一致 |
 
 - **記録して再利用する**: LLM の出力は、入力とプロンプトの版をキーとして保存し、再実行ではそれを使う（1.3）。記録を作り直すのは、入力かプロンプトの版が変わったとき、または人間が指示したときに限る。
@@ -41,21 +41,34 @@ type LlmText =
   | { status: "GENERATED"; text: string; recordKey: string }
   | { status: "NOT_GENERATED"; reason: "UNREACHABLE" | "INVALID_OUTPUT"; detail: string };
 
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
 interface LlmRequest {
   task: string;            // 処理の種類（例: "m0.name-event"）
   promptVersion: string;   // プロンプトの版。プロンプトを変えたら上げる
-  input: unknown;          // JSON にできる値だけ
+  instructions: string;    // LLM に渡す指示の文。記録のキーには入れない
+  input: JsonValue;        // JSON にできる値だけ
 }
 
+// 出力が期待する形かを確かめる関数。各処理（コア）が渡す。
+type OutputCheck = (text: string) => { ok: true } | { ok: false; detail: string };
+
 interface LanguageModelPort {
-  generate(request: LlmRequest): Promise<LlmText>;
+  generate(request: LlmRequest, check: OutputCheck): Promise<LlmText>;
+}
+
+// 実際の LLM のアダプター（ClaudeCodeCli・IteraLlm）が実装する、より狭い口。記録も形の確認もしない。
+type LlmCompletion = { kind: "TEXT"; text: string; model: string } | { kind: "UNREACHABLE"; detail: string };
+interface LanguageModelClient {
+  complete(request: LlmRequest): Promise<LlmCompletion>;
 }
 ```
 
-- **記録のキー**: `task`・`promptVersion`・正準化した `input`（キーを辞書順に並べた JSON）をつないだ文字列の SHA-256。ハッシュは Web Crypto（`globalThis.crypto.subtle`）で計算する。Node.js 22 とブラウザの両方にあるので、依存を足さない。
-- **記録の置き場所**: 解析結果の出力先の下の `llm-records/<キー>.json`。中身は `request`・`text`・使ったモデル名・日時。読み書きは `FileSystemPort` を通す。
-- **記録を扱う層**: 記録の参照と保存は、アダプター層の `RecordingLanguageModel` が行う。これは `LanguageModelPort` を実装し、内側に実際の LLM のアダプターと `FileSystemPort` を持つ。コアは記録の有無を知らない。
-- **出力の検査**: 各処理は、LLM の出力が期待する形か（例: イベント名が識別子として使える 1 語か）を確かめる。形が合わなければ `INVALID_OUTPUT` として扱い、記録しない。
+- **記録のキー**: `task`・`promptVersion`・`input` を 1 つのオブジェクトにして正準化した JSON（キーを辞書順に並べ、空白を入れない）の SHA-256。`instructions` はキーに入れない。指示の文を変えたら `promptVersion` を上げる。ハッシュは Web Crypto（`globalThis.crypto.subtle`）で計算する。Node.js 22 とブラウザの両方にあるので、依存を足さない。正準化と SHA-256 は `src/lib/` に置く。
+- **記録の置き場所**: 解析結果の出力先の下の `llm-records/<キー>.json`。中身は `request`（task・promptVersion・input）・`instructions`・`text`・使ったモデル名・日時。読み書きは `FileSystemPort` を通す。
+- **記録を扱う層**: 記録の参照と保存は、アダプター層の `RecordingLanguageModel` が行う。これは `LanguageModelPort` を実装し、内側に `LanguageModelClient` と `FileSystemPort` を持つ。コアは記録の有無を知らない。
+- **出力の検査**: 各処理は、LLM の出力が期待する形か（例: イベント名が識別子として使える 1 語か）を確かめる関数（`OutputCheck`）を `generate` に渡す。形が合わなければ `INVALID_OUTPUT` として扱い、記録しない。形の確認は各処理の仕事だが、「形が合わない出力は記録しない」ために記録の層が結果を知る必要があるので、関数として渡す。
+- **記録を使う条件**: 記録が読めて、`request` が一致し、いまの `OutputCheck` も通るときだけ使う。満たさなければ LLM を呼び直して上書きする。`FileSystemPort` の失敗は例外のまま上げる（LLM に届かなかったこととは別の、環境の故障なので）。
 - **届かないとき**: LLM に届かない（ポートが無い、接続できない、時間切れ）ときは `UNREACHABLE` を返し、記録しない。次の実行で改めて呼ぶ。未生成の項目を、機械的に作った文や名前で埋めない。
 
 ### 1.4 ソルバに届かないとき
@@ -156,11 +169,12 @@ M2 が `AmbiguityReport` を返したシナリオは、そこで止まる（M3 �
 
 | ポート | 役割 | Node.js 側のアダプター | Itera OS 側のアダプター |
 | :--- | :--- | :--- | :--- |
-| `FileSystemPort` | 解析対象の読み取り、出力と LLM の記録の書き込み | `NodeFsAdapter`（`node:fs/promises`） | `IteraVfsAdapter`（`MetaOS.fs`） |
+| `FileSystemPort` | 解析対象の読み取り、出力と LLM の記録の書き込み | `NodeFsAdapter`（`node:fs/promises`） | `IteraVfsAdapter`（`MetaOS.fs`。起動アプリが引数で渡す） |
 | `SolverPort` | Alloy 6 の実行 | `CliAlloyAdapter`（`java` を子プロセスで起動） | `LocalBridgeAlloyAdapter`（ローカルブリッジ経由で手元の PC の `java` を起動） |
 | `LanguageModelPort` | LLM の呼び出し（1.3） | `ClaudeCodeCliAdapter`（Claude Code CLI を子プロセスで起動） | `IteraLlmAdapter`（Itera から LLM を呼ぶ） |
 
-- 両環境のアダプターは、`RecordingLanguageModel`（1.3）で包んで使う。
+- LLM のアダプター（`ClaudeCodeCliAdapter`・`IteraLlmAdapter`）は、`LanguageModelPort` ではなく、より狭い `LanguageModelClient`（1.3）を実装する。コアには `RecordingLanguageModel` で包んだものを渡す。
+- `IteraVfsAdapter` は `MetaOS` の全域変数を参照せず、起動アプリから `MetaOS.fs` を受け取る（コアとテストが Itera を知らずに済むため）。`FileSystemPort.list` はディレクトリの直下の**名前**を返す。`MetaOS.fs.list` はパスを返すこともあるので、`IteraVfsAdapter` が名前にそろえる。
 - 検証エンジンは Alloy 6 の 1 系統に限り、環境ごとに別のエンジンを使わない。Alloy の版と SAT ソルバは、Alloy 6 の推奨の版と既定のソルバとし、実際に使った版とソルバを `SolverReport` に記録する。
 - **未確定の事項**: `LocalBridgeAlloyAdapter` がローカルブリッジのどの口を呼ぶか、`IteraLlmAdapter` がどの API を呼ぶかは、まだ確かめていない。決まったら本節に書き足す。決まるまでは、両アダプターは届かないものとして扱い、M3 は `UNVERIFIED`、LLM の項目は `NOT_GENERATED` になる。
 - **入口**: Node.js 用のコマンドライン（`src/cli.ts`）と、Itera OS 用の起動アプリを置く。どちらも、アダプターを組み立ててオーケストレーターに渡すだけで、解析の処理は持たない。
@@ -176,8 +190,8 @@ M2 が `AmbiguityReport` を返したシナリオは、そこで止まる（M3 �
   - テストは `tests/` に `.test.ts` で書き、Node.js 組み込みのテストランナー（`node:test` と `node:assert`）を使う。
   - 実行は Node.js 22 で、ビルドの後に `node --test "dist/tests/**/*.test.js"`。
   - テストは、実際の入力から作った出力を `assert` で確かめる。決まった値を返すだけのテストを置かない。
-- **CI**: GitHub Actions で、push と PR ごとに `npm ci`、型の検査（`tsc --noEmit`）、ビルド、テストを走らせる。Alloy を使うテストは、Java と Alloy がある環境でだけ走らせる（無ければ、届かないときの扱い 1.4 を確かめるテストだけを走らせる）。
-- **依存の方針**: 実行時の依存は `@babel/parser` だけにする。開発用の依存は `typescript` と `esbuild` だけにする。小さく書けるもの（ハッシュ、JSON の正準化、グラフの整列など）は自分で書く。Node.js 22 とブラウザの両方にある標準の機能（Web Crypto など）は使ってよい。
+- **CI**: GitHub Actions で、push と PR ごとに依存の導入、型の検査（`tsc --noEmit`）、ビルド、テストを走らせる。依存の導入は、lockfile（`package-lock.json`）が入るまでは `npm install`、入ったら `npm ci` にする（lockfile は Itera OS では作れないので、Node.js のある環境で作って足す）。Alloy を使うテストは、Java と Alloy がある環境でだけ走らせる（無ければ、届かないときの扱い 1.4 を確かめるテストだけを走らせる）。
+- **依存の方針**: 実行時の依存は `@babel/parser` だけにする。開発用の依存は `typescript`・`esbuild`・`@types/node` だけにする（`@types/node` は、`strict` の型の検査で `node:test`・`node:fs` などの型を読むのに要る。版は Node.js 22 に合わせる）。小さく書けるもの（ハッシュ、JSON の正準化、グラフの整列など）は自分で書き、`src/lib/` に置く。Node.js 22 とブラウザの両方にある標準の機能（Web Crypto など）は使ってよい。
 - **リポジトリ構造規約**:
   ```
   specula/
@@ -188,6 +202,8 @@ M2 が `AmbiguityReport` を返したシナリオは、そこで止まる（M3 �
   │   ├── types/            # モジュール間の契約の型
   │   ├── ports/            # FileSystemPort / SolverPort / LanguageModelPort
   │   ├── adapters/         # NodeFs, CliAlloy, ClaudeCodeCli, IteraVfs, LocalBridgeAlloy, IteraLlm, RecordingLanguageModel
+  │   ├── lib/              # 小さく自分で書いたもの（JSON の正準化、SHA-256 など）
+  │   ├── index.ts          # ライブラリとしての入口（Node.js と Itera OS の bundle の両方）
   │   ├── cli.ts            # Node.js の入口
   │   └── core/             # Zero-I/O コアパイプライン
   │       ├── scenario_extractor.ts   # M0: シナリオ同定・イベントストーミング
