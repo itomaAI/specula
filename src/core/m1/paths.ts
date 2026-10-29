@@ -51,8 +51,8 @@ interface Summary {
 interface Context {
   file: LoadedFile;
   fn: FunctionRef;
-  /** いま中にいる枝の条件（書き込みの guard に使う）。 */
-  guard: Array<{ expression: string; holds: boolean }>;
+  /** いま中にいる枝の条件（書き込みの guard と guardTerms に使う）。unitId は BRANCH_CONDITION のユニット。 */
+  guard: Array<{ unitId: string; expression: string; holds: boolean }>;
   exits: ExitPath[];
   /** catch のある try の中なら、throw した経路をここへ入れる。 */
   catchSink: Path[] | null;
@@ -361,7 +361,7 @@ export class PathWalker {
     const branchPath = clonePath(path);
     branchPath.conditions.push({ ...condition, holds });
     appendUnique(branchPath.unitIds, [condition.unitId]);
-    ctx.guard.push({ expression: condition.expression, holds });
+    ctx.guard.push({ unitId: condition.unitId, expression: condition.expression, holds });
     try {
       return await this.block(statements, branchPath, ctx);
     } finally {
@@ -489,10 +489,18 @@ export class PathWalker {
     // guard には、その関数の中で書き込みに至る条件をすべて入れる（起点の関数でも呼ばれた関数でも同じ）。
     // 経路の条件は枝を戻すときに落ちることがある（if (a) { if (b) return; x = 1 } の !(b)）ので、
     // スライスの条件だけに任せず、書き込みの側にも残す。スライスの条件と重なることがある。
+    // guard・guardHolds は人が読む用（式の原文）。M2 は guardTerms（条件のユニットの識別子と holds）を使う。
     const terms: Array<{ expression: string; holds: boolean }> = [];
     const seen = new Set<string>();
+    const structured: Array<{ unitId: string; holds: boolean }> = [];
+    const seenUnits = new Set<string>();
     const candidates = [...path.conditions, ...ctx.guard];
     for (const term of candidates) {
+      const unitKey = `${term.holds ? "+" : "-"}${term.unitId}`;
+      if (!seenUnits.has(unitKey)) {
+        seenUnits.add(unitKey);
+        structured.push({ unitId: term.unitId, holds: term.holds });
+      }
       const key = `${term.holds ? "+" : "-"}${term.expression}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -504,6 +512,7 @@ export class PathWalker {
       expression: sourceText(ctx.file, node),
       guard,
       guardHolds,
+      guardTerms: JSON.stringify(structured),
     });
     appendUnique(path.unitIds, [id]);
     appendUnique(path.writes, [id]);
