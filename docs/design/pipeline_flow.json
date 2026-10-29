@@ -1,0 +1,231 @@
+{
+  "title": "仕様抽出・検証パイプライン データフローアーキテクチャ",
+  "caption": "【左】初期抽出（コード＋画面から奪還）と【右】定常ループ（Alloy正本単独での自律回転）の二重構造",
+  "nodes": [
+    {
+      "id": "M_SCN",
+      "kind": "module",
+      "name": "M0: ScenarioExtractor",
+      "category": "シナリオ同定・イベントストーミング",
+      "in": "リポジトリ見取り図 / docs / 画面一覧",
+      "out": "EventStormingMap + ScenarioTarget[]",
+      "x": 30,
+      "y": 90,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "演算モジュール (Module)",
+        "運用フェーズ": "初期全体マップ構築および個別シナリオ切り出し",
+        "責務": "Event Storming全体マップと個別シナリオTargetの出力"
+      },
+      "markdown": "### モジュール: `ScenarioExtractor (M0)`\n\n- Loom双対構造（プロジェクト＝コンテキスト／タスク＝シナリオ）に基づく。\n- イベントストーミングによる全体マップと個別シナリオTargetを出力。"
+    },
+    {
+      "id": "T_TGT",
+      "kind": "type",
+      "name": "ScenarioTarget",
+      "category": "個別シナリオ同定情報",
+      "in": "M0: ScenarioExtractor",
+      "out": "M1: ContextExtractor",
+      "x": 260,
+      "y": 90,
+      "width": 190,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "運用モード": "個別シナリオの切り出し結果",
+        "内容": "Command/Policy起点、Actor、ReadModel、期待イベント"
+      },
+      "markdown": "### データ型: `ScenarioTarget`\n\n- 単一の明確な完了条件を持つ実行可能シナリオ。"
+    },
+    {
+      "id": "M_EXT",
+      "kind": "module",
+      "name": "M1: ContextExtractor",
+      "category": "能動的抽出 (因果スライシング)",
+      "in": "ScenarioTarget + SourceArtifacts",
+      "out": "RawContextModel",
+      "x": 480,
+      "y": 90,
+      "width": 190,
+      "height": 84,
+      "details": {
+        "分類": "演算モジュール (Module)",
+        "運用フェーズ": "シナリオ単位の因果境界スライス抽出",
+        "責務": "InletからOutletまでの厳密な事実スライスを抽出"
+      },
+      "markdown": "### モジュール: `ContextExtractor (M1)`\n\n- 指定シナリオの入口から出口までを因果追跡。\n- 非同期境界で切断し、指定シナリオの事実のみを抽出。"
+    },
+    {
+      "id": "T_RAW",
+      "kind": "type",
+      "name": "RawContextModel",
+      "category": "抽出された構文事実",
+      "in": "M1: ContextExtractor",
+      "out": "M2: AlloyTranspiler",
+      "x": 470,
+      "y": 90,
+      "width": 190,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "抽出された生のコード×画面対応データ"
+      },
+      "markdown": "### データ型: `RawContextModel`\n\n抽出された事実データ。"
+    },
+    {
+      "id": "M_TRANS",
+      "kind": "module",
+      "name": "AlloyTranspiler",
+      "category": "初回Alloy変換器",
+      "in": "RawContextModel",
+      "out": "Alloy Spec (*.als) の初期生成",
+      "x": 690,
+      "y": 90,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "演算モジュール (Module)",
+        "役割": "初回リバース時にAlloy正本の初版を合成・起票する"
+      },
+      "markdown": "### モジュール: `AlloyTranspiler`\n\n- 実装事実からAlloyコード初版を生成し、正本としてコミットする。"
+    },
+    {
+      "id": "T_ALLOY",
+      "kind": "type",
+      "name": "Alloy Spec (*.als)",
+      "category": "【永続化正本 / 自律ループの核】",
+      "in": "初回抽出 OR 人間のシナリオ編集 (定常)",
+      "out": "M3 (Solver), M4, M5 (Projector)",
+      "x": 690,
+      "y": 230,
+      "width": 230,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (唯一の永続化正本)",
+        "保管先": "Git リポジトリ (`specs/*.als`)",
+        "定常運用": "★一度確立されたら、この正本単独で自律ループが回転する"
+      },
+      "markdown": "### 【永続化正本】 `Alloy Spec (*.als)`\n\n- 一度生成されたら、このファイル単独で仕様の更新・検証ループを回す。\n- 外部の実装コードやスクリーンショットに依存せず、この正本がすべての唯一の真実（Source of Truth）となる。"
+    },
+    {
+      "id": "M_SOLV",
+      "kind": "module",
+      "name": "AlloySATSolver",
+      "category": "定常SAT検証ソルバ",
+      "in": "Alloy Spec (*.als)",
+      "out": "Counterexample",
+      "x": 420,
+      "y": 230,
+      "width": 210,
+      "height": 84,
+      "details": {
+        "分類": "定常検証エンジン (決定論的ソルバ)",
+        "定常ループ": "Alloyが編集されるたびに自動実行",
+        "責務": "全状態空間探索・反例検出"
+      },
+      "markdown": "### モジュール: `AlloySATSolver`\n\n正本（またはドラフト）のAlloyが更新されるたびにSATソルバが走り、反例を探索。"
+    },
+    {
+      "id": "T_CEX",
+      "kind": "type",
+      "name": "Counterexample",
+      "category": "反例インスタンス",
+      "in": "M3: AlloySATSolver",
+      "out": "M4: LedgerSynthesizer",
+      "x": 160,
+      "y": 230,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "ソルバが検出した反例データ"
+      },
+      "markdown": "### データ型: `Counterexample`\n\n不変条件違反や未定義遷移の反例インスタンス。"
+    },
+    {
+      "id": "M_LEDG",
+      "kind": "module",
+      "name": "LedgerSynthesizer",
+      "category": "定常論点合成 (LLM)",
+      "in": "Counterexample + Alloy Spec",
+      "out": "DomainLedgerCatalog",
+      "x": 160,
+      "y": 370,
+      "width": 210,
+      "height": 84,
+      "details": {
+        "分類": "定常変換エージェント (Agent)",
+        "定常ループ": "反例を人間に問う質問へ変換",
+        "責務": "意思決定の問いと選択肢を合成"
+      },
+      "markdown": "### モジュール: `LedgerSynthesizer`\n\n反例を人間が判断できる問い（Is this intended?）へ逆翻訳。"
+    },
+    {
+      "id": "T_LEDG",
+      "kind": "type",
+      "name": "DomainLedgerCatalog",
+      "category": "意思決定論点データ",
+      "in": "M4: LedgerSynthesizer",
+      "out": "人間のレビュー・修正判断",
+      "x": 420,
+      "y": 370,
+      "width": 210,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "PdMが判断するための論点カタログ"
+      },
+      "markdown": "### データ型: `DomainLedgerCatalog`\n\n人間への修正依頼・選択肢データ。"
+    },
+    {
+      "id": "M_PROJ",
+      "kind": "module",
+      "name": "SpecProjector",
+      "category": "純粋関数プロジェクション",
+      "in": "Alloy Spec + DomainLedgerCatalog",
+      "out": "HumanReadableViews",
+      "x": 690,
+      "y": 370,
+      "width": 230,
+      "height": 84,
+      "details": {
+        "分類": "純粋関数 (View Generator)",
+        "定常運用": "正本Alloyから人間向けUI・図・文書を常に即時計算"
+      },
+      "markdown": "### モジュール: `SpecProjector`\n\nAlloy正本から Markdown, DAG, シーケンス図などを純粋関数で決定論的に計算・描画。"
+    },
+    {
+      "id": "T_VIEWS",
+      "kind": "type",
+      "name": "HumanReadableViews",
+      "category": "多面的ビュー (オンデマンド写像)",
+      "in": "M5: SpecProjector",
+      "out": "PdM / 意思決定者 (ツール1・ツール2)",
+      "x": 690,
+      "y": 500,
+      "width": 230,
+      "height": 84,
+      "details": {
+        "分類": "表示層 (Views / Projections)",
+        "内容": "Markdown仕様書、シーケンス図、DAG、状態遷移表"
+      },
+      "markdown": "### 成果物: `HumanReadableViews`\n\n人間が認知するための多様な角度の写像。正本は常にAlloy。"
+    }
+  ],
+  "edges": [
+    { "from": "T_SRC", "to": "M_EXT" },
+    { "from": "T_VIS", "to": "M_EXT" },
+    { "from": "M_EXT", "to": "T_RAW" },
+    { "from": "T_RAW", "to": "M_TRANS" },
+    { "from": "M_TRANS", "to": "T_ALLOY" },
+    { "from": "T_ALLOY", "to": "M_SOLV" },
+    { "from": "M_SOLV", "to": "T_CEX" },
+    { "from": "T_CEX", "to": "M_LEDG" },
+    { "from": "T_ALLOY", "to": "M_LEDG" },
+    { "from": "M_LEDG", "to": "T_LEDG" },
+    { "from": "T_ALLOY", "to": "M_PROJ" },
+    { "from": "T_LEDG", "to": "M_PROJ" },
+    { "from": "M_PROJ", "to": "T_VIEWS" }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "title": "仕様策定ツール 業務フローとモジュール連携 (Workflow & Engine Mapping)",
+  "caption": "人間の2大業務（策定・レビュー）を支えるエンジンモジュール群の対応マッピング",
+  "nodes": [
+    {
+      "id": "A_CURRENT_SPEC",
+      "kind": "type",
+      "name": "現在の仕様 (正本 main)",
+      "category": "仕様資産 (正本)",
+      "in": "正本マージ (W3)",
+      "out": "W1: 仕様策定",
+      "x": 30,
+      "y": 40,
+      "width": 230,
+      "height": 96,
+      "details": {
+        "分類": "データ型 (Data Type: 正本)",
+        "実体": "Git管理される Alloy 6 コード群 (`specs/*.als`)"
+      },
+      "markdown": "### 現在の仕様 (`main`)\n本システムが管理する唯一の正本。Alloy 6 コード群。"
+    },
+    {
+      "id": "W1_PLAN",
+      "kind": "module",
+      "name": "【業務1】仕様策定業務",
+      "label": "👤 業務1: 仕様策定",
+      "category": "人間 ＋ [M5/M1/M2]",
+      "in": "正本 (main) ＋ 要件",
+      "out": "新ドラフト (+1)",
+      "x": 290,
+      "y": 40,
+      "width": 230,
+      "height": 96,
+      "details": {
+        "主たる主体": "人間 (PdM)",
+        "連携エンジン1 (参照時)": "SpecProjector (Alloy正本をマルチズームで即時射影)",
+        "連携エンジン2 (初期時)": "ContextExtractor (既存コード+画面から事実抽出)",
+        "連携エンジン3 (記述時)": "FormalTranspiler (エディタ入力を新Alloy述語へコンパイル)"
+      },
+      "markdown": "### 【業務1】仕様策定業務で使われるモジュール\n\n1. **SpecProjector**: 現在の仕様のマルチズーム表示。\n2. **ContextExtractor**: （初回時）コード+画面からの事実抽出。\n3. **FormalTranspiler**: 新仕様をAlloy述語コード（`+1`）へコンパイル。"
+    },
+    {
+      "id": "A_DRAFT",
+      "kind": "type",
+      "name": "新シナリオドラフト (+1)",
+      "category": "提出ドラフト",
+      "in": "W1: 仕様策定",
+      "out": "W2: 並行レビュー",
+      "x": 550,
+      "y": 40,
+      "width": 230,
+      "height": 96,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "FormalTranspiler によりコンパイルされた新シナリオの Alloy コード"
+      },
+      "markdown": "### 新シナリオドラフト (`+1`)\nレビュー対象となる新機能の仕様ドラフト。"
+    },
+    {
+      "id": "W2_REV",
+      "kind": "module",
+      "name": "【業務2】並行レビュー業務",
+      "label": "👥 業務2: 並行レビュー",
+      "category": "人間 ＋ [M3/M4/M5]",
+      "in": "新ドラフト (+1) ＋ 正本",
+      "out": "確定仕様書 (spec.md)",
+      "x": 810,
+      "y": 40,
+      "width": 230,
+      "height": 96,
+      "details": {
+        "主たる主体": "人間 (PdM/意思決定者)",
+        "連携エンジン1 (検証時)": "FormalSolver (全状態探索・最小反例検出)",
+        "連携エンジン2 (論点化)": "LedgerSynthesizer (反例を「意思決定の問い」へ逆翻訳)",
+        "連携エンジン3 (提示時)": "SpecProjector (Alloy正本から最終仕様書 spec.md を出力)"
+      },
+      "markdown": "### 【業務2】並行レビュー業務で使われるモジュール\n\n1. **FormalSolver**: 単体および全体結合の全状態探索・反例検出。\n2. **LedgerSynthesizer**: 反例を人間向けの問い（Domain Question）へ逆翻訳。\n3. **SpecProjector**: 合意後、外部引き渡し用確定仕様書を出力。"
+    },
+    {
+      "id": "A_EXPORT_SPEC",
+      "kind": "type",
+      "name": "確定仕様書 (spec.md)",
+      "category": "外部引き渡し成果物",
+      "in": "W2: 並行レビュー",
+      "out": "外部開発・QAプロセス",
+      "x": 810,
+      "y": 200,
+      "width": 230,
+      "height": 96,
+      "details": {
+        "分類": "データ型 (Data Type: 出力境界)",
+        "生成元": "SpecProjector",
+        "内容": "外部開発・QAチームへ引き渡す確定仕様書 (spec.md)"
+      },
+      "markdown": "### 確定仕様書 (`spec.md`)\nSpecProjector により出力された外部引き渡し用仕様書。"
+    },
+    {
+      "id": "EXT_IMPL_QA",
+      "kind": "module",
+      "name": "【外部プロセス】実装 ＆ QA",
+      "label": "🏢 外部: 実装 & QA受入",
+      "category": "管掌外 (ブラックボックス)",
+      "in": "確定仕様書 (spec.md)",
+      "out": "受入完了通知 (合否)",
+      "x": 480,
+      "y": 200,
+      "width": 230,
+      "height": 96,
+      "details": {
+        "主たる主体": "エンジニア、QAチーム（外部環境）",
+        "管掌": "★本ツールの管掌範囲外"
+      },
+      "markdown": "### 【外部プロセス】実装・テスト・QA受入\n本ツールの管掌外。外部で開発と受入試験が完了したことのみを通知として受ける。"
+    },
+    {
+      "id": "W3_MERGE",
+      "kind": "module",
+      "name": "【業務3】正本マージ業務",
+      "label": "👤 業務3: 正本マージ",
+      "category": "人間アクション ＋ [Gitマージ]",
+      "in": "受入完了通知 ＋ マージ判断",
+      "out": "正本 main の更新",
+      "x": 130,
+      "y": 200,
+      "width": 240,
+      "height": 96,
+      "details": {
+        "主たる主体": "人間 (PdM / 意思決定者)",
+        "実行内容": "受入完了を受け、人間が明示的にマージボタンを押下して正本 main を更新"
+      },
+      "markdown": "### 【業務3】正本マージ業務\n外部の実装・QA受入が完了した後、人間の明示的な判断によって新仕様が正本（main）へと正式に取り込まれる。"
+    }
+  ],
+  "edges": [
+    { "from": "A_CURRENT_SPEC", "to": "W1_PLAN" },
+    { "from": "W1_PLAN", "to": "A_DRAFT" },
+    { "from": "A_DRAFT", "to": "W2_REV" },
+    { "from": "A_CURRENT_SPEC", "to": "W2_REV" },
+    { "from": "W2_REV", "to": "A_EXPORT_SPEC" },
+    { "from": "A_EXPORT_SPEC", "to": "EXT_IMPL_QA" },
+    { "from": "EXT_IMPL_QA", "to": "W1_PLAN" },
+    { "from": "EXT_IMPL_QA", "to": "W3_MERGE" },
+    { "from": "W3_MERGE", "to": "A_CURRENT_SPEC" }
+  ]
+}
