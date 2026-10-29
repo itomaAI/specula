@@ -95,3 +95,44 @@ export interface ScenarioExtractorResult {
   map: EventStormingMap;
   scenarios: ScenarioTarget[];
 }
+// -------------------------------------------------------------
+// M1: ContextExtractor Types
+// -------------------------------------------------------------
+export type ExtractionUnitKind =
+  | 'STATE'
+  | 'OPERATION'
+  | 'INTERFACE_TEXT'
+  | 'BRANCH_CONDITION'
+  | 'API_ENDPOINT'
+  | 'DATA_MUTATION'
+  | 'SCHEMA_ENTITY'
+  | 'ASYNC_CUT';
+
+export interface ExtractionUnit {
+  id: string;
+  kind: ExtractionUnitKind;
+  name: string;
+  componentScope?: string;
+  layer: 'UI' | 'API' | 'DATABASE' | 'ASYNC_TRIGGER';
+  details?: Record<string, unknown>;
+}
+
+export interface UseCaseSlice {
+  sliceId: string;
+  precondition: string;
+  outcome: string;
+  units: ExtractionUnit[];
+}
+
+export interface RawContextModel {
+  scenarioId: string;
+  intent: string;
+  entryPoint: {
+    route: string;
+    file: string;
+    inletTrigger: string;
+  };
+  units: ExtractionUnit[];
+  slices: UseCaseSlice[];
+  isAsyncCutEnforced: boolean;
+}
