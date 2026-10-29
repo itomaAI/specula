@@ -254,3 +254,21 @@ export interface DomainLedgerCatalog {
     isSound: boolean;
   };
 }
+// -------------------------------------------------------------
+// M5: SpecProjector Types
+// -------------------------------------------------------------
+export type ProjectionFormat = 'MARKDOWN' | 'DAG_JSON' | 'MERMAID_FLOW' | 'STATE_MATRIX';
+
+export interface ProjectionRequest {
+  scenarioId: string;
+  formats: ProjectionFormat[];
+  zoomLevel?: 'MACRO' | 'MICRO';
+}
+
+export interface SpecificationViews {
+  scenarioId: string;
+  markdownDoc?: string;
+  dagJson?: Record<string, unknown>;
+  mermaidDiagram?: string;
+  stateMatrixMd?: string;
+}
