@@ -1,0 +1,51 @@
+# 一時的な試し（M3 の項目 8 の前に Alloy 6.2.0 の CLI を確かめる）。確かめたら消す。
+name: Alloy probe
+
+on:
+  push:
+    branches: [feat/m3]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: release assets
+        run: |
+          curl -fsSL https://api.github.com/repos/AlloyTools/org.alloytools.alloy/releases/tags/v6.2.0 \
+            | python3 -c 'import json,sys; [print(a["name"], a["size"], a["browser_download_url"]) for a in json.load(sys.stdin)["assets"]]'
+      - name: download jar
+        run: |
+          url=$(curl -fsSL https://api.github.com/repos/AlloyTools/org.alloytools.alloy/releases/tags/v6.2.0 \
+            | python3 -c 'import json,sys; print(next(a["browser_download_url"] for a in json.load(sys.stdin)["assets"] if a["name"].endswith(".jar")))')
+          echo "jar url: $url"
+          curl -fsSL -o alloy.jar "$url"
+          sha256sum alloy.jar
+          java -version
+      - name: help
+        run: |
+          java -jar alloy.jar help || true
+          java -jar alloy.jar help exec || true
+      - name: sample
+        run: |
+          cat > sample.als <<'EOF'
+          abstract sig Bool {}
+          one sig True, False extends Bool {}
+          one sig System { var v1: one Bool }
+          fact Init { System.v1 = False }
+          pred flip { System.v1 = False and System.v1' = True }
+          pred stutter { System.v1' = System.v1 }
+          fact Steps { always (flip or stutter) }
+          pred flip_guard { System.v1 = False }
+          check m3_cover {
+            always (flip_guard)
+          } for 3 but 4 Int, 1..3 steps
+          run m3_reach { eventually flip } for 3 but 4 Int, 1..3 steps
+          EOF
+          mkdir -p out
+          java -jar alloy.jar exec -f -o out -t json sample.als || java -jar alloy.jar exec sample.als || true
+          ls -la out || true
+          for f in out/*; do echo "=== $f"; head -c 4000 "$f"; echo; done
