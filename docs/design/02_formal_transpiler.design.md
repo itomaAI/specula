@@ -7,7 +7,7 @@
 ## 1. アーキテクチャと全体設計制約の継承
 
 ### 1.1 全体設計制約の適用
-- **配置場所**: `specula/src/core/formal_transpiler.js`（Pure ESM, Target: ES2022+）。
+- **配置場所**: `specula/src/core/formal_transpiler.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**: 本モジュールは直接ファイル読み込みや書き込みを行わず、メモリ上で `RawContextModel` を受領し、Alloy 6 ソース文字列を返す純粋関数として実装する。
 - **依存方向の一方向性**: `src/ports/` の型定義のみを参照し、インフラや実行環境に依存しない。
 

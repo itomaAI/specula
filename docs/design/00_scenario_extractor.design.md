@@ -7,7 +7,7 @@
 ## 1. アーキテクチャと基本制約
 
 ### 1.1 基本制約の遵守
-- **配置場所**: `specula/src/core/scenario_extractor.js`（Pure ESM, Target: ES2022+）。
+- **配置場所**: `specula/src/core/scenario_extractor.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**:
   - 本モジュールはファイルシステム（`fs`）やネットワーク呼び出しを直接行わない。
   - 解析対象のリポジトリメタ情報（ファイル一覧、パッケージ定義、ソーステキスト、ドキュメントテキスト等）は呼び出し元からインメモリデータ構造（または Port）経由で注入されて動作する純粋な計算・解析エンジンとする。
@@ -136,7 +136,8 @@ interface EventStormingMap {
 interface ScenarioTarget {
   id: string;                      // 例: "SCN-MYPAGE-PASSWORD-CHANGE"
   boundedContext: string;          // 例: "UserAccount" または "DEFAULT_CONTEXT"
-  intent: string;                  // 例: "ユーザーがパスワードを変更し安全性を確保する"
+  intent: string;                  // 例: "ユーザーがパスワードを変更し安全性を確保する"（LLM が出す意図の候補）
+  intentStatus: "CANDIDATE" | "CONFIRMED"; // 人間（PdM）が確定するまでは CANDIDATE
   inletType: "COMMAND" | "POLICY"; // 同期か非同期か
   inletTrigger: {
     name: string;                  // コマンド名またはポリシー名

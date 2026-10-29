@@ -7,7 +7,7 @@
 ## 1. アーキテクチャと全体設計制約の継承
 
 ### 1.1 全体設計制約の適用
-- **配置場所**: `specula/src/core/spec_projector.js`（Pure ESM, Target: ES2022+）。
+- **配置場所**: `specula/src/core/spec_projector.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**: 本モジュールは直接ディスクやDOMを操作せず、メモリ上で形式仕様モデルおよび論点カタログを受領し、要求されたビューデータ（Markdown/JSON）を返す純粋関数群として実装する。
 - **仕様の世界への純化**: テストコード（`test.ts`）の実行・生成は下流のテスト生成ツールに委ね、本モジュールは純粋な仕様射影に閉じる。
 

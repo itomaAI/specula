@@ -7,7 +7,7 @@
 ## 1. アーキテクチャと全体設計制約の継承
 
 ### 1.1 全体設計制約の適用
-- **配置場所**: `specula/src/core/ledger_synthesizer.js`（Pure ESM, Target: ES2022+）。
+- **配置場所**: `specula/src/core/ledger_synthesizer.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**: 本モジュールは直接ファイル読み込みや書き込みを行わず、メモリ上で `SolverReport` と形式仕様モデルを受領し、論点カタログ `DomainLedgerCatalog` を合成して返す純粋な変換器として実装する。
 - **3アクター分界点の遵守**: LLM を「計算機」ではなく「人間への親切な翻訳・説明インターフェース（Agent）」として配置し、推測による仕様の自己決定を排除する。
 
