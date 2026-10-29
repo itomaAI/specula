@@ -58,6 +58,24 @@ export { InletNotFoundError, SyntaxExtractionError } from "./types/context.js";
 export { extractContext } from "./core/context_extractor.js";
 export { withRoot } from "./lib/rooted_file_system.js";
 
+// M2（FormalTranspiler）
+export type {
+  AmbiguityIssue,
+  AmbiguityKind,
+  AmbiguityReport,
+  FormalSpecification,
+  GuardExpr,
+  Operation,
+  OperationStep,
+  Proposition,
+  StateDomain,
+  StateVariable,
+  TranspilerResult,
+  WriteChange,
+} from "./types/formal.js";
+export { TranspileContractError } from "./types/formal.js";
+export { M2_PROMPT_VERSION, transpileFormal } from "./core/formal_transpiler.js";
+
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";
 
