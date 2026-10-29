@@ -76,6 +76,21 @@ export type {
 export { TranspileContractError } from "./types/formal.js";
 export { M2_PROMPT_VERSION, transpileFormal } from "./core/formal_transpiler.js";
 
+// M3（FormalSolver）
+export type {
+  CheckKind,
+  CheckResult,
+  Finding,
+  FindingKind,
+  SolverConditions,
+  SolverOptions,
+  SolverReport,
+  TraceStep,
+  UnverifiedReason,
+} from "./types/solver.js";
+export { SolverContractError } from "./types/solver.js";
+export { SOLVER_DEFAULTS, verifySpecification } from "./core/formal_solver.js";
+
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";
 
