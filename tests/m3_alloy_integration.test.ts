@@ -8,7 +8,9 @@ import { CliAlloyAdapter } from "../src/adapters/CliAlloyAdapter.js";
 import { extractContext } from "../src/core/context_extractor.js";
 import { transpileFormal } from "../src/core/formal_transpiler.js";
 import { verifySpecification } from "../src/core/formal_solver.js";
+import { synthesizeLedger } from "../src/core/ledger_synthesizer.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
+import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
 import type { SolverRequest } from "../src/ports/SolverPort.js";
 import type { ScenarioTarget } from "../src/types/scenario.js";
 
@@ -160,4 +162,62 @@ test("M1 → M2 → M3: 真偽値の例を本物のエンジンにかける（�
   );
   assert.deepEqual(report.findings, []);
   assert.deepEqual(report.unexecutedChecks, []);
+});
+
+// ---------------------------------------------------------------------------
+// M1 → M2 → M3 → M4。M4 は LLM が届かない偽のポートで、論点の構成だけを確かめる。
+
+const NO_LLM: LanguageModelPort = {
+  async generate() {
+    return { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" };
+  },
+};
+
+test("M1 → M2 → M3 → M4: 真偽値の例は論点 0 件で、「スコープの中で見つからなかった」になる", { skip }, async () => {
+  const facts = await extractContext(target("src/a.ts", "openIt"), { fs: new MemoryFs({ "src/a.ts": BOOL_SOURCE.join("\n") }) });
+  const result = await transpileFormal(facts, {});
+  if (result.kind !== "SPEC") assert.fail("SPEC ではない");
+  const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 3 });
+  const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
+
+  assert.equal(catalog.verification.outcome, "NONE_FOUND_WITHIN_SCOPE");
+  assert.equal(catalog.basis.reportId, report.reportId);
+  assert.equal(catalog.basis.findingCount, 0);
+  assert.deepEqual(catalog.issues, []);
+});
+
+const COUNTER_SOURCE = [
+  "let count = 0;",
+  "export function increment() {",
+  "  count = count + 1;",
+  '  return "incremented";',
+  "}",
+];
+
+test("M1 → M2 → M3 → M4: 数え上げの例は、あふれの手前で行き詰まり、未定義遷移とデッドロックが 1 つの論点になる", { skip }, async (t) => {
+  const facts = await extractContext(target("src/c.ts", "increment"), { fs: new MemoryFs({ "src/c.ts": COUNTER_SOURCE.join("\n") }) });
+  const result = await transpileFormal(facts, {});
+  if (result.kind !== "SPEC") assert.fail(`SPEC ではない: ${JSON.stringify(result)}`);
+  const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 10 });
+  t.diagnostic(`counter checks: ${JSON.stringify(report.checks)}`);
+  t.diagnostic(`counter findings: ${JSON.stringify(report.findings.map((finding) => [finding.kind, finding.trace?.at(-1)?.values ?? null]))}`);
+
+  assert.equal(report.status, "CHECKED", JSON.stringify(report.reason));
+  const cover = report.findings.findIndex((finding) => finding.kind === "UNHANDLED_TRANSITION");
+  const deadlock = report.findings.findIndex((finding) => finding.kind === "DEADLOCK");
+  assert.notEqual(cover, -1);
+  assert.notEqual(deadlock, -1);
+
+  const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
+  assert.equal(catalog.verification.outcome, "FOUND");
+  const issue = catalog.issues.find((item) => item.rootFinding === deadlock);
+  assert.ok(issue !== undefined, "デッドロックを本体にした論点が無い");
+  assert.equal(issue.kind, "DEADLOCK");
+  assert.ok(issue.dependentFindings.includes(cover), "未定義遷移がデッドロックに従属していない");
+  const covered = catalog.issues.flatMap((item) => [item.rootFinding, ...item.dependentFindings]).sort((a, b) => a - b);
+  assert.deepEqual(covered, report.findings.map((_, index) => index));
+  for (const item of catalog.issues) {
+    assert.equal(item.decision, null);
+    assert.equal(item.claim.status, "NOT_GENERATED");
+  }
 });

@@ -94,6 +94,18 @@ export type {
 export { SolverContractError } from "./types/solver.js";
 export { SOLVER_DEFAULTS, verifySpecification } from "./core/formal_solver.js";
 
+// M4（LedgerSynthesizer）
+export type {
+  DomainLedgerCatalog,
+  LedgerIssue,
+  LedgerOption,
+  LedgerOptionId,
+  LedgerVerification,
+  VerificationOutcome,
+} from "./types/ledger.js";
+export { LedgerContractError, ROOT_PRIORITY } from "./types/ledger.js";
+export { M4_PROMPT_VERSION, synthesizeLedger } from "./core/ledger_synthesizer.js";
+
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";
 
