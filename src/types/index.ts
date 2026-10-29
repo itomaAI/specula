@@ -226,3 +226,31 @@ export interface SolverPort {
     isEngineAvailable: boolean;
   }>;
 }
+// -------------------------------------------------------------
+// M4: LedgerSynthesizer Types
+// -------------------------------------------------------------
+export interface DomainLedgerOption {
+  key: 'SPECIFY' | 'FIX_BUG' | 'ALLOW_EDGE_CASE';
+  label: string;
+  description: string;
+}
+
+export interface DomainLedger {
+  id: string;
+  scenarioId: string;
+  isRootCause: boolean;
+  claim: string;
+  observation: string;
+  domainQuestion: string;
+  options: DomainLedgerOption[];
+}
+
+export interface DomainLedgerCatalog {
+  scenarioId: string;
+  ledgers: DomainLedger[];
+  summary: {
+    totalIssues: number;
+    rootCausesCount: number;
+    isSound: boolean;
+  };
+}
