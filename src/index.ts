@@ -23,6 +23,8 @@ export { IteraVfsAdapter } from "./adapters/IteraVfsAdapter.js";
 export type { IteraFs } from "./adapters/IteraVfsAdapter.js";
 export { RecordingLanguageModel, recordKeyOf } from "./adapters/RecordingLanguageModel.js";
 export type { LlmRecord } from "./adapters/RecordingLanguageModel.js";
+export { CliAlloyAdapter, interpretReceipt, toRawInstance } from "./adapters/CliAlloyAdapter.js";
+export type { CliAlloyOptions } from "./adapters/CliAlloyAdapter.js";
 
 // M0（ScenarioExtractor）
 export type {
