@@ -136,3 +136,46 @@ export interface RawContextModel {
   slices: UseCaseSlice[];
   isAsyncCutEnforced: boolean;
 }
+// -------------------------------------------------------------
+// M2: FormalTranspiler Types
+// -------------------------------------------------------------
+export interface FormalSignature {
+  name: string;
+  isVar: boolean;
+  isAbstract: boolean;
+  extendsName?: string;
+  fields: Array<{ name: string; type: string; multiplicity: string }>;
+  sourceAnnotation?: string;
+}
+
+export interface FormalPredicate {
+  name: string;
+  params: Array<{ name: string; type: string }>;
+  preconditions: string[];
+  postconditions: string[];
+  invariants: string[];
+  sourceAnnotation?: string;
+}
+
+export interface FormalSpecification {
+  scenarioId: string;
+  sourceCode: string; // Alloy 6 spec
+  signatures: FormalSignature[];
+  predicates: FormalPredicate[];
+  assertions: string[];
+  isSound: boolean;
+}
+
+export interface AmbiguityReport {
+  scenarioId: string;
+  hasAmbiguity: true;
+  issues: Array<{
+    target: string;
+    description: string;
+    domainQuestion: string;
+  }>;
+}
+
+export type TranspilerResult =
+  | { kind: 'SUCCESS'; spec: FormalSpecification }
+  | { kind: 'AMBIGUITY'; report: AmbiguityReport };
