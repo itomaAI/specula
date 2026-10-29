@@ -23,6 +23,9 @@ export { IteraVfsAdapter } from "./adapters/IteraVfsAdapter.js";
 export type { IteraFs } from "./adapters/IteraVfsAdapter.js";
 export { RecordingLanguageModel, recordKeyOf } from "./adapters/RecordingLanguageModel.js";
 export type { LlmRecord } from "./adapters/RecordingLanguageModel.js";
+export { CliAlloyAdapter, interpretReceipt, toRawInstance } from "./adapters/CliAlloyAdapter.js";
+export type { CliAlloyOptions } from "./adapters/CliAlloyAdapter.js";
+export { LOCAL_BRIDGE_NOT_READY, LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
 
 // M0（ScenarioExtractor）
 export type {
@@ -75,6 +78,21 @@ export type {
 } from "./types/formal.js";
 export { TranspileContractError } from "./types/formal.js";
 export { M2_PROMPT_VERSION, transpileFormal } from "./core/formal_transpiler.js";
+
+// M3（FormalSolver）
+export type {
+  CheckKind,
+  CheckResult,
+  Finding,
+  FindingKind,
+  SolverConditions,
+  SolverOptions,
+  SolverReport,
+  TraceStep,
+  UnverifiedReason,
+} from "./types/solver.js";
+export { SolverContractError } from "./types/solver.js";
+export { SOLVER_DEFAULTS, verifySpecification } from "./core/formal_solver.js";
 
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";

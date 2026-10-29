@@ -39,7 +39,7 @@ The core never touches the runtime environment directly. It talks to three ports
 | :--- | :--- | :--- | :--- |
 | `FileSystemPort` | Reads and writes text files | `NodeFsAdapter` (`node:fs`) | `IteraVfsAdapter` (`MetaOS.fs`, passed in by the launcher) |
 | `LanguageModelPort` | Asks an LLM for names, paraphrases, and sentences | `ClaudeCodeCli` (planned) | `IteraLlm` (planned) |
-| `SolverPort` | Runs Alloy 6 as an external process | `CliAlloy` (planned) | `LocalBridgeAlloy` (planned) |
+| `SolverPort` | Runs Alloy 6 as an external process | `CliAlloy` (Alloy 6.2.0 command line via `java`) | `LocalBridgeAlloy` (returns UNREACHABLE until the bridge endpoint is decided) |
 
 - **LLM output is recorded.** `RecordingLanguageModel` wraps a real LLM client. It stores each output under `llm-records/<sha256 of task, prompt version and input>.json` and reuses it on the next run, so a run can be repeated without calling the LLM again. Outputs that never arrived or failed the shape check are not recorded; the result says "not generated" instead of being filled with a guess.
 - **The core modules M0–M5 are being rewritten one at a time** (see `docs/design/`). This stage contains only the shared foundation: the ports, the LLM recording, and the build.

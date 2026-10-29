@@ -8,8 +8,9 @@
 //   条件はその時点の式で書くので、op<n>_guard はプライムを含まない（いまの状態と Env.holds だけで書ける）。
 // - 条件つきの書き込み（when）は `(when) => (新しい値) else (いまの値)`。ADD は plus・minus。
 // - 真と偽の定数は `(no none)`・`(some none)`（AND の引数が空なら真、OR が空なら偽）。
-// - 負の整数は `minus[0, n]` と書く（単項のマイナスを使わない）。
+// - 負の整数はリテラル（`-8`）で書く。`minus[0, n]` は最小の整数で範囲の外の n を使い、あふれを禁じると充足できない。
 // - Bool と Prop は、使われていなくても必ず宣言する（ソースの形を入力によらず一定にするため）。
+//   命題が無いときは `fact NoProp { no Prop }` を足す（子の無い abstract sig は空に制約されないため）。
 
 import type { UseCaseSlice } from "../../types/context.js";
 import type { GuardExpr, Operation, Proposition, StateVariable } from "../../types/formal.js";
@@ -60,6 +61,8 @@ export function printAlloy(input: AlloyInput): AlloyOutput {
     source(prop.id, [prop.unitId]);
     lines.push(`one sig ${prop.id} extends Prop {}`);
   }
+  // 子の無い abstract sig は空に制約されないので、命題が無いときは空と書く（Env.holds に知らない原子が入らないように）。
+  if (input.propositions.length === 0) lines.push("fact NoProp { no Prop }");
   lines.push("");
 
   lines.push("abstract sig Outcome {}", "one sig Idle extends Outcome {}");
@@ -126,7 +129,7 @@ function typeOf(variable: StateVariable): string {
 }
 
 function intText(value: number): string {
-  return value >= 0 ? String(value) : `minus[0, ${-value}]`;
+  return String(value);
 }
 
 function valueText(variable: StateVariable, value: string | number): string {

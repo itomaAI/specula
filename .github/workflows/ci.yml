@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
 
+env:
+  # M3 の結合テストに使う Alloy（版と SHA-256 を固定する。M3 の設計 3.3）
+  ALLOY_URL: https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar
+  ALLOY_SHA256: 6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -12,6 +17,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Alloy 6.2.0 を取って SHA-256 を照合する
+        run: |
+          mkdir -p "$RUNNER_TEMP/alloy"
+          curl -fsSL -o "$RUNNER_TEMP/alloy/alloy.jar" "$ALLOY_URL"
+          echo "$ALLOY_SHA256  $RUNNER_TEMP/alloy/alloy.jar" | sha256sum -c -
+          echo "ALLOY_JAR=$RUNNER_TEMP/alloy/alloy.jar" >> "$GITHUB_ENV"
       # lockfile はまだ無いので npm install で入れる（lockfile を足したら npm ci にする）
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck

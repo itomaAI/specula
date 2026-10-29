@@ -22,12 +22,18 @@ export interface EngineInfo {
 /**
  * エンジンが出した実例。時点ごとに、各フィールドの値を原子の名前の組で表す。
  * 形はアダプターがそろえ、コアは Alloy の出力の書式を知らない。
- * 注: 形は仮。M3 を書き直すとき、実際の Alloy の出力を見て確定する（M3 の設計 3.3）。
+ * 形は Alloy 6.2.0 の CLI の JSON の出力（`"System$0": { "v1": [["False$0"]] }`）を見て決めた（M3 の設計 3.3）。
  */
 export interface RawInstance {
-  /** 時点 0 から順に。各時点はフィールド名 → 原子の名前の組の並び。 */
+  /**
+   * 時点 0 から順に。各時点は「sig の名前.フィールド名」（`System.v1`・`Env.holds`）→ 原子の名前の組の並び。
+   * 原子の名前は Alloy のまま（`True$0`、整数は `"-8"`）。`$0` を外すのはコア（normalize.ts）。
+   */
   states: Array<Record<string, string[][]>>;
-  /** 実例の最後の時点のあと、どの時点に戻るか（Alloy 6 の時相の実例は輪で終わる）。分からなければ null。 */
+  /**
+   * 実例の最後の時点のあと、どの時点に戻るか（Alloy 6 の時相の実例は輪で終わる）。分からなければ null。
+   * Alloy 6.2.0 の CLI の JSON では戻り先が出ない（loopstate が -1 のまま）ので、CliAlloyAdapter は null を返す。
+   */
   loopBack: number | null;
 }
 
