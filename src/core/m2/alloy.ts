@@ -134,10 +134,17 @@ function valueText(variable: StateVariable, value: string | number): string {
   return String(value);
 }
 
-/** 経路をたどり、条件の式（その時点の値で書いたもの）と、各変数の最後の値の式を返す。 */
+/**
+ * 経路をたどり、条件の式（その時点の値で書いたもの）と、各変数の最後の値の式を返す。
+ * 書き込みの条件（when）の各項は、その条件のユニットを持つ最初の書き込みの直前の値で評価する。
+ * 枝の条件は枝の中のどの書き込みよりも前に評価されるので、枝の中で同じ変数を 2 度書いても、
+ * 2 度目の条件が 1 度目の書き込みの後の値で評価されることはない。
+ */
 function walk(operation: Operation, byId: ReadonlyMap<string, StateVariable>): { guards: string[]; finals: Map<string, string> } {
   const current = new Map<string, string>();
-  const now = (id: string): string => current.get(id) ?? `System.${id}`;
+  const valueIn = (values: ReadonlyMap<string, string>) => (id: string): string => values.get(id) ?? `System.${id}`;
+  const now = valueIn(current);
+  const snapshots = new Map<string, ReadonlyMap<string, string>>();
   const guards: string[] = [];
   for (const step of operation.steps) {
     if (step.kind === "CONDITION") {
@@ -153,7 +160,21 @@ function walk(operation: Operation, byId: ReadonlyMap<string, StateVariable>): {
           ? `plus[${before}, ${step.change.amount}]`
           : `minus[${before}, ${-step.change.amount}]`
         : valueText(variable, step.change.value);
-    current.set(step.variable, step.when === null ? after : `(${render(step.when, now)} => ${after} else ${before})`);
+    const terms = step.when.map((term) => {
+      let snapshot = snapshots.get(term.unitId);
+      if (snapshot === undefined) {
+        snapshot = new Map(current);
+        snapshots.set(term.unitId, snapshot);
+      }
+      const text = render(term.expr, valueIn(snapshot));
+      return term.holds ? text : `(not ${text})`;
+    });
+    if (terms.length === 0) {
+      current.set(step.variable, after);
+    } else {
+      const condition = terms.length === 1 ? (terms[0] as string) : `(${terms.join(" and ")})`;
+      current.set(step.variable, `(${condition} => ${after} else ${before})`);
+    }
   }
   return { guards, finals: current };
 }

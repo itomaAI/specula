@@ -40,6 +40,17 @@ export type GuardExpr =
 
 export type WriteChange = { op: "SET"; value: string | number } | { op: "ADD"; amount: number };
 
+/**
+ * 書き込みの条件の 1 項（M1 の details.guardTerms の 1 つを訳したもの）。
+ * 条件は、それを持つ最初の書き込みの直前の値で評価する（枝の条件は、枝の中のどの書き込みよりも前に評価されるため）。
+ */
+export interface WriteCondition {
+  /** 条件のユニット（BRANCH_CONDITION）の識別子。 */
+  unitId: string;
+  holds: boolean;
+  expr: GuardExpr;
+}
+
 export type OperationStep =
   | { kind: "CONDITION"; unitId: string; expr: GuardExpr; holds: boolean }
   | {
@@ -49,8 +60,11 @@ export type OperationStep =
       variable: string;
       /** SET の value は BOOL・ENUM なら値の識別子、INT なら整数。ADD は負の数で減らす。 */
       change: WriteChange;
-      /** 書き込みの条件（M1 の details.guardTerms を訳したもの）。無ければ null。 */
-      when: GuardExpr | null;
+      /**
+       * 書き込みの条件（すべての項の AND）。経路の上でこの書き込みより前に同じ側の CONDITION がある項は、
+       * 操作の guard が既に要求しているので除く。空なら条件なし。
+       */
+      when: WriteCondition[];
     };
 
 export interface Operation {

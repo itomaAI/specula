@@ -229,8 +229,40 @@ test("for…of と catch の条件は式全体を命題にし、枝の中の書�
   assert.ok(s.propositions.some((p) => p.expression === 'item === "x"'), JSON.stringify(s.propositions));
   const writes = s.operations.flatMap((op) => op.steps.flatMap((step) => (step.kind === "WRITE" ? [step] : [])));
   assert.ok(writes.length >= 1);
-  for (const write of writes) assert.notEqual(write.when, null, "枝の中の書き込みには条件");
+  for (const write of writes) assert.ok(write.when.length > 0, "枝の中の書き込みには条件");
   assert.ok(s.source.includes("=> True else System.v1)"));
+});
+
+test("書き込みの条件: 経路に出た条件は when に入れず、枝の条件は枝の最初の書き込みの前の値で評価する", async () => {
+  const s = spec(
+    await transpileFormal(
+      await facts(
+        [
+          "let count = 0;",
+          "export function bump() {",
+          "  if (count >= 5) {",
+          "    return false;",
+          "  }",
+          "  if (count < 3) {",
+          "    count++;",
+          "    count++;",
+          "  }",
+          "  return true;",
+          "}",
+        ],
+        "bump",
+      ),
+      {},
+    ),
+  );
+  const [write] = writing(s);
+  assert.ok(write !== undefined);
+  const whens = write.steps.flatMap((step) => (step.kind === "WRITE" ? [step.when.map((term) => term.holds)] : []));
+  // count >= 5 の偽の側は経路の CONDITION にあるので when に入らない。count < 3 の真の側だけが残る。
+  assert.deepEqual(whens, [[true], [true]]);
+  const once = "((System.v1 < 3) => plus[System.v1, 1] else System.v1)";
+  assert.ok(s.source.includes(`System.v1' = ((System.v1 < 3) => plus[${once}, 1] else ${once})`), s.source);
+  assert.ok(!s.source.includes("plus[System.v1, 1] < 3"), "2 度目の条件を 1 度目の書き込みの後の値で評価しない");
 });
 
 const AMBIGUOUS_SOURCE = [

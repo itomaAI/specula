@@ -2,12 +2,14 @@
 //
 // - 条件の側（holds）はスライスの conditions から取る。条件のユニットが経路に出てきた位置に CONDITION を置く。
 //   同じユニットが同じ側で 2 度出てきたら 1 つにまとめる。経路に出てこなかった条件は出口の前に置く（念のため）。
-// - 書き込みの条件（when）は M1 の guardTerms を訳した AND。条件が無ければ null。
+// - 書き込みの条件（when）は M1 の guardTerms を項ごとに訳したもの。ただし、経路の上でこの書き込みより前に
+//   同じ側の CONDITION を置いた項は除く（M1 の guardTerms には経路の条件も入っているが、それは操作の guard が要求している）。
+//   残った項が無ければ空。
 // - ドメインが決まらなかった書き込みは steps に入れない（AmbiguityReport になるので、ソースは作られない）。
 // - 書き込みの合成（同じ変数への 2 回の書き込み）と、条件をその時点の値で評価することは AlloyPrinter が行う。
 
 import type { ExtractionUnit, UseCaseSlice } from "../../types/context.js";
-import type { GuardExpr, Operation, OperationStep } from "../../types/formal.js";
+import type { GuardExpr, Operation, OperationStep, WriteCondition } from "../../types/formal.js";
 import { type AstNode, isAstNode } from "../m0/ast.js";
 import type { CheckedFacts } from "./contract.js";
 import type { GuardTranslation } from "./guards.js";
@@ -36,11 +38,16 @@ export function translatePaths(checked: CheckedFacts, states: StateModel, guards
       if (!list.includes(condition.holds)) list.push(condition.holds);
       pending.set(condition.unitId, list);
     }
+    // 経路にすでに置いた条件（側つき）。書き込みの when からこれを除く（操作の guard が要求しているため）。
+    const placed = new Set<string>();
     const placeCondition = (unitId: string, all: boolean): void => {
       const sides = pending.get(unitId);
       if (sides === undefined || sides.length === 0) return;
       const taken = all ? sides.splice(0) : sides.splice(0, 1);
-      for (const holds of taken) steps.push({ kind: "CONDITION", unitId, expr: guardOf(guards, unitId), holds });
+      for (const holds of taken) {
+        steps.push({ kind: "CONDITION", unitId, expr: guardOf(guards, unitId), holds });
+        placed.add(sideKey(unitId, holds));
+      }
     };
 
     for (const unitId of slice.unitIds) {
@@ -54,16 +61,9 @@ export function translatePaths(checked: CheckedFacts, states: StateModel, guards
           const write = states.writes.get(unitId);
           if (write === undefined) break;
           const terms = checked.guardTerms.get(unitId) ?? [];
-          const when: GuardExpr | null =
-            terms.length === 0
-              ? null
-              : {
-                  op: "AND",
-                  args: terms.map((term) => {
-                    const expr = guardOf(guards, term.unitId);
-                    return term.holds ? expr : { op: "NOT", arg: expr };
-                  }),
-                };
+          const when: WriteCondition[] = terms
+            .filter((term) => !placed.has(sideKey(term.unitId, term.holds)))
+            .map((term) => ({ unitId: term.unitId, holds: term.holds, expr: guardOf(guards, term.unitId) }));
           steps.push({ kind: "WRITE", unitId, variable: write.state.variable.id, change: write.change, when });
           break;
         }
@@ -97,6 +97,10 @@ export function translatePaths(checked: CheckedFacts, states: StateModel, guards
     });
   });
   return { operations, externalEffects };
+}
+
+function sideKey(unitId: string, holds: boolean): string {
+  return `${holds ? "+" : "-"}${unitId}`;
 }
 
 function guardOf(guards: GuardTranslation, unitId: string): GuardExpr {
