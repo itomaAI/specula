@@ -24,6 +24,25 @@ export type { IteraFs } from "./adapters/IteraVfsAdapter.js";
 export { RecordingLanguageModel, recordKeyOf } from "./adapters/RecordingLanguageModel.js";
 export type { LlmRecord } from "./adapters/RecordingLanguageModel.js";
 
+// M0（ScenarioExtractor）
+export type {
+  Actor,
+  BoundedContext,
+  Command,
+  DomainEvent,
+  EventStormingMap,
+  ExtractionDiagnostics,
+  IntentStatus,
+  Policy,
+  ReadModel,
+  RepositoryArtifacts,
+  ScenarioSelection,
+  ScenarioTarget,
+  SliceResult,
+  SourceLocation,
+} from "./types/scenario.js";
+export { discoverSystemContext, sliceScenarios } from "./core/scenario_extractor.js";
+
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";
 
