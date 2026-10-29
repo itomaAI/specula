@@ -7,7 +7,7 @@
 ## 1. アーキテクチャと全体設計制約の継承
 
 ### 1.1 全体設計制約の適用
-- **配置場所**: `specula/src/core/formal_solver.js`（Pure ESM, Target: ES2022+）。
+- **配置場所**: `specula/src/core/formal_solver.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**: コアに置くのは「検査コマンドの組み立て」と「エンジンの出力の読み取り・正規化」だけとする。検証エンジンの実行は外部プロセスで行い、コアは抽象インターフェース `SolverPort` を介してのみ呼び出す（`FileSystemPort` と同じ依存性逆転）。
 - **依存方向の一方向性**: コアは `src/ports/` の型定義のみを参照し、エンジンの所在（ローカルマシン、CI）を知らない。
 

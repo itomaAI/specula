@@ -7,7 +7,7 @@
 ## 1. アーキテクチャと全体設計制約の継承
 
 ### 1.1 全体設計制約の適用
-- **配置場所**: `specula/src/core/context_extractor.js`（Pure ESM, Target: ES2022+）。
+- **配置場所**: `specula/src/core/context_extractor.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**: 本モジュールは `node:fs` や `window.MetaOS.fs` を直接インポートしてはならない。ファイル入出力は行わず、呼び出し元からインメモリのテキストデータ（または `FileSystemPort`）を注入されて動作する純粋な構文解析器として実装する。
 - **依存方向の一方向性**: 本モジュールは `src/ports/` のインターフェースのみに依存し、`src/adapters/` の具象環境実装を一切参照しない。
 
