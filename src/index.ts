@@ -43,6 +43,21 @@ export type {
 } from "./types/scenario.js";
 export { discoverSystemContext, sliceScenarios } from "./core/scenario_extractor.js";
 
+// M1（ContextExtractor）
+export type {
+  ExtractionCoverage,
+  ExtractionLayer,
+  ExtractionUnit,
+  ExtractionUnitKind,
+  OutletKind,
+  RawContextModel,
+  UnitLocation,
+  UseCaseSlice,
+} from "./types/context.js";
+export { InletNotFoundError, SyntaxExtractionError } from "./types/context.js";
+export { extractContext } from "./core/context_extractor.js";
+export { withRoot } from "./lib/rooted_file_system.js";
+
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";
 
