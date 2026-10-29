@@ -38,7 +38,7 @@ Specula is architected with a strict separation between the **Controller/Pipelin
 - **Core Engine (`src/core/`)**:
   - `ContextExtractor`: Extracts AST syntax facts and visual facts without domain guessing.
   - `FormalTranspiler`: Compiles facts into formal logic (Alloy 6), detecting ambiguities for human clarification.
-  - `FormalSolver`: Exhaustive state space exploration and counterexample trace extraction.
+  - `FormalSolver`: Builds check commands and normalizes results. The engine itself is **Alloy 6 only**, run as an external process through `SolverPort` (no environment-specific fallback engine).
   - `LedgerSynthesizer`: Translates machine counterexamples into actionable Domain Questions.
   - `SpecProjector`: Pure-function deterministic projection to Markdown, DAGs, and sequence views.
 - **Ports & Adapters (`src/ports/`, `src/adapters/`)**:
