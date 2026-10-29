@@ -106,9 +106,9 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 
 ## 5. 実行基盤およびインフラ方針 (Runtime & Infrastructure Policy)
 
-1. **言語・ランタイム**:
-   - コアパイプラインは TypeScript / JavaScript (Pure ESM, Target: ES2022+) で実装する。
-   - ブラウザ（Itera OS / Web Worker）および Headless CLI（Node.js / CI）の双方で無修正動作する移植性（Zero-I/O Core）を保証する。
+1. **言語・ビルド方針**:
+   - **開発言語**: **TypeScript (`.ts`)**。厳格な静的型チェックと契約インターフェースを保持。
+   - **ビルド・実行**: `tsc` / バンドラーにより、ターゲット **ES2022+ の純粋な JavaScript (`.js`, Pure ESM)** へコンパイルして `dist/` へ出力。ブラウザ（Itera OS / Web Worker）および Headless CLI（Node.js / CI）の双方で無修正動作する。
 2. **ソルバエンジン**:
    - MVP: ブラウザ・Node両用で即時動作する決定論的状態遷移マトリクス探索ソルバ。
    - 拡張時: 外部形式仕様ソルバ（Alloy 6 / SAT系）への接続インターフェースを完備する。

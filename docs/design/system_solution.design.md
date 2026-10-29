@@ -105,20 +105,27 @@ LLMを「計算機」ではなく、**「人間と数学的決定論的ソルバ
 - **依存性逆転 (Ports & Adapters)**:
   - 外部環境との入出力は抽象インターフェース `FileSystemPort` を経由し、実行時にアダプターを注入する。
 
-### 4.2 リポジトリ構造規約
-```
-specula/
-├── package.json          # Pure ESM, Target: ES2022+
-├── src/
-│   ├── ports/            # 抽象インターフェース (FileSystemPort 等)
-│   ├── adapters/         # 環境依存アダプター (IteraVfsAdapter, NodeFsAdapter)
-│   └── core/             # Zero-I/O コアパイプライン
-│       ├── scenario_extractor.js   # M0: シナリオ同定・イベントストーミング
-│       ├── context_extractor.js    # M1: 因果境界事実抽出
-│       ├── formal_transpiler.js    # M2: 形式仕様コンパイル
-│       ├── formal_solver.js        # M3: 数学ソルバ・検証
-│       ├── ledger_synthesizer.js   # M4: 論点逆翻訳・根本論点抽出
-│       ├── spec_projector.js       # M5: 多面的仕様射影
-│       └── orchestrator.js         # 全体パイプライン制御・Loomライフサイクル
-└── tests/                # Tidy First アンカーテストスイート (各コアの単体テスト)
-```
+### 4.2 言語・ビルドパイプライン方針 (TypeScript ➔ JavaScript ESM)
+- **開発・実装言語**: **TypeScript (`.ts`)**
+  - 型安全性、契約（Pre/Post conditions）の厳密なインターフェース定義、およびリファクタリング耐性を担保するため、ソースコードはすべて TypeScript で開発する。
+- **実行・ビルド成果物**: **JavaScript (`.js` / Pure ESM, Target: ES2022+)**
+  - ブラウザ環境（Itera OS / Web Worker）および Node.js CLI / CI 環境で即座に実行できるよう、`tsc`（または `tsup` / `vite`）を用いて純粋な JavaScript (ESM) へとビルドして配布・実行する。
+- **リポジトリ構造規約**:
+  ```
+  specula/
+  ├── package.json          # Pure ESM, type: "module"
+  ├── tsconfig.json         # Target: ES2022, Module: NodeNext / ESNext
+  ├── src/                  # TypeScript ソースコード (.ts)
+  │   ├── ports/            # 抽象インターフェース (FileSystemPort 等)
+  │   ├── adapters/         # 環境依存アダプター (IteraVfs, NodeFs)
+  │   └── core/             # Zero-I/O コアパイプライン
+  │       ├── scenario_extractor.ts   # M0: シナリオ同定・イベントストーミング
+  │       ├── context_extractor.ts    # M1: 因果境界事実抽出
+  │       ├── formal_transpiler.ts    # M2: 形式仕様コンパイル
+  │       ├── formal_solver.ts        # M3: 数学ソルバ・検証
+  │       ├── ledger_synthesizer.ts   # M4: 論点逆翻訳・根本論点抽出
+  │       ├── spec_projector.ts       # M5: 多面的仕様射影
+  │       └── orchestrator.ts         # 全体パイプライン制御・Loomライフサイクル
+  ├── dist/                 # ビルド生成物: 純粋 JavaScript (.js) + 型定義 (.d.ts)
+  └── tests/                # Tidy First アンカーテストスイート (.test.ts)
+  ```
