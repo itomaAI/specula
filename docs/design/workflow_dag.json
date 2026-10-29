@@ -1,6 +1,6 @@
 {
   "title": "仕様策定ツール 業務フローとモジュール連携 (Workflow & Engine Mapping)",
-  "caption": "人間の2大業務（策定・レビュー）を支えるエンジンモジュール群の対応マッピング",
+  "caption": "人間の2大業務（策定・レビュー）を支えるエンジンモジュール群の対応マッピング。2 回目以降のループを含む業務の全体像であり、初回の実行の範囲（M0〜M5 を 1 回通す）は pipeline_flow.json に示す",
   "nodes": [
     {
       "id": "A_CURRENT_SPEC",
@@ -33,11 +33,11 @@
       "height": 96,
       "details": {
         "主たる主体": "人間 (PdM)",
-        "連携エンジン1 (参照時)": "SpecProjector (Alloy正本をマルチズームで即時射影)",
-        "連携エンジン2 (初期時)": "ContextExtractor (既存コード+画面から事実抽出)",
-        "連携エンジン3 (記述時)": "FormalTranspiler (エディタ入力を新Alloy述語へコンパイル)"
+        "連携エンジン1 (参照時)": "SpecProjector (同じ正本から仕様書・操作の一覧表・操作の流れ図を作る)",
+        "連携エンジン2 (初期時)": "ContextExtractor (既存コードから事実を抽出する。画面の情報は readModel があるときだけ使う)",
+        "連携エンジン3 (記述時)": "FormalTranspiler (エディタ入力を新Alloy述語へコンパイル。2 回目以降の機能で、初回の範囲外)"
       },
-      "markdown": "### 【業務1】仕様策定業務で使われるモジュール\n\n1. **SpecProjector**: 現在の仕様のマルチズーム表示。\n2. **ContextExtractor**: （初回時）コード+画面からの事実抽出。\n3. **FormalTranspiler**: 新仕様をAlloy述語コード（`+1`）へコンパイル。"
+      "markdown": "### 【業務1】仕様策定業務で使われるモジュール\n\n1. **SpecProjector**: 現在の仕様を、同じ正本から複数のビューで表示する。\n2. **ContextExtractor**: （初回時）既存コードからの事実抽出。画面の情報は readModel があるときだけ使う。\n3. **FormalTranspiler**: 新仕様をAlloy述語コード（`+1`）へコンパイル（2 回目以降。初回の範囲外）。"
     },
     {
       "id": "A_DRAFT",
@@ -70,11 +70,11 @@
       "height": 96,
       "details": {
         "主たる主体": "人間 (PdM/意思決定者)",
-        "連携エンジン1 (検証時)": "FormalSolver (全状態探索・最小反例検出)",
-        "連携エンジン2 (論点化)": "LedgerSynthesizer (反例を「意思決定の問い」へ逆翻訳)",
+        "連携エンジン1 (検証時)": "FormalSolver (形式仕様の形から決まる検査と最短の反例。上限つきの探索で、Alloy に届かなければ未検証と報告する)",
+        "連携エンジン2 (論点化)": "LedgerSynthesizer (反例を「意思決定の問い」へ逆翻訳。決定はすべて人間が行う)",
         "連携エンジン3 (提示時)": "SpecProjector (Alloy正本から最終仕様書 spec.md を出力)"
       },
-      "markdown": "### 【業務2】並行レビュー業務で使われるモジュール\n\n1. **FormalSolver**: 単体および全体結合の全状態探索・反例検出。\n2. **LedgerSynthesizer**: 反例を人間向けの問い（Domain Question）へ逆翻訳。\n3. **SpecProjector**: 合意後、外部引き渡し用確定仕様書を出力。"
+      "markdown": "### 【業務2】並行レビュー業務で使われるモジュール\n\n1. **FormalSolver**: 形式仕様の形から決まる検査（未定義遷移・操作の重なり・到達できない操作・デッドロック）と最短の反例。探索はスコープとステップ数の上限の中で行う。分割（結合）は初回の範囲外。\n2. **LedgerSynthesizer**: 反例を人間向けの問い（Domain Question）へ逆翻訳。\n3. **SpecProjector**: 合意後、外部引き渡し用確定仕様書を出力。"
     },
     {
       "id": "A_EXPORT_SPEC",

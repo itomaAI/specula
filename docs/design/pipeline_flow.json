@@ -1,224 +1,297 @@
 {
-  "title": "仕様抽出・検証パイプライン データフローアーキテクチャ",
-  "caption": "【左】初期抽出（コード＋画面から奪還）と【右】定常ループ（Alloy正本単独での自律回転）の二重構造",
+  "title": "仕様抽出・検証パイプライン データフロー",
+  "caption": "初回の実行（現在の範囲）: コードと画面から事実を抽出し、形式仕様正本を作り、検査し、論点にして射影する。人の判断を受けて正本を更新する 2 回目以降の実行は、追加で開発する。",
   "nodes": [
+    {
+      "id": "T_SRC",
+      "kind": "type",
+      "name": "SourceArtifacts",
+      "category": "ソースコード",
+      "in": "解析対象のリポジトリ",
+      "out": "M1: ContextExtractor",
+      "x": 380,
+      "y": 30,
+      "width": 190,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "シナリオの起点から呼び出しをたどるためのソースファイル群"
+      },
+      "markdown": "### データ型: `SourceArtifacts`\n\n解析対象のソースコード。M1 は起点のハンドラから呼び出しをたどって読む。"
+    },
+    {
+      "id": "T_VIS",
+      "kind": "type",
+      "name": "画面キャプチャ（任意）",
+      "category": "画面の情報",
+      "in": "解析対象のシステムの画面",
+      "out": "M1: ContextExtractor",
+      "x": 600,
+      "y": 30,
+      "width": 190,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "シナリオに画面（readModel）があるときだけ使う。画面の無いシステムでは無い"
+      },
+      "markdown": "### データ型: 画面キャプチャ（任意）\n\nシナリオに画面があるときだけ、M1 が UI の事実を対応付けるために使う。"
+    },
     {
       "id": "M_SCN",
       "kind": "module",
       "name": "M0: ScenarioExtractor",
-      "category": "シナリオ同定・イベントストーミング",
-      "in": "リポジトリ見取り図 / docs / 画面一覧",
-      "out": "EventStormingMap + ScenarioTarget[]",
+      "category": "全体マップの作成とシナリオの切り出し",
+      "in": "リポジトリの構造 / package.json / スキーマ / 画面のルート",
+      "out": "EventStormingMap + SliceResult",
       "x": 30,
-      "y": 90,
+      "y": 160,
       "width": 200,
       "height": 84,
       "details": {
         "分類": "演算モジュール (Module)",
-        "運用フェーズ": "初期全体マップ構築および個別シナリオ切り出し",
-        "責務": "Event Storming全体マップと個別シナリオTargetの出力"
+        "公開関数": "discoverSystemContext と sliceScenarios",
+        "LLM の担当": "イベント・コマンドの命名と意図の候補（記録して再利用。届かなければ未生成）"
       },
-      "markdown": "### モジュール: `ScenarioExtractor (M0)`\n\n- Loom双対構造（プロジェクト＝コンテキスト／タスク＝シナリオ）に基づく。\n- イベントストーミングによる全体マップと個別シナリオTargetを出力。"
+      "markdown": "### モジュール: `ScenarioExtractor (M0)`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）を作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。"
     },
     {
       "id": "T_TGT",
       "kind": "type",
       "name": "ScenarioTarget",
-      "category": "個別シナリオ同定情報",
+      "category": "個別シナリオ",
       "in": "M0: ScenarioExtractor",
       "out": "M1: ContextExtractor",
       "x": 260,
-      "y": 90,
+      "y": 160,
       "width": 190,
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "運用モード": "個別シナリオの切り出し結果",
-        "内容": "Command/Policy起点、Actor、ReadModel、期待イベント"
+        "内容": "起点（inletTrigger）、アクター、readModel（画面があるときだけ）、期待イベント 1 つ、出どころ（origin）"
       },
-      "markdown": "### データ型: `ScenarioTarget`\n\n- 単一の明確な完了条件を持つ実行可能シナリオ。"
+      "markdown": "### データ型: `ScenarioTarget`\n\n起点と期待イベントを 1 つずつ持つシナリオ。"
     },
     {
       "id": "M_EXT",
       "kind": "module",
       "name": "M1: ContextExtractor",
-      "category": "能動的抽出 (因果スライシング)",
-      "in": "ScenarioTarget + SourceArtifacts",
+      "category": "起点からの事実の抽出",
+      "in": "ScenarioTarget + SourceArtifacts（+ 画面キャプチャ）",
       "out": "RawContextModel",
-      "x": 480,
-      "y": 90,
-      "width": 190,
+      "x": 490,
+      "y": 160,
+      "width": 200,
       "height": 84,
       "details": {
         "分類": "演算モジュール (Module)",
-        "運用フェーズ": "シナリオ単位の因果境界スライス抽出",
-        "責務": "InletからOutletまでの厳密な事実スライスを抽出"
+        "責務": "起点のハンドラから呼び出しをたどり、状態・書き込み・分岐・出口を抽出する。スライスは出口ごとに 1 つ",
+        "LLM の担当": "なし"
       },
-      "markdown": "### モジュール: `ContextExtractor (M1)`\n\n- 指定シナリオの入口から出口までを因果追跡。\n- 非同期境界で切断し、指定シナリオの事実のみを抽出。"
+      "markdown": "### モジュール: `ContextExtractor (M1)`\n\n- 起点から呼び出しをたどる。追跡できない呼び出しは記録して止まる。\n- 非同期の境界で切る。"
     },
     {
       "id": "T_RAW",
       "kind": "type",
       "name": "RawContextModel",
-      "category": "抽出された構文事実",
+      "category": "抽出した事実",
       "in": "M1: ContextExtractor",
-      "out": "M2: AlloyTranspiler",
-      "x": 470,
-      "y": 90,
-      "width": 190,
+      "out": "M2: FormalTranspiler",
+      "x": 720,
+      "y": 160,
+      "width": 200,
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "抽出された生のコード×画面対応データ"
+        "内容": "ユニット（STATE・STATE_WRITE・分岐・出口など）と、出口ごとのスライス"
       },
-      "markdown": "### データ型: `RawContextModel`\n\n抽出された事実データ。"
+      "markdown": "### データ型: `RawContextModel`\n\nM1 が抽出した事実。"
     },
     {
       "id": "M_TRANS",
       "kind": "module",
-      "name": "AlloyTranspiler",
-      "category": "初回Alloy変換器",
+      "name": "M2: FormalTranspiler",
+      "category": "形式仕様正本の作成",
       "in": "RawContextModel",
-      "out": "Alloy Spec (*.als) の初期生成",
-      "x": 690,
-      "y": 90,
+      "out": "FormalSpecification または AmbiguityReport",
+      "x": 950,
+      "y": 160,
       "width": 200,
       "height": 84,
       "details": {
         "分類": "演算モジュール (Module)",
-        "役割": "初回リバース時にAlloy正本の初版を合成・起票する"
+        "責務": "状態変数と操作の結果から状態を作り、スライスごとに操作の述語を作る。決められない箇所はすべて集めて AmbiguityReport にする",
+        "LLM の担当": "表示名（ソースには入れない）と、曖昧性の質問の文"
       },
-      "markdown": "### モジュール: `AlloyTranspiler`\n\n- 実装事実からAlloyコード初版を生成し、正本としてコミットする。"
+      "markdown": "### モジュール: `FormalTranspiler (M2)`\n\n- Alloy 6 のソースを機械的な識別子で書く。\n- 曖昧性が 1 件でもあれば、そのシナリオは M3 に進まない。"
     },
     {
-      "id": "T_ALLOY",
+      "id": "T_AMB",
       "kind": "type",
-      "name": "Alloy Spec (*.als)",
-      "category": "【永続化正本 / 自律ループの核】",
-      "in": "初回抽出 OR 人間のシナリオ編集 (定常)",
-      "out": "M3 (Solver), M4, M5 (Projector)",
-      "x": 690,
-      "y": 230,
-      "width": 230,
-      "height": 84,
-      "details": {
-        "分類": "データ型 (唯一の永続化正本)",
-        "保管先": "Git リポジトリ (`specs/*.als`)",
-        "定常運用": "★一度確立されたら、この正本単独で自律ループが回転する"
-      },
-      "markdown": "### 【永続化正本】 `Alloy Spec (*.als)`\n\n- 一度生成されたら、このファイル単独で仕様の更新・検証ループを回す。\n- 外部の実装コードやスクリーンショットに依存せず、この正本がすべての唯一の真実（Source of Truth）となる。"
-    },
-    {
-      "id": "M_SOLV",
-      "kind": "module",
-      "name": "AlloySATSolver",
-      "category": "定常SAT検証ソルバ",
-      "in": "Alloy Spec (*.als)",
-      "out": "Counterexample",
-      "x": 420,
-      "y": 230,
-      "width": 210,
-      "height": 84,
-      "details": {
-        "分類": "定常検証エンジン (決定論的ソルバ)",
-        "定常ループ": "Alloyが編集されるたびに自動実行",
-        "責務": "全状態空間探索・反例検出"
-      },
-      "markdown": "### モジュール: `AlloySATSolver`\n\n正本（またはドラフト）のAlloyが更新されるたびにSATソルバが走り、反例を探索。"
-    },
-    {
-      "id": "T_CEX",
-      "kind": "type",
-      "name": "Counterexample",
-      "category": "反例インスタンス",
-      "in": "M3: AlloySATSolver",
-      "out": "M4: LedgerSynthesizer",
-      "x": 160,
-      "y": 230,
+      "name": "AmbiguityReport",
+      "category": "決められなかった箇所",
+      "in": "M2: FormalTranspiler",
+      "out": "実行の報告（件数と中身）",
+      "x": 950,
+      "y": 300,
       "width": 200,
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "ソルバが検出した反例データ"
+        "内容": "UNDETERMINED_VALUE・EXTERNAL_EFFECT・CONFLICTING_SLICES と、種類ごとの件数"
       },
-      "markdown": "### データ型: `Counterexample`\n\n不変条件違反や未定義遷移の反例インスタンス。"
+      "markdown": "### データ型: `AmbiguityReport`\n\n人に確かめる箇所の一覧。オーケストレーターが全シナリオの件数を集計する。"
+    },
+    {
+      "id": "T_ALLOY",
+      "kind": "type",
+      "name": "FormalSpecification",
+      "category": "形式仕様正本",
+      "in": "M2: FormalTranspiler",
+      "out": "M3・M4・M5",
+      "x": 720,
+      "y": 300,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (正本)",
+        "内容": "Alloy 6 のソース、状態変数、命題、操作（条件と書き込みを経路の順に持つ）、表示名",
+        "2 回目以降": "人の判断を受けて更新する（現在の範囲外）"
+      },
+      "markdown": "### 正本: `FormalSpecification`\n\nビューと論点カタログはこの正本から作る。ビューは正本ではない。"
+    },
+    {
+      "id": "M_SOLV",
+      "kind": "module",
+      "name": "M3: FormalSolver",
+      "category": "指定スコープの中での検査",
+      "in": "FormalSpecification",
+      "out": "SolverReport",
+      "x": 490,
+      "y": 300,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "演算モジュール (Module)",
+        "責務": "Alloy 6 で、未定義遷移・操作の重なり・到達できない操作・デッドロックを検査する。不変条件の検査は初回は対象外",
+        "届かないとき": "報告を未検証とし、理由と実行しなかった検査を付ける"
+      },
+      "markdown": "### モジュール: `FormalSolver (M3)`\n\nSolverPort 経由で Alloy 6 を呼ぶ。ソルバに届かなければ未検証と報告する。"
+    },
+    {
+      "id": "T_CEX",
+      "kind": "type",
+      "name": "SolverReport",
+      "category": "検査の元の記録",
+      "in": "M3: FormalSolver",
+      "out": "M4: LedgerSynthesizer",
+      "x": 260,
+      "y": 300,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "検査済みか未検証か、実行条件、検査ごとの結果、見つかった反例（実行列つき）"
+      },
+      "markdown": "### データ型: `SolverReport`\n\n元の記録。反例を要約・省略しない。"
+    },
+    {
+      "id": "T_MAP",
+      "kind": "type",
+      "name": "EventStormingMap",
+      "category": "システム全体のマップ",
+      "in": "M0: ScenarioExtractor",
+      "out": "M5: SpecProjector（全体の俯瞰図）",
+      "x": 30,
+      "y": 300,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "Bounded Context・コマンド・ドメインイベント・ポリシー・readModel・アクター"
+      },
+      "markdown": "### データ型: `EventStormingMap`\n\nM0 が作る全体マップ。M5 が全体の俯瞰図を作るときにも使う。"
     },
     {
       "id": "M_LEDG",
       "kind": "module",
-      "name": "LedgerSynthesizer",
-      "category": "定常論点合成 (LLM)",
-      "in": "Counterexample + Alloy Spec",
+      "name": "M4: LedgerSynthesizer",
+      "category": "反例から論点へ",
+      "in": "SolverReport + FormalSpecification",
       "out": "DomainLedgerCatalog",
-      "x": 160,
-      "y": 370,
-      "width": 210,
+      "x": 260,
+      "y": 440,
+      "width": 200,
       "height": 84,
       "details": {
-        "分類": "定常変換エージェント (Agent)",
-        "定常ループ": "反例を人間に問う質問へ変換",
-        "責務": "意思決定の問いと選択肢を合成"
+        "分類": "演算モジュール (Module)",
+        "責務": "同じ状態を指す反例を 1 つの論点にまとめ、反例の種類ごとに決まった選択肢を付ける。検証の状態を先頭に写す",
+        "LLM の担当": "論点の文（主張・観測事実・判断質問）"
       },
-      "markdown": "### モジュール: `LedgerSynthesizer`\n\n反例を人間が判断できる問い（Is this intended?）へ逆翻訳。"
+      "markdown": "### モジュール: `LedgerSynthesizer (M4)`\n\n論点は初回はすべて未決。0 件でも仕様を確定する推奨は出さない。"
     },
     {
       "id": "T_LEDG",
       "kind": "type",
       "name": "DomainLedgerCatalog",
-      "category": "意思決定論点データ",
+      "category": "論点カタログ",
       "in": "M4: LedgerSynthesizer",
-      "out": "人間のレビュー・修正判断",
-      "x": 420,
-      "y": 370,
-      "width": 210,
+      "out": "M5: SpecProjector",
+      "x": 490,
+      "y": 440,
+      "width": 200,
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "PdMが判断するための論点カタログ"
+        "内容": "検証の状態、論点（文・選択肢・実行列。判断の欄は初回は未決）、元にした報告と正本の版"
       },
-      "markdown": "### データ型: `DomainLedgerCatalog`\n\n人間への修正依頼・選択肢データ。"
+      "markdown": "### データ型: `DomainLedgerCatalog`\n\n元の記録の要約。反例 N 件を論点 k 件にまとめたことを示す。"
     },
     {
       "id": "M_PROJ",
       "kind": "module",
-      "name": "SpecProjector",
-      "category": "純粋関数プロジェクション",
-      "in": "Alloy Spec + DomainLedgerCatalog",
-      "out": "HumanReadableViews",
-      "x": 690,
-      "y": 370,
-      "width": 230,
+      "name": "M5: SpecProjector",
+      "category": "人が読むビューの作成",
+      "in": "FormalSpecification + DomainLedgerCatalog（全体の俯瞰図は EventStormingMap）",
+      "out": "SpecificationView",
+      "x": 720,
+      "y": 440,
+      "width": 200,
       "height": 84,
       "details": {
-        "分類": "純粋関数 (View Generator)",
-        "定常運用": "正本Alloyから人間向けUI・図・文書を常に即時計算"
+        "分類": "演算モジュール (Module)",
+        "責務": "仕様書・操作の一覧表・操作の流れ図・全体の俯瞰図を、1 つの中間表現から決定論的に作る",
+        "LLM の担当": "なし"
       },
-      "markdown": "### モジュール: `SpecProjector`\n\nAlloy正本から Markdown, DAG, シーケンス図などを純粋関数で決定論的に計算・描画。"
+      "markdown": "### モジュール: `SpecProjector (M5)`\n\n論点は未決、未検証は未検証、未生成は未生成と表示する。"
     },
     {
       "id": "T_VIEWS",
       "kind": "type",
-      "name": "HumanReadableViews",
-      "category": "多面的ビュー (オンデマンド写像)",
+      "name": "SpecificationView",
+      "category": "ビュー",
       "in": "M5: SpecProjector",
-      "out": "PdM / 意思決定者 (ツール1・ツール2)",
-      "x": 690,
-      "y": 500,
-      "width": 230,
+      "out": "PdM / 意思決定者",
+      "x": 720,
+      "y": 580,
+      "width": 200,
       "height": 84,
       "details": {
-        "分類": "表示層 (Views / Projections)",
-        "内容": "Markdown仕様書、シーケンス図、DAG、状態遷移表"
+        "分類": "表示層 (Views)",
+        "内容": "仕様書（Markdown）、操作の一覧表、操作の流れ図（Mermaid）、全体の俯瞰図（Mermaid・JSON）"
       },
-      "markdown": "### 成果物: `HumanReadableViews`\n\n人間が認知するための多様な角度の写像。正本は常にAlloy。"
+      "markdown": "### 成果物: `SpecificationView`\n\nいつでも正本から作り直せる。正本は形式仕様。"
     }
   ],
   "edges": [
+    { "from": "M_SCN", "to": "T_TGT" },
+    { "from": "M_SCN", "to": "T_MAP" },
+    { "from": "T_TGT", "to": "M_EXT" },
     { "from": "T_SRC", "to": "M_EXT" },
     { "from": "T_VIS", "to": "M_EXT" },
     { "from": "M_EXT", "to": "T_RAW" },
     { "from": "T_RAW", "to": "M_TRANS" },
     { "from": "M_TRANS", "to": "T_ALLOY" },
+    { "from": "M_TRANS", "to": "T_AMB" },
     { "from": "T_ALLOY", "to": "M_SOLV" },
     { "from": "M_SOLV", "to": "T_CEX" },
     { "from": "T_CEX", "to": "M_LEDG" },
@@ -226,6 +299,7 @@
     { "from": "M_LEDG", "to": "T_LEDG" },
     { "from": "T_ALLOY", "to": "M_PROJ" },
     { "from": "T_LEDG", "to": "M_PROJ" },
+    { "from": "T_MAP", "to": "M_PROJ" },
     { "from": "M_PROJ", "to": "T_VIEWS" }
   ]
 }
