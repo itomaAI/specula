@@ -99,7 +99,8 @@ export function detectStateSignals(files: readonly ParsedFile[]): {
   return { signals, unattributed };
 }
 
-function classifyCall(call: AstNode, firebaseNames: ReadonlySet<string>): SignalKind | null {
+/** 呼び出しが DB の書き込みかイベントの発行か（M1 も同じ規則で使う）。firebaseNames は firebase から import した addDoc などの局所名。 */
+export function classifyCall(call: AstNode, firebaseNames: ReadonlySet<string>): SignalKind | null {
   const callee = describeCallee(call);
   if (callee === null) return null;
   const { name, chain } = callee;
