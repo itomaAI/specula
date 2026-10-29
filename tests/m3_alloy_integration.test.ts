@@ -81,18 +81,16 @@ test("CLI: あふれを禁じると、7 + 1 が -8 になる実例は返らな�
 test("CLI: いちばん小さい整数（4 Int の -8）の書き方", { skip }, async (t) => {
   const model = (literal: string): string =>
     `one sig C { var n: one Int }\nfact Init { C.n = ${literal} }\nfact Steps { always C.n' = C.n }\nrun m3_min {\n  C.n < 0\n} for 3 but 4 Int, 1..1 steps\n`;
-  // 範囲の外の数字（8）を使う書き方。どう扱われるかを記録する（M2 の intText と plan.ts の valueText を直すかの判断に使う）。
-  for (const literal of ["minus[0, 8]", "-8"]) {
-    for (const preventOverflow of [false, true]) {
-      const response = await adapter().run(request(model(literal), "m3_min", 1, preventOverflow));
-      const detail = response.kind === "SAT" ? JSON.stringify(response.instance.states) : response.kind === "ENGINE_ERROR" ? response.message : "";
-      t.diagnostic(`min-int ${literal} preventOverflow=${preventOverflow}: ${response.kind} ${detail}`);
-    }
+  // 負の整数はリテラルで書く（M2 の intText と plan.ts の valueText）。いちばん小さい整数でも、あふれを許しても禁じても -8 になる。
+  for (const preventOverflow of [false, true]) {
+    const response = await adapter().run(request(model("-8"), "m3_min", 1, preventOverflow));
+    assert.equal(response.kind, "SAT", `preventOverflow=${preventOverflow}: ${JSON.stringify(response)}`);
+    if (response.kind === "SAT") assert.deepEqual(response.instance.states[0], { "C.n": [["-8"]] });
   }
-  // 範囲の中の数字だけを使う書き方は、あふれを禁じても -8 になる。
-  const safe = await adapter().run(request(model("minus[minus[0, 7], 1]"), "m3_min", 1, true));
-  assert.equal(safe.kind, "SAT", JSON.stringify(safe));
-  if (safe.kind === "SAT") assert.deepEqual(safe.instance.states[0], { "C.n": [["-8"]] });
+  // `minus[0, 8]` は範囲の外の 8 を使うので、あふれを禁じると充足できない（この書き方を採らない理由）。
+  const outOfRange = await adapter().run(request(model("minus[0, 8]"), "m3_min", 1, true));
+  t.diagnostic(`min-int minus[0, 8] preventOverflow=true: ${outOfRange.kind}`);
+  assert.equal(outOfRange.kind, "UNSAT", JSON.stringify(outOfRange));
 });
 
 // ---------------------------------------------------------------------------

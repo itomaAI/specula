@@ -98,7 +98,7 @@ function valueText(variable: StateVariable, value: string | number): string {
   if (variable.domain === "INT") {
     const number = typeof value === "number" ? value : Number(value);
     if (!Number.isInteger(number)) throw new Error(`M3: ${variable.id} の値が整数でない: ${String(value)}`);
-    return number >= 0 ? String(number) : `minus[0, ${-number}]`;
+    return String(number);
   }
   const text = String(value);
   if (variable.domain === "BOOL" ? text !== "True" && text !== "False" : !variable.values.includes(text)) {
