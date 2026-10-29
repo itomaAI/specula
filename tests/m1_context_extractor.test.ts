@@ -138,10 +138,17 @@ test("出口に至らない枝の書き込みには guard が付き、最上位�
     layer: "LOGIC",
     location: { file: "src/a.ts", line: 1, column: 5 },
     componentScope: "bump",
-    details: { initial: "0" },
+    details: { initial: "0", scope: "MODULE", owner: null },
   });
   const write = model.units.find((unit) => unit.kind === "STATE_WRITE");
-  assert.deepEqual(write?.details, { target: "src/a.ts:1:5:STATE", expression: "count++", guard: "flag", guardHolds: true });
+  assert.deepEqual(write?.details, {
+    target: "src/a.ts:1:5:STATE",
+    expression: "count++",
+    guard: "flag",
+    guardHolds: true,
+    guardTerms: JSON.stringify([{ unitId: "src/a.ts:3:7:BRANCH_CONDITION", holds: true }]),
+  });
+  assert.ok(model.units.some((unit) => unit.id === "src/a.ts:3:7:BRANCH_CONDITION"), "guardTerms の識別子は条件のユニットにある");
   assert.equal(model.slices.length, 1);
   assert.deepEqual(model.slices[0]?.conditions, []);
   assert.deepEqual(model.slices[0]?.writes, ["src/a.ts:4:5:STATE_WRITE"]);
@@ -301,6 +308,39 @@ test("クラスのメソッドを起点にでき、this のフィールドは状
   const write = model.units.find((unit) => unit.kind === "STATE_WRITE");
   assert.equal(write?.details?.["expression"], "this.value += 1");
   assert.equal(write?.details?.["guard"], null);
+  assert.equal(write?.details?.["guardTerms"], "[]");
+  const state = model.units.find((unit) => unit.kind === "STATE");
+  assert.equal(state?.componentScope, "Counter.inc");
+  assert.deepEqual(state?.details, { initial: null, scope: "CLASS", owner: "Counter" });
+});
+
+test("書き込みの guardTerms には、枝を戻すときに落ちる経路の条件も入る", async () => {
+  const fs = new MemoryFs({
+    "src/a.ts": [
+      "let x = 0;",
+      "export function run(a: boolean, b: boolean) {",
+      "  if (a) {",
+      "    if (b) {",
+      "      return 1;",
+      "    }",
+      "    x = 1;",
+      "  }",
+      "  return x;",
+      "}",
+    ].join("\n"),
+  });
+  const model = await extractContext(target("src/a.ts", "run"), { fs });
+  checkInvariants(model);
+  const write = model.units.find((unit) => unit.kind === "STATE_WRITE");
+  assert.equal(write?.id, "src/a.ts:7:5:STATE_WRITE");
+  assert.equal(write?.details?.["guard"], "(a) && !(b)");
+  assert.equal(
+    write?.details?.["guardTerms"],
+    JSON.stringify([
+      { unitId: "src/a.ts:3:7:BRANCH_CONDITION", holds: true },
+      { unitId: "src/a.ts:4:9:BRANCH_CONDITION", holds: false },
+    ]),
+  );
 });
 
 test("起点が無ければ InletNotFoundError、構文が読めなければ SyntaxExtractionError", async () => {

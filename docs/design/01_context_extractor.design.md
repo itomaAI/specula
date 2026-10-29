@@ -159,6 +159,7 @@ CallTracer がたどった各関数に対して動く。画面を持たないシ
 - 呼ばれた関数の `catch` されない `throw` は、呼び出した側の出口になる。条件は、呼び出しまでの経路の条件に、呼ばれた関数の中の条件を足したものである。呼び出しが `catch` のある `try` の中にあるときは、出口にせずに `catch` へ行く経路にする。
 - それ以外の経路のユニットは、呼び出しの位置に経路の順で入れる（重複は除く）。入れるのは `CALL`・`STATE_WRITE`・`DATA_MUTATION`・`EXTERNAL_CALL`・`ASYNC_CUT`・`RECURSION` だけで、呼ばれた関数の中の条件と出口は入れない。経路の組み合わせでスライスを増やさないためである。その代わりに、書き込みの `details.guard` に、呼ばれた関数の中でその書き込みに至る条件を合成して付ける。
 - `details.guard` の合成: その関数の中で書き込みに至る条件（経路の条件と、いま中にいる枝の条件）をすべて集め、重複を除く。1 つならその式と側を、2 つ以上なら `(a) && !(b)` の形の式にして `guardHolds: true` にする。起点の関数でも、呼ばれた関数でも同じ規則にする。`if (a) { if (b) return; x = 1 }` の `!(b)` のように、枝を戻すときに経路の条件が落ちる形でも、書き込みの条件が消えないためである。このため、`guard` がスライスの条件と重なることがある。
+- `details.guardTerms` は、同じ条件を `BRANCH_CONDITION` のユニットの識別子と側の組で、経路の条件 → いま中にいる枝の条件の順に並べたもの。重複は識別子と側の組で除く（`guard` は式と側で除くので、同じ式の条件が 2 か所にあると、`guardTerms` のほうが項が多くなる）。M2 はこれを使い、命題と状態変数の識別子を条件のユニットからそろえる。
 
 ### 3.4 因果接続
 UI 側の API 呼び出しと処理側のエンドポイントパスを突合してリンクし、データ変更とスキーマのエンティティ定義を突合してリンクする。突合できないものは、リンクを作らずにそのまま残す。初回の実装では UI・API・スキーマの解析を作っていないので、因果接続も作っていない。
@@ -226,8 +227,8 @@ interface RawContextModel {
 
 | 種類 | 項目 |
 | :-- | :-- |
-| `STATE` | `initial`: 初期値の式（最上位の変数で初期値があるときだけ。ほかは `null`） |
-| `STATE_WRITE` | `target`: 書き込む `STATE` の識別子、`expression`: 代入の式（`x++` などは式全体）、`guard`: その関数の中で書き込みに至る条件を合成した式（3.3。無ければ `null`）、`guardHolds`: その側 |
+| `STATE` | `initial`: 初期値の式（最上位の変数で初期値があるときだけ。ほかは `null`）、`scope`: 状態変数の区切り（`MODULE`: 最上位の `let`・`var`、`CLASS`: `this.x`、`PARAMETER`: 引数のプロパティ）、`owner`: 区切りの持ち主（`MODULE` は `null`、`CLASS` はクラス名（クラスの外の `this.x` は関数の名前）、`PARAMETER` は関数の名前）。`componentScope` は最初に書き込んだ関数の名前で、区切りとは一致しないため、M2 は名前の照合に `scope` と `owner` を使う |
+| `STATE_WRITE` | `target`: 書き込む `STATE` の識別子、`expression`: 代入の式（`x++` などは式全体）、`guard`: その関数の中で書き込みに至る条件を合成した式（3.3。無ければ `null`。人が読むためのもの）、`guardHolds`: その側、`guardTerms`: 同じ条件を構造で持つもの（`[{ "unitId": <BRANCH_CONDITION の識別子>, "holds": <側> }]` を JSON にした文字列。条件が無ければ `"[]"`）。M2 は `guardTerms` を使う。条件の式に `catch` や `for…of` の対象のような、式として読めないものが入るためである |
 | `BRANCH_CONDITION` | `expression`: 条件の式。`switch` は `case` ごとに 1 つのユニットとし、`<対象> === <case の値>` の形で持つ（`default` は、ほかの `case` のどれでもないこととして、各 `case` の式を `!==` にして `&&` でつないだ形。ほかの `case` が無ければ `true`）。加えて、ループなら `loop`（`WHILE`・`FOR`・`FOR_OF`・`FOR_IN`）、`switch` なら `switchCase`（`CASE`・`DEFAULT`）、`catch` なら `branch: "CATCH"`（式は `"catch"`） |
 | `RETURN` | `implicit`: 関数の終わりに置いた暗黙の `RETURN` なら `true`、`expression`: 返す式（無ければ `null`） |
 | `THROW` | `caught`: `catch` のある `try` の中なら `true`（出口にしない）、`expression`: 投げる式 |

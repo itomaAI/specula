@@ -87,7 +87,8 @@ export class UnitCollector {
       const declarator = moduleLevelMutable(file, name);
       if (declarator === null) return null;
       const key = `${file.path}#${name}`;
-      return { id: this.stateUnit(key, file, declarator, name, fn.symbol, sourceTextOrNull(file, declarator["init"])), name };
+      const initial = sourceTextOrNull(file, declarator["init"]);
+      return { id: this.stateUnit(key, file, declarator, name, fn.symbol, { initial, scope: "MODULE", owner: null }), name };
     }
     if ((target.type !== "MemberExpression" && target.type !== "OptionalMemberExpression") || target["computed"] === true) {
       return null;
@@ -97,8 +98,9 @@ export class UnitCollector {
     if (property === null || !isAstNode(object)) return null;
     if (object.type === "ThisExpression") {
       const stateName = `this.${property}`;
-      const key = `${file.path}#${fn.className ?? fn.symbol}#${stateName}`;
-      return { id: this.stateUnit(key, file, target, stateName, fn.symbol, null), name: stateName };
+      const owner = fn.className ?? fn.symbol;
+      const key = `${file.path}#${owner}#${stateName}`;
+      return { id: this.stateUnit(key, file, target, stateName, fn.symbol, { initial: null, scope: "CLASS", owner }), name: stateName };
     }
     const objectName = identifierName(object);
     if (objectName === null) return null;
@@ -106,20 +108,27 @@ export class UnitCollector {
     if (param === null) return null;
     const stateName = `${objectName}.${property}`;
     const key = `${file.path}#${fn.symbol}#${stateName}`;
-    return { id: this.stateUnit(key, file, param, stateName, fn.symbol, null), name: stateName };
+    return {
+      id: this.stateUnit(key, file, param, stateName, fn.symbol, { initial: null, scope: "PARAMETER", owner: fn.symbol }),
+      name: stateName,
+    };
   }
 
+  /**
+   * STATE を（無ければ）作る。componentScope は最初に書き込んだ関数で、区切りとは一致しない。
+   * 区切りは details の scope（MODULE・CLASS・PARAMETER）と owner（クラス名か関数の symbol。MODULE は null）で渡す。
+   */
   private stateUnit(
     key: string,
     file: LoadedFile,
     at: AstNode,
     name: string,
     scope: string,
-    initial: string | null,
+    details: { initial: string | null; scope: "MODULE" | "CLASS" | "PARAMETER"; owner: string | null },
   ): string {
     const existing = this.states.get(key);
     if (existing !== undefined) return existing;
-    const id = this.add(file.path, startOf(at), "STATE", name, scope, { initial });
+    const id = this.add(file.path, startOf(at), "STATE", name, scope, details);
     this.states.set(key, id);
     return id;
   }
