@@ -179,3 +179,50 @@ export interface AmbiguityReport {
 export type TranspilerResult =
   | { kind: 'SUCCESS'; spec: FormalSpecification }
   | { kind: 'AMBIGUITY'; report: AmbiguityReport };
+// -------------------------------------------------------------
+// M3: FormalSolver Types
+// -------------------------------------------------------------
+export interface UnhandledTransition {
+  state: string;
+  command: string;
+  reason: string;
+}
+
+export interface CounterexampleTrace {
+  assertionName: string;
+  steps: Array<{
+    step: number;
+    state: string;
+    operation?: string;
+  }>;
+}
+
+export interface SolverOptions {
+  scope?: number;
+  timeSteps?: number;
+  engine?: string;
+}
+
+export interface SolverReport {
+  scenarioId: string;
+  isSound: boolean;
+  engineInfo: {
+    engine: string;
+    version: string;
+    scope: number;
+  };
+  unhandledTransitions: UnhandledTransition[];
+  deadlocks: string[];
+  counterexamples: CounterexampleTrace[];
+  isPartitioned: boolean;
+  partitionCount?: number;
+}
+
+export interface SolverPort {
+  execute(sourceCode: string, options: SolverOptions): Promise<{
+    rawOutput: string;
+    engine: string;
+    version: string;
+    isEngineAvailable: boolean;
+  }>;
+}
