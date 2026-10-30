@@ -119,7 +119,7 @@ test("PdM の一覧と詳細の冒頭には、内部の識別子と所在が出�
     const outputs = await checkedOutputs(out);
     const list = buildScenarioList(outputs, "PdM");
     // 論点と検証の状態は SpecProjector の文そのもの（次のテストで同じことを確かめる）なので、ここでは冒頭だけを見る
-    const headers = buildScenarioDetails(outputs, "PdM").map((detail) => ({ ...detail, verification: null, issueGroups: null }));
+    const headers = buildScenarioDetails(outputs, "PdM").map((detail) => ({ ...detail, verification: null, issueGroups: null, tabs: null }));
     const text = JSON.stringify({ list, headers });
     for (const scenario of report.scenarios) {
       assert.ok(!text.includes(scenario.scenarioId), `内部の識別子が出ている: ${scenario.scenarioId}`);
@@ -161,6 +161,18 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.equal(detail.issueCount, ledger.issues.length);
     assert.equal(detail.scopeText, "このシナリオだけを検査した。ほかのシナリオとの矛盾は見ていない。");
     assert.equal(detail.notice, null);
+    // タブ: 仕様書は題の見出しから始まり、一覧表は操作ごとに 1 行。ソースは Eng だけ
+    const firstBlock = detail.tabs?.document[0];
+    assert.ok(firstBlock?.kind === "heading" && firstBlock.level === 1 && firstBlock.text.startsWith("仕様書: "));
+    const table = detail.tabs?.matrix.find((b) => b.kind === "table");
+    assert.ok(table?.kind === "table");
+    assert.equal(table.header[0], "表示名");
+    assert.equal(table.rows.length, spec.operations.length);
+    assert.equal(detail.tabs?.source, null);
+    const engDetail = buildScenarioDetails(outputs, "Eng").find((d) => d.displayId === completed.displayId)!;
+    const engSource = engDetail.tabs?.source;
+    assert.ok(typeof engSource === "string" && engSource.length > 0);
+    assert.ok(!/^\s*--\s*@source:/m.test(engSource));
     assert.equal(detail.inletTypeText, completed.inletType === "COMMAND" ? "操作" : "反応");
     assert.equal(detail.actor, completed.actor.name);
     assert.equal(detail.route, completed.route);
@@ -170,6 +182,7 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.equal(stopped.verification, null);
     assert.equal(stopped.scopeText, null);
     assert.equal(stopped.issueGroups, null);
+    assert.equal(stopped.tabs, null);
     assert.equal(stopped.notice, `このシナリオは、エンジニアの確認待ちの箇所が ${total} 件あるため、形式仕様にできなかった。`);
   });
 });

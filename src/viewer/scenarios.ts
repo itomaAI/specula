@@ -3,6 +3,7 @@
 // 検証の状態・論点・LLM の文・確定の状態の印は SpecProjector の関数で作り、文を写し直さない（設計 6.5）。
 // ビューモデルには内部の識別子を入れない。内部の識別子は辞書と意図の候補を引くためだけに使う（設計 4 節）。
 
+import { stripSourceComments } from "../core/m5/escape.js";
 import { statusMark } from "../core/m5/labels.js";
 import { AMBIGUITY_KIND_TEXT } from "../core/m5/render_ambiguities.js";
 import { UNVERIFIED_REASON_TEXT, issueDisplayIds, issueGroupsOf, llmText, verificationView } from "../core/m5/view_model.js";
@@ -21,6 +22,7 @@ import type {
   ScenarioListView,
   ScenarioRowView,
 } from "./types.js";
+import { parseMarkdown } from "./markdown.js";
 
 const KIND_TEXT: Readonly<Record<ScenarioKind, string>> = {
   COMPLETED: "仕様になった",
@@ -202,10 +204,16 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
 
     if (row.kind === "COMPLETED") {
       const files = outputs.scenarios.find((s) => s.displayId === row.displayId);
-      const spec = files?.kind === "COMPLETED" ? valueOf(files.spec) : null;
-      const ledger = files?.kind === "COMPLETED" ? valueOf(files.ledger) : null;
-      if (spec === null || ledger === null) {
-        throw new Error(`${row.displayId} の spec.json か ledger.json が読めていない。先に checkRunOutputs を通してください。`);
+      if (files?.kind !== "COMPLETED") {
+        throw new Error(`${row.displayId} のファイルが読めていない。先に checkRunOutputs を通してください。`);
+      }
+      const spec = valueOf(files.spec);
+      const ledger = valueOf(files.ledger);
+      const document = valueOf(files.document);
+      const matrix = valueOf(files.matrix);
+      const source = valueOf(files.source);
+      if (spec === null || ledger === null || document === null || matrix === null || source === null) {
+        throw new Error(`${row.displayId} のファイルが読めていない。先に checkRunOutputs を通してください。`);
       }
       return {
         ...base,
@@ -213,6 +221,12 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
         scopeText: SCENARIO_SCOPE,
         issueCount: ledger.issues.length,
         issueGroups: issueGroupsOf(spec, ledger, issueDisplayIds(ledger, row.displayId)),
+        tabs: {
+          document: parseMarkdown(document),
+          matrix: parseMarkdown(matrix),
+          // SpecProjector の付録と同じく、`-- @source:` の行を除く（設計 6.6）。
+          source: viewRole === "Eng" ? stripSourceComments(source).replace(/\n+$/, "") : null,
+        },
         notice: null,
       };
     }
@@ -223,6 +237,6 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
         : viewRole === "Eng"
           ? `このシナリオは途中で止まったため、仕様にならなかった（${row.stage} で止まった: ${row.error}）。`
           : "このシナリオは途中で止まったため、仕様にならなかった。";
-    return { ...base, verification: null, scopeText: null, issueCount: null, issueGroups: null, notice };
+    return { ...base, verification: null, scopeText: null, issueCount: null, issueGroups: null, tabs: null, notice };
   });
 }
