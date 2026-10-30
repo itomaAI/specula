@@ -162,10 +162,8 @@ export interface ScenarioDetailView {
   route: string | null;
   /** 期待イベントの表示名（印付き）。 */
   expectedEvent: string;
-  /** 仕様になったシナリオだけ。SpecProjector の仕様書と同じ文。 */
+  /** 仕様になったシナリオだけ。SpecProjector の仕様書と同じ文。検査の範囲の文（設計 3.2）も lines に入っている。 */
   verification: VerificationView | null;
-  /** 仕様になったシナリオだけ。検査の範囲の固定の文（設計 3.2）。 */
-  scopeText: string | null;
   /** 仕様になったシナリオだけ。 */
   issueCount: number | null;
   /** 仕様になったシナリオだけ。論点の id は表示の id（"S-01-L-001"）。 */
@@ -186,4 +184,58 @@ export interface ScenarioTabsView {
   matrix: MarkdownBlock[];
   /** 形式仕様のソース（spec.als から `-- @source:` の行を除いたもの）。Eng のときだけ。 */
   source: string | null;
+}
+
+// ---- 仕様不備一覧（設計 3.3・6.7） ----
+// 論点は SpecProjector の IssueView（issueGroupsOf）をそのまま使う。曖昧さの文は SpecProjector の曖昧さの一覧と同じ。
+// 画面どうしのリンクは表示の id（"S-01"・"S-01-L-001"）で指す（設計 6.7）。
+
+/** 仕様になったシナリオ 1 つの論点（設計 3.3）。論点が 1 件以上あるシナリオだけ。 */
+export interface ScenarioIssuesView {
+  displayId: string;
+  /** シナリオ一覧と同じ題。 */
+  title: string;
+  issueCount: number;
+  /** 見出しごとの組（SpecProjector の仕様書と同じ）。 */
+  groups: IssueGroupView[];
+  /**
+   * 論点の表示の id → 操作の一覧表の行の位置（0 から。一覧表の行は形式仕様の操作の順）。
+   * 論点から一覧表の該当する行へリンクするために使う（設計 4 節）。
+   */
+  operationRows: Record<string, number[]>;
+}
+
+/** 曖昧さ 1 件（Eng のみ。設計 3.3）。 */
+export interface AmbiguityItemView {
+  /** "S-02-A-001"。 */
+  id: string;
+  kind: AmbiguityKind;
+  /** 「値が決まらない」など。 */
+  kindText: string;
+  /** 質問の文と確定の状態の印。未生成ならその理由。 */
+  question: string;
+  /** 最初のユニットの所在（SpecProjector の曖昧さの一覧と同じく、ファイルと行）。 */
+  location: { file: string; line: number };
+  /** 式や呼び出しの原文。末尾の改行は除く。 */
+  detail: string;
+}
+
+/** 曖昧さで止まったシナリオ 1 つ（設計 3.3）。 */
+export interface ScenarioAmbiguitiesView {
+  displayId: string;
+  title: string;
+  total: number;
+  /** PdM は「エンジニアの確認待ち: N 件」、Eng は「曖昧さ N 件」。 */
+  countText: string;
+  /** Eng のときだけ。PdM では null（質問・箇所・原文を出さない）。 */
+  items: AmbiguityItemView[] | null;
+}
+
+/** 仕様不備一覧（設計 3.3）。どちらも実行の報告の順。 */
+export interface IssueListView {
+  issueTotal: number;
+  scenarios: ScenarioIssuesView[];
+  ambiguityTotal: number;
+  /** PdM ではシナリオ別の件数の表として、Eng では質問の一覧として描く。 */
+  ambiguities: ScenarioAmbiguitiesView[];
 }

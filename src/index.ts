@@ -169,12 +169,16 @@ export { readRunOutputs } from "./lib/read_outputs.js";
 
 // SpecViewer（画面）。ビューモデルを作る部分（src/viewer/）。描く側は起動アプリ（SpecViewer 基本設計 1.1）。
 export type {
+  AmbiguityItemView,
   FileRead,
+  IssueListView,
   RunOutputs,
   RunOutputsCheck,
   RunOutputsProblem,
   RunSummaryView,
+  ScenarioAmbiguitiesView,
   ScenarioDetailView,
+  ScenarioIssuesView,
   ScenarioKind,
   ScenarioListView,
   ScenarioOutputs,
@@ -183,6 +187,7 @@ export type {
 } from "./viewer/types.js";
 export { checkRunOutputs } from "./viewer/check.js";
 export { buildScenarioDetails, buildScenarioList } from "./viewer/scenarios.js";
+export { buildIssueList } from "./viewer/issues.js";
 export type { MarkdownBlock } from "./viewer/markdown.js";
 export { parseMarkdown, tableCells } from "./viewer/markdown.js";
 

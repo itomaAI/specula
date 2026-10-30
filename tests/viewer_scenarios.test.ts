@@ -159,7 +159,8 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.deepEqual(detail.verification, verificationView(spec, ledger));
     assert.deepEqual(detail.issueGroups, issueGroupsOf(spec, ledger, issueDisplayIds(ledger, completed.displayId)));
     assert.equal(detail.issueCount, ledger.issues.length);
-    assert.equal(detail.scopeText, "このシナリオだけを検査した。ほかのシナリオとの矛盾は見ていない。");
+    // 検査の範囲の文（設計 3.2）は verificationView の lines に入っている。画面で別に持たない
+    assert.ok(detail.verification?.lines.includes("検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。"));
     assert.equal(detail.notice, null);
     // タブ: 仕様書は題の見出しから始まり、一覧表は操作ごとに 1 行。ソースは Eng だけ
     const firstBlock = detail.tabs?.document[0];
@@ -180,7 +181,6 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     const total = Object.values(ambiguous.counts).reduce((sum, n) => sum + n, 0);
     const stopped = details.find((d) => d.displayId === ambiguous.displayId)!;
     assert.equal(stopped.verification, null);
-    assert.equal(stopped.scopeText, null);
     assert.equal(stopped.issueGroups, null);
     assert.equal(stopped.tabs, null);
     assert.equal(stopped.notice, `このシナリオは、エンジニアの確認待ちの箇所が ${total} 件あるため、形式仕様にできなかった。`);
