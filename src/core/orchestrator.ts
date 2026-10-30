@@ -31,7 +31,7 @@ import { extractContext } from "./context_extractor.js";
 import { transpileFormal } from "./formal_transpiler.js";
 import { verifySpecification } from "./formal_solver.js";
 import { synthesizeLedger } from "./ledger_synthesizer.js";
-import { projectSpecification, projectSystemMap } from "./spec_projector.js";
+import { projectAmbiguities, projectSpecification, projectSystemMap } from "./spec_projector.js";
 
 const AMBIGUITY_KINDS: readonly AmbiguityKind[] = ["UNDETERMINED_VALUE", "EXTERNAL_EFFECT", "CONFLICTING_SLICES"];
 const OUTCOMES: readonly VerificationOutcome[] = ["FOUND", "NONE_FOUND_WITHIN_SCOPE", "UNVERIFIED"];
@@ -176,16 +176,20 @@ async function runScenario(
 
   const facts = await stage("M1", () => extractContext(target, { fs: deps.fs }));
   const transpiled = await stage("M2", () => transpileFormal(facts, { llm: deps.llm }, null));
+  const context: ProjectionContext = { scenario: target, glossary: inputs.glossary, intents: inputs.intents };
   if (transpiled.kind === "AMBIGUITY") {
+    const report = transpiled.report;
+    const view = await stage("M5", () =>
+      projectAmbiguities(report, context, { format: "AMBIGUITY_DOCUMENT", viewRole: inputs.viewRole, displayId }),
+    );
     return [
-      { ...base, kind: "AMBIGUOUS", counts: { ...transpiled.report.counts } },
-      { scenarioId: target.id, displayId, kind: "AMBIGUOUS", ambiguity: transpiled.report },
+      { ...base, kind: "AMBIGUOUS", counts: { ...report.counts } },
+      { scenarioId: target.id, displayId, kind: "AMBIGUOUS", ambiguity: report, view },
     ];
   }
   const spec = transpiled.spec;
   const solverReport = await stage("M3", () => verifySpecification(spec, { solver: deps.solver }, options.solver));
   const ledger = await stage("M4", () => synthesizeLedger(solverReport, spec, { llm: deps.llm }));
-  const context: ProjectionContext = { scenario: target, glossary: inputs.glossary, intents: inputs.intents };
   const request = (format: "DOCUMENT" | "MATRIX" | "FLOW") => ({ format, viewRole: inputs.viewRole, displayId });
   const document = await stage("M5", () => projectSpecification(spec, ledger, context, request("DOCUMENT")));
   const matrix = await stage("M5", () => projectSpecification(spec, ledger, context, request("MATRIX")));

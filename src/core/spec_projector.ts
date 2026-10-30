@@ -6,11 +6,12 @@
 // 表示の役割（PdM・Eng）と表示の id（S-01）は request で受け取る（全体設計 2.2、設計 8.3）。
 
 import { sha256Hex } from "../lib/sha256.js";
-import type { FormalSpecification } from "../types/formal.js";
+import type { AmbiguityReport, FormalSpecification } from "../types/formal.js";
 import type { Glossary } from "../types/glossary.js";
 import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog } from "../types/ledger.js";
 import type {
+  AmbiguityProjectionRequest,
   ProjectionContext,
   ProjectionRequest,
   SpecificationView,
@@ -19,7 +20,8 @@ import type {
 import { ProjectionContractError } from "../types/projection.js";
 import type { EventStormingMap } from "../types/scenario.js";
 import { mapHashOf } from "./glossary_builder.js";
-import { checkProjectionContract, isViewRole } from "./m5/contract.js";
+import { checkAmbiguityContract, checkProjectionContract, isViewRole } from "./m5/contract.js";
+import { renderAmbiguities } from "./m5/render_ambiguities.js";
 import { renderDocument } from "./m5/render_document.js";
 import { renderFlow } from "./m5/render_flow.js";
 import { renderMatrix } from "./m5/render_matrix.js";
@@ -65,6 +67,27 @@ export async function projectSpecification(
       ledgerReportId: model.ledgerReportId,
       ledgerIsStale: model.ledgerIsStale,
     },
+  };
+}
+
+/**
+ * FormalTranspiler の曖昧さの報告から、曖昧さの一覧を作る（設計 1.2・8.4）。
+ * 形式仕様も論点カタログも無いので、basis はすべて null。ほかの射影とそろえて非同期にしている。
+ */
+export async function projectAmbiguities(
+  report: AmbiguityReport,
+  context: ProjectionContext,
+  request: AmbiguityProjectionRequest,
+): Promise<SpecificationView> {
+  checkAmbiguityContract(report, context, request);
+  return {
+    scenarioId: report.scenarioId,
+    displayId: request.displayId,
+    viewRole: request.viewRole,
+    format: request.format,
+    mediaType: "text/markdown",
+    content: renderAmbiguities(report, context, request),
+    basis: { specSourceHash: null, ledgerReportId: null, ledgerIsStale: null },
   };
 }
 
