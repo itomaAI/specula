@@ -12,6 +12,8 @@ import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog } from "../types/ledger.js";
 import type {
   AmbiguityProjectionRequest,
+  ImplementationMap,
+  ImplementationMapInput,
   ProjectionContext,
   ProjectionRequest,
   SpecificationView,
@@ -21,6 +23,7 @@ import { ProjectionContractError } from "../types/projection.js";
 import type { EventStormingMap } from "../types/scenario.js";
 import { mapHashOf } from "./glossary_builder.js";
 import { checkAmbiguityContract, checkProjectionContract, isViewRole } from "./m5/contract.js";
+import { buildImplementationMap } from "./m5/implementation_map.js";
 import { renderAmbiguities } from "./m5/render_ambiguities.js";
 import { renderDocument } from "./m5/render_document.js";
 import { renderFlow } from "./m5/render_flow.js";
@@ -140,5 +143,53 @@ export async function projectSystemMap(
     mediaType,
     content,
     basis: { specSourceHash: null, ledgerReportId: null, ledgerIsStale: null },
+  };
+}
+
+/**
+ * 表示の id から内部の識別子と実装の名前・所在を引く対応表を作る（設計 1.2・8.5）。表示の役割に関係なく作る。
+ * 契約: 辞書が別の全体マップから作られていれば GLOSSARY_STALE。形式仕様・曖昧さの報告・論点カタログが
+ * そのシナリオのものでないとき、論点カタログがあるのに形式仕様が無いときは SCENARIO_MISMATCH。
+ * 論点が形式仕様に無い操作を指すときは UNKNOWN_OPERATION。
+ */
+export async function projectImplementationMap(
+  map: EventStormingMap,
+  glossary: Glossary,
+  scenarios: readonly ImplementationMapInput[],
+): Promise<ImplementationMap> {
+  const mapHash = await mapHashOf(map);
+  if (glossary.basis.mapHash !== mapHash) {
+    throw new ProjectionContractError(
+      "(system)",
+      "GLOSSARY_STALE",
+      `辞書の mapHash ${glossary.basis.mapHash} が全体マップの ${mapHash} と違う`,
+    );
+  }
+  for (const { scenario, spec, ambiguity, ledger } of scenarios) {
+    for (const [what, scenarioId] of [
+      ["形式仕様", spec?.scenarioId],
+      ["曖昧さの報告", ambiguity?.scenarioId],
+      ["論点カタログ", ledger?.scenarioId],
+    ] as const) {
+      if (scenarioId !== undefined && scenarioId !== scenario.id) {
+        throw new ProjectionContractError(scenario.id, "SCENARIO_MISMATCH", `${what}の scenarioId が ${scenarioId}`);
+      }
+    }
+    if (ledger === null) continue;
+    if (spec === null) {
+      throw new ProjectionContractError(scenario.id, "SCENARIO_MISMATCH", "論点カタログがあるのに形式仕様が無い");
+    }
+    const operations = new Set(spec.operations.map((operation) => operation.id));
+    for (const issue of ledger.issues) {
+      for (const operationId of issue.operations) {
+        if (!operations.has(operationId)) {
+          throw new ProjectionContractError(scenario.id, "UNKNOWN_OPERATION", `${issue.id} が ${operationId} を指す`);
+        }
+      }
+    }
+  }
+  return {
+    entries: buildImplementationMap(map, glossary, scenarios),
+    basis: { mapHash: glossary.basis.mapHash, documentsHash: glossary.basis.documentsHash },
   };
 }
