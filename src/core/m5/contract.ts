@@ -5,9 +5,15 @@
 // - 論点が指す操作と、論点の実行列の状態変数が、形式仕様にあること（表示名を引けなくならないように）。
 // カタログが古いこと（ソースの SHA-256 が違うこと）は契約違反ではない。ビューの先頭で知らせる（設計 3.3）。
 
-import type { FormalSpecification } from "../../types/formal.js";
+import type { AmbiguityReport, FormalSpecification } from "../../types/formal.js";
 import type { DomainLedgerCatalog } from "../../types/ledger.js";
-import { ProjectionContractError, type ProjectionContext, type ProjectionRequest, type ViewRole } from "../../types/projection.js";
+import {
+  ProjectionContractError,
+  type AmbiguityProjectionRequest,
+  type ProjectionContext,
+  type ProjectionRequest,
+  type ViewRole,
+} from "../../types/projection.js";
 
 const SCENARIO_FORMATS: readonly string[] = ["DOCUMENT", "MATRIX", "FLOW"];
 const VIEW_ROLES: readonly string[] = ["PdM", "Eng"] satisfies readonly ViewRole[];
@@ -55,5 +61,29 @@ export function checkProjectionContract(
         if (!variables.has(variable)) fail("UNKNOWN_STATE_VARIABLE", `${issue.id} の時点 ${step.index}: ${variable}`);
       }
     }
+  }
+}
+
+/**
+ * 曖昧さの一覧の入力の契約（設計 7.7・8.4）。
+ * 表現形式が AMBIGUITY_DOCUMENT で、表示の役割が PdM・Eng のどちらかで、context のシナリオが報告のシナリオと同じであること。
+ */
+export function checkAmbiguityContract(
+  report: AmbiguityReport,
+  context: ProjectionContext,
+  request: AmbiguityProjectionRequest,
+): void {
+  const fail = (reason: ProjectionContractError["reason"], detail: string): never => {
+    throw new ProjectionContractError(report.scenarioId, reason, detail);
+  };
+
+  if (request.format !== "AMBIGUITY_DOCUMENT") {
+    fail("UNSUPPORTED_FORMAT", String(request.format));
+  }
+  if (!isViewRole(request.viewRole)) {
+    fail("UNSUPPORTED_FORMAT", `表示の役割: ${String(request.viewRole)}`);
+  }
+  if (context.scenario.id !== report.scenarioId) {
+    fail("SCENARIO_MISMATCH", `context のシナリオは ${context.scenario.id}、曖昧さの報告は ${report.scenarioId}`);
   }
 }

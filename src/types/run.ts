@@ -119,7 +119,14 @@ export type ScenarioArtifacts =
       matrix: SpecificationView;
       flow: SpecificationView;
     }
-  | { scenarioId: string; displayId: string; kind: "AMBIGUOUS"; ambiguity: AmbiguityReport }
+  | {
+      scenarioId: string;
+      displayId: string;
+      kind: "AMBIGUOUS";
+      ambiguity: AmbiguityReport;
+      /** 曖昧さの一覧（AMBIGUITY_DOCUMENT。SpecProjector の設計 8.4）。 */
+      view: SpecificationView;
+    }
   | { scenarioId: string; displayId: string; kind: "STOPPED" };
 
 export interface PipelineResult {

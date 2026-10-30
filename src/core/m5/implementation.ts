@@ -10,7 +10,7 @@
 import type { GlossaryLocation } from "../../types/glossary.js";
 
 /** インラインコード: 中の最も長いバッククォートの並びより 1 つ長い記号で囲む。 */
-function codeSpan(text: string): string {
+export function codeSpan(text: string): string {
   let longest = 0;
   for (const run of text.match(/`+/g) ?? []) longest = Math.max(longest, run.length);
   const fence = "`".repeat(longest + 1);

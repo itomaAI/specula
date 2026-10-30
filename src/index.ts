@@ -131,6 +131,7 @@ export { M4_PROMPT_VERSION, synthesizeLedger } from "./core/ledger_synthesizer.j
 
 // M5（SpecProjector）
 export type {
+  AmbiguityProjectionRequest,
   ProjectionContext,
   ProjectionRequest,
   ScenarioViewFormat,
@@ -140,7 +141,7 @@ export type {
   ViewRole,
 } from "./types/projection.js";
 export { ProjectionContractError } from "./types/projection.js";
-export { projectSpecification, projectSystemMap } from "./core/spec_projector.js";
+export { projectAmbiguities, projectSpecification, projectSystemMap } from "./core/spec_projector.js";
 
 // オーケストレーター（全体設計 2.1）。src/cli.ts は node: を静的に読むので、ここからは export しない。
 export type {

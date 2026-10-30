@@ -144,6 +144,11 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   const ambiguous = result.scenarios[1];
   assert.ok(ambiguous?.kind === "AMBIGUOUS");
   assert.equal(ambiguous.ambiguity.issues.length, 3);
+  assert.equal(ambiguous.view.format, "AMBIGUITY_DOCUMENT");
+  assert.equal(ambiguous.view.displayId, "S-02");
+  assert.ok(ambiguous.view.content.startsWith("# S-02"), ambiguous.view.content);
+  assert.ok(ambiguous.view.content.includes("### S-02-A-003"));
+  assert.ok(!ambiguous.view.content.includes("src/g.ts"));
 
   assert.equal(result.systemViews.mermaid.mediaType, "text/vnd.mermaid");
   assert.equal(result.systemViews.json.mediaType, "application/json");

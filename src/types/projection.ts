@@ -24,6 +24,14 @@ export interface ProjectionRequest {
   displayId: string;
 }
 
+/** 曖昧さの一覧（SpecProjector の設計 8.4）。シナリオのビューの format に入れると projectSpecification が型の上で受け付けてしまうので、別の型にする。 */
+export interface AmbiguityProjectionRequest {
+  format: "AMBIGUITY_DOCUMENT";
+  viewRole: ViewRole;
+  /** シナリオの表示の id（"S-01"）。 */
+  displayId: string;
+}
+
 export interface SystemProjectionRequest {
   format: SystemViewFormat;
   viewRole: ViewRole;
@@ -45,12 +53,12 @@ export interface SpecificationView {
   /** 表示の id（"S-01"）。全体の俯瞰図は null。 */
   displayId: string | null;
   viewRole: ViewRole;
-  format: ScenarioViewFormat | SystemViewFormat;
+  format: ScenarioViewFormat | "AMBIGUITY_DOCUMENT" | SystemViewFormat;
   mediaType: "text/markdown" | "text/vnd.mermaid" | "application/json";
   /** 改行は "\n"、末尾は改行 1 つ。 */
   content: string;
   basis: {
-    /** いまの正本のソースの SHA-256。全体の俯瞰図は null。 */
+    /** いまの正本のソースの SHA-256。全体の俯瞰図と曖昧さの一覧は null。 */
     specSourceHash: string | null;
     /** 元にした論点カタログの basis.reportId。カタログが無ければ null。 */
     ledgerReportId: string | null;

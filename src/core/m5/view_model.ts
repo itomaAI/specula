@@ -129,7 +129,7 @@ const NOT_GENERATED_TEXT = {
  * LLM の文。未生成なら「未生成」と理由を書く（M4 の設計 5 節）。
  * detail は書かない。検出した形式仕様の識別子を含みうるため（仕様 3.2）。
  */
-function llmText(text: LlmText): string {
+export function llmText(text: LlmText): string {
   if (text.status === "GENERATED") return text.text;
   return `未生成（${NOT_GENERATED_TEXT[text.reason]}）`;
 }
@@ -198,7 +198,10 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
  * 項目が無いか、種類が起点の種類と違うか、用語が未生成なら「名前は未生成」とする。
  * 併記は Eng のときだけ、項目の implementation.locations から作る（設計 8.3）。
  */
-function titleOf(context: ProjectionContext, request: ProjectionRequest): { title: string; titleNote: string } {
+export function titleOf(
+  context: ProjectionContext,
+  request: Pick<ProjectionRequest, "displayId" | "viewRole">,
+): { title: string; titleNote: string } {
   const inlet = context.scenario.inletTrigger.id;
   const entry = context.glossary?.entries.find((candidate) => candidate.id === inlet);
   const matched = entry !== undefined && entry.kind === context.scenario.inletType ? entry : undefined;
