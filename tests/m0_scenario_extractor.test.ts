@@ -1,32 +1,11 @@
-// M0（ScenarioExtractor）のテスト（M0 の設計 2〜4、仕様 00 の 2.2）。
-// 小さな偽のリポジトリと、決まった答えを返す偽の LLM を使う。
+// ScenarioExtractor のテスト（ScenarioExtractor の設計 2〜4、仕様の 2.2）。
+// 小さな偽のリポジトリを使う。ScenarioExtractor は LLM を使わない（2026-10-30 に外した）。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { discoverSystemContext, sliceScenarios, stripJsonc } from "../src/core/scenario_extractor.js";
-import type { LanguageModelPort, OutputCheck } from "../src/ports/LanguageModelPort.js";
-import type { LlmRequest, LlmText } from "../src/types/index.js";
-import type { EventStormingMap, RepositoryArtifacts } from "../src/types/scenario.js";
-
-/** 答えを関数で決める偽の LLM。null を返すと「届かない」。形の確認は本物と同じく check で行う。 */
-class FakeLlm implements LanguageModelPort {
-  readonly calls: LlmRequest[] = [];
-  constructor(private readonly answer: (request: LlmRequest) => string | null) {}
-  async generate(request: LlmRequest, check: OutputCheck): Promise<LlmText> {
-    this.calls.push(request);
-    const text = this.answer(request);
-    if (text === null) return { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "fake" };
-    const result = check(text);
-    if (!result.ok) return { status: "NOT_GENERATED", reason: "INVALID_OUTPUT", detail: result.detail };
-    return { status: "GENERATED", text: text.trim(), recordKey: `${request.task}:${JSON.stringify(request.input)}` };
-  }
-}
-
-const fixedLlm = (): FakeLlm => new FakeLlm((r) => (r.task.startsWith("m0.name") ? "Alpha" : "意図の候補"));
-const otherLlm = (): FakeLlm => new FakeLlm((r) => (r.task.startsWith("m0.name") ? "Omega" : "別の意図"));
-const invalidLlm = (): FakeLlm => new FakeLlm((r) => (r.task.startsWith("m0.name") ? "not pascal case" : "1行目\n2行目"));
-const unreachableLlm = (): FakeLlm => new FakeLlm(() => null);
+import type { RepositoryArtifacts } from "../src/types/scenario.js";
 
 function repo(files: Record<string, string>, screenshots?: string[]): RepositoryArtifacts {
   return {
@@ -34,18 +13,6 @@ function repo(files: Record<string, string>, screenshots?: string[]): Repository
     documents: [],
     omittedDocuments: [],
     ...(screenshots === undefined ? {} : { screenshots }),
-  };
-}
-
-/** 識別子だけを取り出す（名前と意図によらない部分）。 */
-function idsOf(map: EventStormingMap): unknown {
-  return {
-    contexts: map.boundedContexts.map((c) => c.id),
-    events: map.events.map((e) => [e.id, e.after]),
-    commands: map.commands.map((c) => [c.id, c.actorId, c.readModelId ?? null, c.eventIds]),
-    policies: map.policies.map((p) => [p.id, p.triggerEventId, p.actionCommandId]),
-    readModels: map.readModels.map((m) => m.id),
-    actors: map.actors.map((a) => a.id),
   };
 }
 
@@ -94,8 +61,8 @@ const LIBRARY_COMMANDS = [
   "CMD-src/core/star.ts#zeta",
 ];
 
-test("ライブラリ: 入口から公開されている関数 7 本が、それぞれ別のコマンドとシナリオの起点になる", async () => {
-  const map = await discoverSystemContext(LIBRARY, { llm: fixedLlm() });
+test("ライブラリ: 入口から公開されている関数 7 本が、それぞれ別のコマンドとシナリオの起点になる", () => {
+  const map = discoverSystemContext(LIBRARY);
   assert.equal(map.diagnostics.mode, "PUBLIC_FUNCTIONS");
   assert.deepEqual(map.diagnostics.entryFiles, ["src/index.ts"]);
   assert.deepEqual(map.commands.map((c) => c.id), LIBRARY_COMMANDS);
@@ -111,7 +78,7 @@ test("ライブラリ: 入口から公開されている関数 7 本が、それ
   assert.deepEqual(map.readModels, []);
   assert.deepEqual(map.policies, []);
 
-  const result = await sliceScenarios(map, undefined, { llm: fixedLlm() });
+  const result = sliceScenarios(map);
   assert.equal(result.scenarios.length, 7);
   assert.deepEqual(result.rejected, []);
   const handlers = new Set(result.scenarios.map((s) => `${s.inletTrigger.handler.file}#${s.inletTrigger.handler.symbol}`));
@@ -123,65 +90,38 @@ test("ライブラリ: 入口から公開されている関数 7 本が、それ
     assert.equal(scenario.readModel, undefined, "画面が無いシステムでは画面を付けない");
     assert.equal(scenario.origin, "EXTRACTED");
     assert.equal(scenario.inletType, "COMMAND");
-    assert.equal(scenario.intentStatus, "CANDIDATE");
   }
 });
 
-test("ライブラリ: dist・tests を読まず、構文の誤りはファイルごとに記録して先へ進む", async () => {
-  const map = await discoverSystemContext(LIBRARY, { llm: fixedLlm() });
+test("ライブラリ: dist・tests を読まず、構文の誤りはファイルごとに記録して先へ進む", () => {
+  const map = discoverSystemContext(LIBRARY);
   assert.equal(map.diagnostics.parsedFileCount, 7);
   assert.deepEqual(map.diagnostics.parseFailures.map((f) => f.path), ["src/broken.ts"]);
   assert.ok(map.commands.every((c) => !c.handler.file.startsWith("dist/") && !c.handler.file.startsWith("tests/")));
 });
 
-test("識別子は LLM の名前によらない（別の答え・形の合わない答え・届かないとき）", async () => {
-  const base = idsOf(await discoverSystemContext(LIBRARY, { llm: fixedLlm() }));
-  assert.deepEqual(idsOf(await discoverSystemContext(LIBRARY, { llm: otherLlm() })), base);
-  assert.deepEqual(idsOf(await discoverSystemContext(LIBRARY, { llm: invalidLlm() })), base);
-  assert.deepEqual(idsOf(await discoverSystemContext(LIBRARY, { llm: unreachableLlm() })), base);
-});
-
-test("LLM に届かないとき: 名前と意図は NOT_GENERATED になり、識別子とシナリオの数は変わらない", async () => {
-  const map = await discoverSystemContext(LIBRARY, { llm: unreachableLlm() });
-  for (const item of [...map.events, ...map.commands]) {
-    assert.deepEqual(item.name, { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "fake" });
+test("全体マップとシナリオは LLM の欄（name・intent・intentStatus）を持たない", () => {
+  const map = discoverSystemContext(LIBRARY);
+  for (const context of map.boundedContexts) {
+    assert.deepEqual(Object.keys(context).sort(), ["id", "isDefaultFallback", "name", "rootPaths"]);
   }
-  for (const context of map.boundedContexts) assert.equal(context.intent.status, "NOT_GENERATED");
-  const result = await sliceScenarios(map, undefined, { llm: unreachableLlm() });
-  assert.equal(result.scenarios.length, 7);
-  for (const scenario of result.scenarios) assert.equal(scenario.intent.status, "NOT_GENERATED");
-
-  const fixed = await sliceScenarios(await discoverSystemContext(LIBRARY, { llm: fixedLlm() }), undefined, { llm: fixedLlm() });
-  assert.deepEqual(result.scenarios.map((s) => s.id), fixed.scenarios.map((s) => s.id));
-});
-
-test("形の合わない答えは INVALID_OUTPUT になり、文で埋めない", async () => {
-  const map = await discoverSystemContext(LIBRARY, { llm: invalidLlm() });
-  for (const command of map.commands) {
-    assert.equal(command.name.status, "NOT_GENERATED");
-    if (command.name.status === "NOT_GENERATED") assert.equal(command.name.reason, "INVALID_OUTPUT");
+  for (const item of [...map.events, ...map.commands, ...map.policies]) assert.equal("name" in item, false);
+  for (const scenario of sliceScenarios(map).scenarios) {
+    assert.equal("intent" in scenario, false);
+    assert.equal("intentStatus" in scenario, false);
+    assert.deepEqual(Object.keys(scenario.inletTrigger).sort(), ["handler", "id"]);
   }
 });
 
-test("LLM のポートを渡さずに切り出すと、意図は NOT_GENERATED（UNREACHABLE）", async () => {
-  const map = await discoverSystemContext(LIBRARY, { llm: fixedLlm() });
-  const result = await sliceScenarios(map);
-  assert.equal(result.scenarios.length, 7);
-  for (const scenario of result.scenarios) {
-    assert.equal(scenario.intent.status, "NOT_GENERATED");
-    if (scenario.intent.status === "NOT_GENERATED") assert.equal(scenario.intent.reason, "UNREACHABLE");
-  }
-});
-
-test("並びは辞書順で、2 回実行して同じ結果になる", async () => {
-  const first = await discoverSystemContext(LIBRARY, { llm: fixedLlm() });
-  const second = await discoverSystemContext(LIBRARY, { llm: fixedLlm() });
+test("並びは辞書順で、2 回実行して同じ結果になる", () => {
+  const first = discoverSystemContext(LIBRARY);
+  const second = discoverSystemContext(LIBRARY);
   assert.deepEqual(first, second);
   const sorted = (ids: string[]): string[] => [...ids].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   assert.deepEqual(first.commands.map((c) => c.id), sorted(first.commands.map((c) => c.id)));
   assert.deepEqual(first.events.map((e) => e.id), sorted(first.events.map((e) => e.id)));
-  const a = await sliceScenarios(first, undefined, { llm: fixedLlm() });
-  const b = await sliceScenarios(second, undefined, { llm: fixedLlm() });
+  const a = sliceScenarios(first);
+  const b = sliceScenarios(second);
   assert.deepEqual(a, b);
   assert.deepEqual(a.scenarios.map((s) => s.id), sorted(a.scenarios.map((s) => s.id)));
 });
@@ -214,8 +154,8 @@ const WEB_APP = repo(
   ["shots/profile.png", "shots/other.png"],
 );
 
-test("Next.js と Firestore: DB の書き込みがコマンドになり、使っている画面とアクターが付く", async () => {
-  const map = await discoverSystemContext(WEB_APP, { llm: fixedLlm() });
+test("Next.js と Firestore: DB の書き込みがコマンドになり、使っている画面とアクターが付く", () => {
+  const map = discoverSystemContext(WEB_APP);
   assert.equal(map.diagnostics.mode, "STATE_SIGNALS");
   assert.deepEqual(map.readModels.map((m) => [m.id, m.route, m.screenshotPath ?? null]), [
     ["RM-app/admin/page.tsx", "/admin", null],
@@ -231,7 +171,7 @@ test("Next.js と Firestore: DB の書き込みがコマンドになり、使っ
   ]);
   assert.deepEqual(map.actors.map((a) => a.id), ["ACT-Caller", "ACT-admin"]);
 
-  const result = await sliceScenarios(map, undefined, { llm: fixedLlm() });
+  const result = sliceScenarios(map);
   const save = result.scenarios.find((s) => s.id === "SCN-CMD-lib/profile.ts#saveProfile");
   assert.ok(save !== undefined);
   assert.deepEqual(save.readModel, {
@@ -246,23 +186,18 @@ test("Next.js と Firestore: DB の書き込みがコマンドになり、使っ
   assert.equal(remove.readModel, undefined, "画面がハンドラを使っていなければ画面を付けない");
 });
 
-test("利用者定義: 画面のルートが全体マップにあれば付け、無ければ rejected に理由を付ける", async () => {
-  const map = await discoverSystemContext(WEB_APP, { llm: fixedLlm() });
-  const result = await sliceScenarios(
-    map,
-    {
-      userDefined: [
-        { inlet: "CMD-lib/profile.ts#removeUser", route: "/admin", intent: "管理者がユーザーを消す" },
-        { inlet: "lib/profile.ts#saveProfile", route: "/nowhere" },
-      ],
-    },
-    { llm: fixedLlm() },
-  );
+test("利用者定義: 画面のルートが全体マップにあれば付け、無ければ rejected に理由を付ける", () => {
+  const map = discoverSystemContext(WEB_APP);
+  const result = sliceScenarios(map, {
+    userDefined: [
+      { inlet: "CMD-lib/profile.ts#removeUser", route: "/admin", intent: "管理者がユーザーを消す" },
+      { inlet: "lib/profile.ts#saveProfile", route: "/nowhere" },
+    ],
+  });
   const remove = result.scenarios.find((s) => s.id === "SCN-CMD-lib/profile.ts#removeUser");
   assert.ok(remove !== undefined);
   assert.equal(remove.origin, "USER_DEFINED");
   assert.equal(remove.userIntent, "管理者がユーザーを消す");
-  assert.equal(remove.intentStatus, "CANDIDATE");
   assert.equal(remove.readModel?.route, "/admin");
   assert.deepEqual(result.rejected.map((r) => r.inlet), ["lib/profile.ts#saveProfile"]);
   // rejected になった起点は抽出側から出る
@@ -279,8 +214,8 @@ const LISTENER = repo({
   "src/wire.ts": 'import { bus } from "./bus.js";\nimport { sendWelcome } from "./mail.js";\nbus.on("user.registered", sendWelcome);\n',
 });
 
-test("リスナー: 発行の名前と一致するリスナーがポリシーになり、起動されるイベントの after にきっかけが入る", async () => {
-  const map = await discoverSystemContext(LISTENER, { llm: fixedLlm() });
+test("リスナー: 発行の名前と一致するリスナーがポリシーになり、起動されるイベントの after にきっかけが入る", () => {
+  const map = discoverSystemContext(LISTENER);
   assert.equal(map.diagnostics.mode, "STATE_SIGNALS");
   assert.deepEqual(map.policies.map((p) => [p.id, p.triggerEventId, p.actionCommandId, p.listener.line]), [
     ["POL-src/wire.ts#<module>@3", "EVT-src/users.ts#register", "CMD-src/mail.ts#sendWelcome", 3],
@@ -290,7 +225,7 @@ test("リスナー: 発行の名前と一致するリスナーがポリシーに
   const registered = map.events.find((e) => e.id === "EVT-src/users.ts#register");
   assert.deepEqual(registered?.signal, { kind: "EVENT_EMIT", callee: "emit", label: "user.registered", line: 3 });
 
-  const result = await sliceScenarios(map, undefined, { llm: fixedLlm() });
+  const result = sliceScenarios(map);
   assert.deepEqual(result.scenarios.map((s) => [s.id, s.inletType, s.expectedEvent]), [
     ["SCN-CMD-src/mail.ts#sendWelcome", "COMMAND", "EVT-src/mail.ts#sendWelcome"],
     ["SCN-CMD-src/users.ts#register", "COMMAND", "EVT-src/users.ts#register"],
@@ -300,25 +235,15 @@ test("リスナー: 発行の名前と一致するリスナーがポリシーに
   assert.equal(policy?.inletTrigger.handler.file, "src/wire.ts", "ポリシーの起点はリスナーの登録の場所");
 });
 
-test("リスナー: ポリシーの識別子と after も LLM の名前によらない", async () => {
-  const base = idsOf(await discoverSystemContext(LISTENER, { llm: fixedLlm() }));
-  assert.deepEqual(idsOf(await discoverSystemContext(LISTENER, { llm: otherLlm() })), base);
-  assert.deepEqual(idsOf(await discoverSystemContext(LISTENER, { llm: unreachableLlm() })), base);
-});
-
-test("選択: filter は抽出したシナリオにだけ効き、利用者定義は同じ起点の抽出を置き換える", async () => {
-  const map = await discoverSystemContext(LISTENER, { llm: fixedLlm() });
-  const result = await sliceScenarios(
-    map,
-    {
-      filter: { inlets: ["CMD-src/users.ts#register"] },
-      userDefined: [
-        { inlet: "src/mail.ts#sendWelcome", intent: "歓迎メールを送る" },
-        { inlet: "src/nope.ts#missing" },
-      ],
-    },
-    { llm: fixedLlm() },
-  );
+test("選択: filter は抽出したシナリオにだけ効き、利用者定義は同じ起点の抽出を置き換える", () => {
+  const map = discoverSystemContext(LISTENER);
+  const result = sliceScenarios(map, {
+    filter: { inlets: ["CMD-src/users.ts#register"] },
+    userDefined: [
+      { inlet: "src/mail.ts#sendWelcome", intent: "歓迎メールを送る" },
+      { inlet: "src/nope.ts#missing" },
+    ],
+  });
   assert.deepEqual(result.scenarios.map((s) => [s.id, s.origin]), [
     ["SCN-CMD-src/mail.ts#sendWelcome", "USER_DEFINED"],
     ["SCN-CMD-src/users.ts#register", "EXTRACTED"],

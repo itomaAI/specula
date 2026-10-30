@@ -4,6 +4,7 @@ import type { SolverPort } from "../ports/SolverPort.js";
 import type { FileSystemPort } from "../ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
 import type { AmbiguityKind, AmbiguityReport, FormalSpecification } from "./formal.js";
+import type { Glossary } from "./glossary.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
 import type { SpecificationView } from "./projection.js";
 import type { EventStormingMap, ExtractionDiagnostics, ScenarioSelection } from "./scenario.js";
@@ -64,6 +65,17 @@ export interface RunReport {
     commandCount: number;
     eventCount: number;
   };
+  /** 辞書の要約（全体設計 2.1）。 */
+  glossary: {
+    presentedCount: number;
+    recordedCount: number;
+    /** 用語が未生成の提示する項目の数（理由の種類ごと）。 */
+    notGenerated: { UNREACHABLE: number; INVALID_OUTPUT: number };
+    /** 資料の数（読んだもの・先頭だけを読んだもの・読まなかったもの）。 */
+    documents: { read: number; truncated: number; omitted: number };
+    /** ずれの種類ごとの件数（Glossary.gaps の 4 つ）。 */
+    gaps: { undocumentedEntries: number; unmatchedDocumentNames: number; sharedTerms: number; multiSourceEntries: number };
+  };
   slice: {
     scenarioCount: number;
     rejected: Array<{ inlet: string; reason: string }>;
@@ -97,6 +109,7 @@ export type ScenarioArtifacts =
 export interface PipelineResult {
   report: RunReport;
   map: EventStormingMap;
+  glossary: Glossary;
   systemViews: { mermaid: SpecificationView; json: SpecificationView };
   scenarios: ScenarioArtifacts[];
 }

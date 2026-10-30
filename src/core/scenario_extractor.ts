@@ -10,7 +10,6 @@
 //   （例: dist/src/index.js → src/index.ts）。見つからなければ src/index.* か index.*。
 // - tsconfig.json と package.json は、コメントと末尾のカンマを許して読む。読めなければ無いものとして扱う。
 
-import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
 import type {
   EventStormingMap,
   ExtractionDiagnostics,
@@ -32,10 +31,7 @@ import {
 import { slice } from "./m0/slice.js";
 
 /** Stage 1〜3: リポジトリの中身から全体マップを作る。 */
-export async function discoverSystemContext(
-  repo: RepositoryArtifacts,
-  deps: { llm: LanguageModelPort },
-): Promise<EventStormingMap> {
+export function discoverSystemContext(repo: RepositoryArtifacts): EventStormingMap {
   const texts = new Map<string, string>();
   for (const file of repo.files) texts.set(file.path, file.text);
   const screenshots = [...(repo.screenshots ?? [])].sort(compareIds);
@@ -72,16 +68,14 @@ export async function discoverSystemContext(
   }
 
   const listeners = detectListeners(parsed, resolver);
-  const core = await assembleMap({
+  const core = assembleMap({
     files: parsed,
-    texts,
     codePaths: parsedPaths,
     boundaries,
     signals,
     listeners,
     screenshots,
     resolver,
-    llm: deps.llm,
   });
 
   const unattributedSignals = [...state.unattributed].sort(
@@ -93,13 +87,9 @@ export async function discoverSystemContext(
   };
 }
 
-/** Stage 4: 全体マップからシナリオを切り出す。LLM が無ければ意図は NOT_GENERATED。 */
-export async function sliceScenarios(
-  map: EventStormingMap,
-  selection?: ScenarioSelection,
-  deps?: { llm: LanguageModelPort },
-): Promise<SliceResult> {
-  return slice(map, selection, deps?.llm);
+/** Stage 4: 全体マップからシナリオを切り出す。 */
+export function sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection): SliceResult {
+  return slice(map, selection);
 }
 
 // ---------------------------------------------------------------------------

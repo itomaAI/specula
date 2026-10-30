@@ -1,12 +1,14 @@
-// 全体の俯瞰図（SYSTEM_MERMAID・SYSTEM_JSON）を描く（M5 の設計 4.4）。
+// 全体の俯瞰図（SYSTEM_MERMAID・SYSTEM_JSON）を描く（SpecProjector の設計 4.4）。
 //
 // ノードは全体マップの並び（events → commands → policies。どれも id の辞書順で渡される）に n1・n2 … と振る。
 // 全体マップの id はハンドラの所在から作られていて実装の所在を含むので、どちらの形式でも表示しない。
-// 名前が未生成の要素は「<種類>（名前は未生成）」と書く（設計 4.4 の「識別子のまま」は、上の理由で種類と番号に置き換えた）。
+// ノードの文と subgraph の題は、辞書でその要素の項目を引いた term.label とする（設計 8.2）。
+// 用語が未生成の要素は「<種類> nN（名前は未生成）」、Bounded Context は「Bounded Context cN（名前は未生成）」と書く（設計 7.6）。
+// 辞書が同じ全体マップから作られたこと（GLOSSARY_STALE）は、呼び出し元（spec_projector.ts）が確かめてある。
 // つながり: コマンド → 発生させるイベント、先に起きるイベント → イベント（after）、イベント → 反応するポリシー、ポリシー → 起動するコマンド。
 // 全体マップに無い id を指すつながりは描かない。
 
-import type { LlmText } from "../../types/index.js";
+import type { Glossary, GlossaryEntry, PresentedEntryKind } from "../../types/glossary.js";
 import type { EventStormingMap } from "../../types/scenario.js";
 import { joinLines, mermaidLabel } from "./escape.js";
 
@@ -17,7 +19,7 @@ interface SystemNode {
   id: string;
   kind: NodeKind;
   label: string;
-  /** Bounded Context の名前。ポリシーは null。 */
+  /** Bounded Context の表示名。ポリシーは null。 */
   context: string | null;
   /** 描画の中だけで使う（subgraph の振り分け）。出力には出さない。 */
   contextId: string | null;
@@ -37,24 +39,39 @@ const EDGE_TEXT: Readonly<Record<EdgeKind, string>> = {
   INVOKES: "起動する",
 };
 
-function nameOf(kind: NodeKind, name: LlmText, n: string): string {
-  if (name.status === "GENERATED") return name.text;
-  return `${KIND_TEXT[kind]} ${n}（名前は未生成）`;
+/** 辞書の提示する項目の表示名。用語が未生成なら null。項目が無いか種類が違えば、辞書と地図の食い違いなので止める。 */
+function labelOf(entries: ReadonlyMap<string, GlossaryEntry>, kind: PresentedEntryKind, mapId: string): string | null {
+  const entry = entries.get(mapId);
+  if (entry === undefined || entry.kind !== kind || entry.term === undefined) {
+    throw new Error(`俯瞰図: 辞書に ${kind} の項目 ${mapId} が無い（辞書と全体マップが食い違っている）`);
+  }
+  return entry.term.status === "GENERATED" ? entry.term.label : null;
 }
 
-function buildGraph(map: EventStormingMap): { nodes: SystemNode[]; edges: SystemEdge[] } {
-  const contextName = new Map(map.boundedContexts.map((context) => [context.id, context.name]));
+function contextTitles(map: EventStormingMap, entries: ReadonlyMap<string, GlossaryEntry>): Map<string, string> {
+  return new Map(
+    map.boundedContexts.map((context, index) => {
+      const label = labelOf(entries, "BOUNDED_CONTEXT", context.id);
+      return [context.id, label ?? `Bounded Context c${index + 1}（名前は未生成）`] as const;
+    }),
+  );
+}
+
+function buildGraph(map: EventStormingMap, glossary: Glossary): { nodes: SystemNode[]; edges: SystemEdge[]; titles: Map<string, string> } {
+  const entries = new Map(glossary.entries.map((entry) => [entry.id, entry] as const));
+  const titles = contextTitles(map, entries);
   const nodeOf = new Map<string, string>();
   const nodes: SystemNode[] = [];
-  const add = (kind: NodeKind, mapId: string, name: LlmText, contextId: string | null): void => {
+  const add = (kind: NodeKind, mapId: string, contextId: string | null): void => {
     const id = `n${nodes.length + 1}`;
     nodeOf.set(`${kind}:${mapId}`, id);
-    const context = contextId === null ? null : (contextName.get(contextId) ?? null);
-    nodes.push({ id, kind, label: `${KIND_TEXT[kind]}: ${nameOf(kind, name, id)}`, context, contextId });
+    const context = contextId === null ? null : (titles.get(contextId) ?? null);
+    const name = labelOf(entries, kind, mapId) ?? `${KIND_TEXT[kind]} ${id}（名前は未生成）`;
+    nodes.push({ id, kind, label: `${KIND_TEXT[kind]}: ${name}`, context, contextId });
   };
-  for (const event of map.events) add("EVENT", event.id, event.name, event.contextId);
-  for (const command of map.commands) add("COMMAND", command.id, command.name, command.contextId);
-  for (const policy of map.policies) add("POLICY", policy.id, policy.name, null);
+  for (const event of map.events) add("EVENT", event.id, event.contextId);
+  for (const command of map.commands) add("COMMAND", command.id, command.contextId);
+  for (const policy of map.policies) add("POLICY", policy.id, null);
 
   const edges: SystemEdge[] = [];
   const link = (fromKey: string, toKey: string, kind: EdgeKind): void => {
@@ -72,18 +89,18 @@ function buildGraph(map: EventStormingMap): { nodes: SystemNode[]; edges: System
     link(`EVENT:${policy.triggerEventId}`, `POLICY:${policy.id}`, "TRIGGERS");
     link(`POLICY:${policy.id}`, `COMMAND:${policy.actionCommandId}`, "INVOKES");
   }
-  return { nodes, edges };
+  return { nodes, edges, titles };
 }
 
-export function renderSystemMermaid(map: EventStormingMap): string {
-  const { nodes, edges } = buildGraph(map);
+export function renderSystemMermaid(map: EventStormingMap, glossary: Glossary): string {
+  const { nodes, edges, titles } = buildGraph(map, glossary);
   const lines: string[] = ["flowchart LR"];
 
   const known = new Set(map.boundedContexts.map((context) => context.id));
   map.boundedContexts.forEach((context, index) => {
     const members = nodes.filter((node) => node.contextId === context.id);
     if (members.length === 0) return;
-    lines.push(`  subgraph c${index + 1}${mermaidLabel(context.name)}`);
+    lines.push(`  subgraph c${index + 1}${mermaidLabel(titles.get(context.id) ?? "")}`);
     for (const node of members) lines.push(`    ${node.id}${mermaidLabel(node.label)}`);
     lines.push("  end");
   });
@@ -94,8 +111,8 @@ export function renderSystemMermaid(map: EventStormingMap): string {
   return joinLines(lines);
 }
 
-export function renderSystemJson(map: EventStormingMap): string {
-  const { nodes, edges } = buildGraph(map);
+export function renderSystemJson(map: EventStormingMap, glossary: Glossary): string {
+  const { nodes, edges } = buildGraph(map, glossary);
   const value = {
     nodes: nodes.map((node) => ({ id: node.id, kind: node.kind, label: node.label, context: node.context })),
     edges: edges.map((edge) => ({ from: edge.from, to: edge.to, kind: edge.kind })),

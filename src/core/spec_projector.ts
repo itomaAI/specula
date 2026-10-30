@@ -6,10 +6,12 @@
 
 import { sha256Hex } from "../lib/sha256.js";
 import type { FormalSpecification } from "../types/formal.js";
+import type { Glossary } from "../types/glossary.js";
 import type { DomainLedgerCatalog } from "../types/ledger.js";
 import type { ProjectionRequest, SpecificationView, SystemProjectionRequest } from "../types/projection.js";
 import { ProjectionContractError } from "../types/projection.js";
 import type { EventStormingMap } from "../types/scenario.js";
+import { mapHashOf } from "./glossary_builder.js";
 import { checkProjectionContract } from "./m5/contract.js";
 import { renderDocument } from "./m5/render_document.js";
 import { renderFlow } from "./m5/render_flow.js";
@@ -56,17 +58,34 @@ export async function projectSpecification(
   };
 }
 
-export function projectSystemMap(map: EventStormingMap, request: SystemProjectionRequest): SpecificationView {
+/**
+ * 全体マップと辞書から俯瞰図を作る。辞書が別の全体マップから作られていたら GLOSSARY_STALE（設計 7.7・8.1）。
+ * 意図の候補（intents）と表示の役割（viewRole）は、IntentSynthesizer と表示の役割を入れるときに足す。
+ */
+export async function projectSystemMap(
+  map: EventStormingMap,
+  glossary: Glossary,
+  request: SystemProjectionRequest,
+): Promise<SpecificationView> {
+  if (request.format !== "SYSTEM_MERMAID" && request.format !== "SYSTEM_JSON") {
+    throw new ProjectionContractError("(system)", "UNSUPPORTED_FORMAT", String(request.format));
+  }
+  const mapHash = await mapHashOf(map);
+  if (glossary.basis.mapHash !== mapHash) {
+    throw new ProjectionContractError(
+      "(system)",
+      "GLOSSARY_STALE",
+      `辞書の mapHash ${glossary.basis.mapHash} が全体マップの ${mapHash} と違う`,
+    );
+  }
   let content: string;
   let mediaType: SpecificationView["mediaType"];
   if (request.format === "SYSTEM_MERMAID") {
-    content = renderSystemMermaid(map);
+    content = renderSystemMermaid(map, glossary);
     mediaType = "text/vnd.mermaid";
-  } else if (request.format === "SYSTEM_JSON") {
-    content = renderSystemJson(map);
-    mediaType = "application/json";
   } else {
-    throw new ProjectionContractError("(system)", "UNSUPPORTED_FORMAT", String(request.format));
+    content = renderSystemJson(map, glossary);
+    mediaType = "application/json";
   }
   return {
     scenarioId: null,

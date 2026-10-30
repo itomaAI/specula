@@ -12,6 +12,7 @@ import { SolverContractError } from "../types/solver.js";
 import type { VerificationOutcome } from "../types/ledger.js";
 import { LedgerContractError } from "../types/ledger.js";
 import { ProjectionContractError } from "../types/projection.js";
+import type { Glossary } from "../types/glossary.js";
 import type { RepositoryArtifacts, ScenarioTarget } from "../types/scenario.js";
 import type {
   PipelineDeps,
@@ -23,6 +24,7 @@ import type {
   StoppedStage,
 } from "../types/run.js";
 import { discoverSystemContext, sliceScenarios } from "./scenario_extractor.js";
+import { buildGlossary } from "./glossary_builder.js";
 import { extractContext } from "./context_extractor.js";
 import { transpileFormal } from "./formal_transpiler.js";
 import { verifySpecification } from "./formal_solver.js";
@@ -65,11 +67,13 @@ export async function runPipeline(
   deps: PipelineDeps,
   options: PipelineOptions = {},
 ): Promise<PipelineResult> {
-  const map = await discoverSystemContext(repo, { llm: deps.llm });
-  const sliced = await sliceScenarios(map, options.selection, { llm: deps.llm });
+  const map = discoverSystemContext(repo);
+  // 1 回の実行に 1 回だけ動く段。契約のエラーは止めずに投げ直す（全体設計 2.1）。
+  const glossary = await buildGlossary(map, repo, { llm: deps.llm });
+  const sliced = sliceScenarios(map, options.selection);
   const systemViews = {
-    mermaid: projectSystemMap(map, { format: "SYSTEM_MERMAID" }),
-    json: projectSystemMap(map, { format: "SYSTEM_JSON" }),
+    mermaid: await projectSystemMap(map, glossary, { format: "SYSTEM_MERMAID" }),
+    json: await projectSystemMap(map, glossary, { format: "SYSTEM_JSON" }),
   };
 
   const results: ScenarioRunResult[] = [];
@@ -95,11 +99,38 @@ export async function runPipeline(
       commandCount: map.commands.length,
       eventCount: map.events.length,
     },
+    glossary: glossarySummaryOf(glossary),
     slice: { scenarioCount: sliced.scenarios.length, rejected: sliced.rejected.map((item) => ({ ...item })) },
     scenarios: results,
     totals: totalsOf(results),
   };
-  return { report, map, systemViews, scenarios: artifacts };
+  return { report, map, glossary, systemViews, scenarios: artifacts };
+}
+
+function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
+  const notGenerated = { UNREACHABLE: 0, INVALID_OUTPUT: 0 };
+  let presentedCount = 0;
+  for (const entry of glossary.entries) {
+    if (entry.scope !== "PRESENTED") continue;
+    presentedCount += 1;
+    if (entry.term !== undefined && entry.term.status === "NOT_GENERATED") notGenerated[entry.term.reason] += 1;
+  }
+  return {
+    presentedCount,
+    recordedCount: glossary.entries.length - presentedCount,
+    notGenerated,
+    documents: {
+      read: glossary.documents.read.length,
+      truncated: glossary.documents.truncated.length,
+      omitted: glossary.documents.omitted.length,
+    },
+    gaps: {
+      undocumentedEntries: glossary.gaps.undocumentedEntries.length,
+      unmatchedDocumentNames: glossary.gaps.unmatchedDocumentNames.length,
+      sharedTerms: glossary.gaps.sharedTerms.length,
+      multiSourceEntries: glossary.gaps.multiSourceEntries.length,
+    },
+  };
 }
 
 async function runScenario(

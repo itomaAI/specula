@@ -42,7 +42,6 @@ export type {
   DomainEvent,
   EventStormingMap,
   ExtractionDiagnostics,
-  IntentStatus,
   Policy,
   ReadModel,
   RepositoryArtifacts,

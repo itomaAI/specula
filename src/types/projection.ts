@@ -38,7 +38,13 @@ export interface SpecificationView {
 export class ProjectionContractError extends Error {
   constructor(
     readonly scenarioId: string,
-    readonly reason: "SCENARIO_MISMATCH" | "UNKNOWN_OPERATION" | "UNKNOWN_STATE_VARIABLE" | "UNSUPPORTED_FORMAT",
+    readonly reason:
+      | "SCENARIO_MISMATCH"
+      | "UNKNOWN_OPERATION"
+      | "UNKNOWN_STATE_VARIABLE"
+      | "UNSUPPORTED_FORMAT"
+      // 辞書の basis.mapHash が、受け取った全体マップのハッシュと違う（SpecProjector の設計 7.7・8.1）
+      | "GLOSSARY_STALE",
     readonly detail: string,
   ) {
     super(`M5 の入力の契約が破れている（${scenarioId}）: ${reason}: ${detail}`);
