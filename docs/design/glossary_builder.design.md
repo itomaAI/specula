@@ -149,3 +149,46 @@ interface Glossary {
 - `IntentSynthesizer`: 提示する項目の `sources`（選ばれた節）を使って、意図の候補の手がかりにする。節を選び直さない。
 - `SpecProjector`: 利用者向けの表示（PdM）では、要素を `term.label` で表す（未生成なら種類と番号で表す）。Eng 向けの表示では、`implementation` を併記する。実装との対応表（`implementation_map.json`）は辞書から作る射影である（全体基本設計書）。
 - 後段のモジュールが辞書の実装の名前を引くときは、`implementation.names` との完全一致で引く。一致しないものを辞書に足さない。
+## 5. 画面の仕様に合わせて変えること（2026-10-31。まだ実装していない）
+
+仕様 1.1・2.2 の変更（用語の所属、意味の抜粋、確定の状態、同義の数え方）を、次の形で実装する。画面の仕様は `spec_viewer.spec.md` にある。
+
+### 5.1 型に足すもの
+```typescript
+type ConfirmationStatus = "NOT_GENERATED" | "CANDIDATE" | "CONFIRMED" | "NEEDS_RECHECK";
+
+interface GlossaryEntry {
+  // …これまでの欄…
+  contextId: string | null;                // 所属の Bounded Context。地図の要素の項目だけが持つ（全体マップの contextId を写す）
+  crossesTo: string | null;                // またいでいる先の Bounded Context。またぐポリシーの項目だけが持つ
+  termStatus: ConfirmationStatus | null;   // 用語の確定の状態。地図の要素の項目だけが持つ
+  excerpt: {                               // 意味（資料の抜粋）。用語の出どころが無ければ null
+    text: string;                          // 出どころの節の本文から切り出した文字列そのもの
+    source: string;                        // 抜粋を取った節（sources の 1 つ）
+    status: ConfirmationStatus;            // 初回は常に "CANDIDATE"
+  } | null;
+}
+
+interface Glossary {
+  gaps: {
+    // …これまでの欄…
+    sharedTerms: Array<{ term: string; contextId: string; entryIds: string[] }>;        // 同じ Bounded Context の中だけ
+    contextHomonyms: Array<{ term: string; entries: Array<{ entryId: string; contextId: string }> }>; // 違う Bounded Context で同じ用語
+  };
+}
+```
+- `ConfirmationStatus` は、IntentSynthesizer・FormalTranspiler・LedgerSynthesizer と同じ型を共有する（`src/types/` に置く）。
+- 用語が `NOT_GENERATED` の項目は `termStatus` も `"NOT_GENERATED"` にする。用語が書けた項目は `"CANDIDATE"` にする。本モジュールが `"CONFIRMED"` と `"NEEDS_RECHECK"` を書くことはない（確定の操作が無いため）。
+
+### 5.2 同義の数え方
+- `sharedTerms` は、同じ `term` が付いた項目を `contextId` ごとに分けて数え、同じ `contextId` の中で 2 件以上のものだけを載せる。
+- 同じ `term` が 2 つ以上の `contextId` に出るものは `contextHomonyms` に載せる。1 つの用語の組が、同じ Bounded Context の中で重なり、かつ別の Bounded Context にも出るときは、`sharedTerms` には同じ Bounded Context の中の組だけを、`contextHomonyms` には Bounded Context ごとに 1 項目ずつを載せ、同じ項目の組を両方に重ねない（仕様 3.2）。
+- Bounded Context が 1 つだけのシステムでは、`contextHomonyms` は常に空である。
+
+### 5.3 抜粋の切り出し方
+- 抜粋は、用語の出どころの節（`sources` の先頭）の本文から機械的に切り出す。LLM は使わない。
+- 切り出し方と長さの上限は、実装のときに決めてここに書く。案: 見出しの直後から最初の空行まで（最初の段落）、上限 400 文字。上限で切ったときは、切ったことが分かる印を付ける。
+- 抜粋の切り出し方は、LLM の記録のキーに入れている抜粋（仕様 3.3）とそろえる。そろえておけば、確定の操作を足したときに、抜粋が変わったこと（要再確認）を記録のキーの変化で見つけられる。
+
+### 5.4 後段の使い方
+- `SpecProjector`・`SpecViewer`: 用語の確定の状態と、意味の抜粋を表示する。用語辞典は `contextId` で区切り、`crossesTo` がある項目は両方の Bounded Context に出す。
