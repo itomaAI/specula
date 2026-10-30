@@ -9,6 +9,7 @@ import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "../types/ledger.js";
 import type { ImplementationMap } from "../types/projection.js";
 import type { RunReport, SystemMapBundle } from "../types/run.js";
+import type { MarkdownBlock } from "./markdown.js";
 
 /**
  * 1 つのファイルを読んだ結果（設計 6.1）。無いのか壊れているのかで表示する理由が違うので、3 通りに分ける。
@@ -169,8 +170,20 @@ export interface ScenarioDetailView {
   issueCount: number | null;
   /** 仕様になったシナリオだけ。論点の id は表示の id（"S-01-L-001"）。 */
   issueGroups: IssueGroupView[] | null;
+  /** 仕様になったシナリオだけ。タブの中身（設計 3.2・6.6）。流れ図は全体地図と同じ配置の関数で別に作る。 */
+  tabs: ScenarioTabsView | null;
   /** 曖昧さで止まった・途中で止まったシナリオで、タブの代わりに出す文。仕様になったシナリオは null。 */
   notice: string | null;
   /** 起点の所在。Eng のときだけある。 */
   inletLocations: GlossaryLocation[] | null;
+}
+
+/** シナリオの詳細のタブ（設計 3.2・6.6）。 */
+export interface ScenarioTabsView {
+  /** 仕様書（spec.md）のブロックの並び。 */
+  document: MarkdownBlock[];
+  /** 操作の一覧表（matrix.md）のブロックの並び。 */
+  matrix: MarkdownBlock[];
+  /** 形式仕様のソース（spec.als から `-- @source:` の行を除いたもの）。Eng のときだけ。 */
+  source: string | null;
 }

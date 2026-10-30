@@ -179,8 +179,11 @@ export type {
   ScenarioListView,
   ScenarioOutputs,
   ScenarioRowView,
+  ScenarioTabsView,
 } from "./viewer/types.js";
 export { checkRunOutputs } from "./viewer/check.js";
 export { buildScenarioDetails, buildScenarioList } from "./viewer/scenarios.js";
+export type { MarkdownBlock } from "./viewer/markdown.js";
+export { parseMarkdown, tableCells } from "./viewer/markdown.js";
 
 export const VERSION = "0.1.0";
