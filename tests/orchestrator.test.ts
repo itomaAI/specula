@@ -152,6 +152,20 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
 
   assert.equal(result.systemViews.mermaid.mediaType, "text/vnd.mermaid");
   assert.equal(result.systemViews.json.mediaType, "application/json");
+
+  // 実装との対応表: シナリオは表示の id の順。曖昧さは止まったシナリオの分、状態変数と論点は最後まで進んだシナリオの分だけ。
+  const entries = result.implementationMap.entries;
+  assert.deepEqual(
+    entries.filter((entry) => entry.kind === "SCENARIO").map((entry) => [entry.displayId, entry.internalId]),
+    result.scenarios.map((scenario) => [scenario.displayId, scenario.scenarioId]),
+  );
+  assert.deepEqual(
+    entries.filter((entry) => entry.kind === "AMBIGUITY").map((entry) => entry.displayId),
+    ["S-02-A-001", "S-02-A-002", "S-02-A-003"],
+  );
+  assert.ok(entries.filter((entry) => entry.kind === "STATE_VARIABLE").every((entry) => entry.displayId.startsWith("S-01-V-")));
+  assert.ok(!entries.some((entry) => entry.displayId.startsWith("S-03-")), "M1 で止まったシナリオはシナリオの行だけ");
+  assert.deepEqual(result.implementationMap.basis, result.glossary.basis);
 });
 
 test("意図の候補を 1 回だけ作り、すべての Bounded Context とシナリオに 1 つずつ載せ、報告に要約を書く", async () => {
