@@ -67,10 +67,10 @@ npm run build:itera # bundle for Itera OS → dist/specula.itera.js
 ### Command line (Node.js)
 
 ```sh
-node dist/src/cli.js <repository dir> --out <output dir> [--alloy-jar <alloy jar>] [--records <llm records dir>]
+node dist/src/cli.js <repository dir> --out <output dir> [--alloy-jar <alloy jar>] [--records <llm records dir>] [--view-role PdM|Eng]
 ```
 
-Without `--alloy-jar`, verification (M3) is skipped and reported as unverified (`NO_SOLVER`). Exit codes: `0` the run finished (findings and ambiguities still give 0), `1` the environment failed, `2` wrong arguments.
+Without `--alloy-jar`, verification (M3) is skipped and reported as unverified (`NO_SOLVER`). `--view-role` chooses who the readable outputs are for: `PdM` (default) shows no file paths, function names, line numbers or code; `Eng` adds the implementation names and locations next to the same text and appends the formal specification source to each `spec.md`. Exit codes: `0` the run finished (findings and ambiguities still give 0), `1` the environment failed, `2` wrong arguments (including a role other than `PdM` or `Eng`).
 
 ### Itera OS
 
@@ -84,10 +84,11 @@ The launcher `itera/specula.html` builds the Itera adapters and runs the same pi
 | `jar` | no | Path of the Alloy 6.2.0 jar **on the user's machine**. Without it, M3 is skipped (`NO_SOLVER`) |
 | `java` | no | `java` command on the user's machine (default `java`) |
 | `connection` | no | Name of the Local Bridge connection (`connections[].name` in the `local_bridge` config). Default: the first enabled one |
+| `viewRole` | no | `PdM` (default) or `Eng`, as `--view-role` on the command line |
 
 - **LLM requests go to the Itera OS agent.** Each request is written to `<out>/llm_exchange/<key>.request.json` and handed to the agent with `MetaOS.ai.task`; the launcher waits (up to 5 minutes per request) for `<out>/llm_exchange/<key>.answer.txt`. Answers that pass the shape check are recorded in `<out>/llm_records`, so a second run asks nothing. An answer that failed the check is not recorded, but its file stays and is read again on the next run; delete that answer file to ask again.
 - **Verification uses the Local Bridge.** The machine needs Java 17 or later, the Alloy jar, and `bash`, `mktemp` and `base64` (Linux, macOS or WSL). When the connection's `execMode` is `ask`, the launcher asks once before the run; if you decline, M3 is skipped. A model larger than about 100 KB after encoding is not sent and is reported as unreachable.
-- The outputs have the same layout as the command line: `run_report.json`, `system_map.mmd`, `system_map.json`, and `scenarios/<id>/…`.
+- The outputs have the same layout as the command line: `run_report.json`, `system_map.mmd`, `system_map.json`, `glossary.json`, `intents.json`, `implementation_map.json` (from the display ids such as `S-01` to the internal ids and the implementation), and `scenarios/<internal id>/…` (`ambiguity.json` and `ambiguity.md` for a scenario stopped by ambiguities).
 
 ---
 
