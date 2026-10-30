@@ -141,7 +141,7 @@ interface SolverPort {
 | アダプター | 環境 | 動き |
 | :-- | :-- | :-- |
 | `CliAlloyAdapter` | Node.js・GitHub Actions | ソースを一時ファイルに書き、`java` で Alloy 6 を子プロセスとして起動し、出力を読む |
-| `LocalBridgeAlloyAdapter` | Itera OS | ローカルブリッジ経由で、手元の PC の `java` で Alloy 6 を起動する。ブラウザの中では Java 製の Alloy を動かせないためである |
+| `LocalBridgeAlloyAdapter` | Itera OS | ローカルブリッジの `/api/exec` を通して、手元の PC の `java` で Alloy 6 を起動する（3.4）。ブラウザの中では Java 製の Alloy を動かせないためである |
 
 ### 3.3 Alloy 6.2.0 のコマンドラインで確かめた事実
 次は、GitHub Actions で Alloy 6.2.0 を実際に動かして確かめた（試しのジョブと、`tests/m3_alloy_integration.test.ts`）。
@@ -166,9 +166,36 @@ interface SolverPort {
 - **実行条件の記録**: `alloyVersion` は `version` の出力（プロセスごとに 1 回取る）、`satSolver` は `receipt.json` の `solver`、`satSolverVersion` は `null`（CLI からは取れない）。
 - **結合テストで見つかった M2 の書き方の直し**（M2 の設計 4.1）: 命題が 1 つも無いとき、子の無い `abstract sig Prop` が空に制約されず、`Env.holds` に名前の無い原子が入った。M2 は `fact NoProp { no Prop }` を書くようにした。負の整数の `minus[0, n]` は、いちばん小さい整数のとき範囲の外の `n` を使い、あふれを禁じる（`-n`）と充足できなくなった。M2 と M3（2.3）は負の整数をリテラルで書くようにした。
 
-### 3.4 未確定の事項
-- `LocalBridgeAlloyAdapter` がローカルブリッジのどの口を呼ぶかは、まだ決まっていない。決まるまで、どの依頼にも `UNREACHABLE` を返し、Itera OS からの実行では M3 が `UNVERIFIED` になる。
-- ローカルブリッジは中瀬古様の手元で用意していただく。用意していただくもの: Java 17 以上、Alloy 6.2.0 の jar（SHA-256 は 3.3）とその置き場所、`java` のパス。呼び方は 3.3 の `exec` の形をそのまま使い、`receipt.json` の読み取りは `CliAlloyAdapter` と共通にする。
+### 3.4 `LocalBridgeAlloyAdapter` の呼び方
+アダプターの依存と、起動アプリでの確認は、全体設計 4.1 に書いた。ここには M3 に関わる部分だけを書く。
+
+- **口**: ローカルブリッジのサーバーの `POST <serverUrl>/api/exec` を呼ぶ。本文は `{ command, scope: "host", timeout }`。返り値は `{ exitCode, stdout, stderr, cwd, durationMs }` で、コマンドは手元の PC で `bash -lc <command>` として動く。認証は無い。exec を止めて起動したサーバーは 403 を返す。
+- **コマンドの形**: 1 回の依頼を、次の 1 本のコマンドにする。パスとコマンド名は単一引用符で囲む。
+  ```
+  d=$(mktemp -d); trap 'rm -rf "$d"' EXIT
+  printf '%s' '<ソースの base64>' | base64 -d > "$d/model.als"
+  '<java>' -jar '<jar>' exec -f -q [-n] -s '<SAT ソルバ>' -c '<コマンド名>' -o "$d/out" -t json "$d/model.als"
+  echo "<<<SPECULA-EXIT $?>>>"; cat "$d/out/receipt.json" 2>/dev/null
+  echo "<<<SPECULA-SOLUTION>>>"; cat "$d/out/<コマンド名>-solution-0.json" 2>/dev/null
+  ```
+  - `exec` の選択肢は 3.3 と同じである。
+  - 標準出力は 3 つに分かれる。1 つ目の目印の行の前が Alloy 自身の出力、2 つの目印の行のあいだが `receipt.json`、2 つ目の目印の行の後ろが実例のファイルである（解が無ければ空）。
+  - アダプターは目印の行で分ける。receipt と実例の読み取り、`ENGINE_ERROR` の `message` の取り出しは、`CliAlloyAdapter` と同じ関数で行う。
+  - 版は、プロセスごとではなくアダプターごとに 1 回、`'<java>' -jar '<jar>' version` で取る。
+- **結果の対応**:
+
+| 観測 | 結果 |
+| :-- | :-- |
+| 通信の失敗、HTTP の誤り、403 | `UNREACHABLE` |
+| ブリッジの `exitCode` が 124（時間切れ。stderr の末尾に `[timeout Ns]`） | `TIMEOUT` |
+| Java の終了コードが 127、または stderr に `Unable to access jarfile` | `UNREACHABLE` |
+| Java の終了コードが 0 で、receipt が無い | `ENGINE_ERROR` |
+| Java の終了コードが 0 以外 | `ENGINE_ERROR`（`message` は 3.3 と同じ取り出し方） |
+| Java の終了コードが 0 で、receipt がある | 3.3 と同じ読み取り |
+
+- **時間切れ**: ブリッジの `timeout` は `ceil(timeoutMs / 1000)` 秒で、上限は 600 秒である。通信が止まったときのために、アダプターの側でも `timeoutMs` に 30 秒を足した時間で待つのをやめ、`TIMEOUT` を返す。
+- **大きさの上限**: コマンドの文字列が 100,000 バイトを超えたら送らずに `UNREACHABLE` を返し、理由に大きさを書く。Linux では 1 つの引数が 128 KiB までのためである。
+- **手元の PC の用意**: ローカルブリッジは中瀬古様の手元で用意していただく。用意していただくもの: Java 17 以上、Alloy 6.2.0 の jar（SHA-256 は 3.3）とその置き場所、`java` のパス。用意ができるまで、Itera OS からの実行では M3 が `UNVERIFIED` になる。
 
 ---
 

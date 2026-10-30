@@ -121,7 +121,8 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
    - エンジンは外部プロセスとして実行し、コアは `SolverPort` を介して呼び出す。アダプターは、Itera OS からローカルブリッジ経由で手元のマシンの Alloy 6 を起動するもの（`LocalBridgeAlloyAdapter`）と、CI / Node.js から `java` で直接起動するもの（`CliAlloyAdapter`）の 2 つとする。
    - Alloy から SAT への変換部を自前で持ち、WebAssembly 版などの同じ SAT ソルバをどの環境でも使う構成は、将来の選択肢として残す（処理能力の低いマシンで WebAssembly の実行が難しい場合があるため、現時点では作らない）。
 3. **LLM**:
-   - コアは `LanguageModelPort` を介して LLM を呼ぶ。アダプターは、Itera OS から呼ぶもの（`IteraLlmAdapter`）と、Claude Code CLI を起動するもの（`ClaudeCodeCliAdapter`）の 2 つとする。当面は Itera OS から呼ぶ。
+   - コアは `LanguageModelPort` を介して LLM を呼ぶ。アダプターは、Itera OS 版で使うもの（`IteraLlmAdapter`）と、Standalone 版で Claude Code CLI を起動するもの（`ClaudeCodeCliAdapter`）の 2 つとする。
+   - Itera OS 版は利用者それぞれの Itera OS に app として配り、LLM を直接呼ばない。`IteraLlmAdapter` は、LLM の依頼をその Itera OS の AI エージェントに内部のタスクとして渡し、答えをファイルで受け取る（`system_solution.design.md` の 4.1）。
    - LLM に届かないときは、その項目を「未生成」として出力し、機械的に作った文や名前で埋めない。
 4. **データ永続化**:
    - 形式仕様言語コードを唯一の仕様正本として永続化する。
