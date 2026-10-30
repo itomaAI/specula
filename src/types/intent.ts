@@ -1,20 +1,21 @@
 // IntentSynthesizer（意図の候補）の出力の型（IntentSynthesizer の設計 3）。
 
-import type { LlmText } from "./index.js";
+import type { ConfirmationStatus, LlmText } from "./index.js";
 
-/** 意図の確定の状態。初回の実行ではすべて CANDIDATE。CONFIRMED にするのは人間（PdM）で、本モジュールはしない。 */
-export type IntentStatus = "CANDIDATE" | "CONFIRMED";
+// intentStatus は、用語などと共有する確定の状態（IntentSynthesizer の設計 3）。
+// intent が GENERATED なら CANDIDATE、NOT_GENERATED なら NOT_GENERATED。
+// CONFIRMED と NEEDS_RECHECK は確定の操作で付けるもので、本モジュールは書かない。
 
 export interface ContextIntent {
   contextId: string;
   intent: LlmText;
-  intentStatus: IntentStatus;
+  intentStatus: ConfirmationStatus;
 }
 
 export interface ScenarioIntent {
   scenarioId: string;
   intent: LlmText;
-  intentStatus: IntentStatus;
+  intentStatus: ConfirmationStatus;
   /** ScenarioTarget.userIntent をそのまま写す（利用者定義のシナリオで、利用者が書いたときだけ）。 */
   userIntent?: string;
 }

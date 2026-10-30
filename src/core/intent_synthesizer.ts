@@ -7,7 +7,7 @@
 //   資料も確かめるのは、節の識別子で資料から本文を切り出すため。資料が違うと、黙って別の本文を渡してしまう。
 // - LLM が無ければ、すべての候補を NOT_GENERATED（UNREACHABLE）にする。機械的に作った文で埋めない。
 
-import type { JsonValue, LlmText } from "../types/index.js";
+import type { ConfirmationStatus, JsonValue, LlmText } from "../types/index.js";
 import type { EventStormingMap, RepositoryArtifacts, SliceResult } from "../types/scenario.js";
 import type { Glossary } from "../types/glossary.js";
 import type { ContextIntent, IntentCatalog, ScenarioIntent } from "../types/intent.js";
@@ -97,7 +97,8 @@ export async function synthesizeIntents(
       filePaths: contextFilesOf(map, context.id),
       excerpts: excerptsOf(sourcesOf(context.id)),
     };
-    contexts.push({ contextId: context.id, intent: await ask(deps.llm, "context", input), intentStatus: "CANDIDATE" });
+    const intent = await ask(deps.llm, "context", input);
+    contexts.push({ contextId: context.id, intent, intentStatus: statusOf(intent) });
   }
 
   const eventById = new Map(map.events.map((event) => [event.id, event] as const));
@@ -119,10 +120,11 @@ export async function synthesizeIntents(
       route: scenario.readModel?.route ?? null,
       excerpts: excerptsOf(sections),
     };
+    const text = await ask(deps.llm, "scenario", input);
     const intent: ScenarioIntent = {
       scenarioId: scenario.id,
-      intent: await ask(deps.llm, "scenario", input),
-      intentStatus: "CANDIDATE",
+      intent: text,
+      intentStatus: statusOf(text),
     };
     if (scenario.userIntent !== undefined) intent.userIntent = scenario.userIntent;
     scenarios.push(intent);
@@ -136,4 +138,9 @@ async function ask(llm: LanguageModelPort | undefined, kind: keyof typeof TASKS,
   const { task, what } = TASKS[kind];
   const result = await llm.generate({ task, promptVersion: INTENT_PROMPT_VERSION, instructions: `${what} ${RULES}`, input }, intentCheck);
   return result.status === "GENERATED" ? { ...result, text: result.text.trim() } : result;
+}
+
+/** 確定の状態。確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（設計 3。GlossaryBuilder の termStatus と同じ規則）。 */
+function statusOf(intent: LlmText): ConfirmationStatus {
+  return intent.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED";
 }

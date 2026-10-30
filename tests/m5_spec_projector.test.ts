@@ -133,7 +133,14 @@ const GLOSSARY = glossaryWith({ status: "GENERATED", term: "CloseOrder", label: 
 function intentsWith(intent: LlmText, userIntent?: string): IntentCatalog {
   return {
     contexts: [],
-    scenarios: [{ scenarioId: SCENARIO_ID, intent, intentStatus: "CANDIDATE", ...(userIntent === undefined ? {} : { userIntent }) }],
+    scenarios: [
+      {
+        scenarioId: SCENARIO_ID,
+        intent,
+        intentStatus: intent.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED",
+        ...(userIntent === undefined ? {} : { userIntent }),
+      },
+    ],
     basis: BASIS,
   };
 }
