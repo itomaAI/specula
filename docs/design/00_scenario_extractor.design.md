@@ -153,11 +153,25 @@ LLM が作る文字列は、全体基本設計書で定める `LlmText`（生成
 ### 4.0 入力 (`RepositoryArtifacts`)
 ```typescript
 interface RepositoryArtifacts {
-  files: Array<{ path: string; text: string }>; // テキストのファイルだけ。path はリポジトリのルートからの相対パス（"/" 区切り）
+  files: Array<{ path: string; text: string }>; // コードと設定のファイル。path はリポジトリのルートからの相対パス（"/" 区切り）
+  documents: Array<{                            // 仕様の資料（2026-10-30 に足した。使い方は 3.5）
+    path: string;
+    kind: "README" | "DOC" | "SCHEMA";
+    text: string;
+    truncated: boolean;                         // 上限を超えたので先頭だけを渡したとき true
+  }>;
   screenshots?: string[];                       // 画面画像のパス
 }
 ```
 ファイルを読むのは呼び出し元（アダプターの側）であり、コアはファイルを読まない。どのファイルを渡すかも呼び出し元が決める。`package.json` と `tsconfig.json` は、`files` に入っていれば読む。
+
+`documents` に入れる資料は、Node.js 版と Itera OS 版のリーダー（`NodeRepositoryReader`・`IteraRepositoryReader`）が同じ規則で集める。
+- `README`: 名前が `README`・`README.md`・`README.mdx`（大文字小文字を区別しない）のファイル。リポジトリの直下と、コンテキストの根（4.3 の「コンテキストの境界」）の直下にあるもの。
+- `DOC`: `docs/`・`doc/` の下の `.md`・`.mdx`。
+- `SCHEMA`: `.sql`・`.prisma`・`.graphql`・`.gql` のファイル。
+- 除くもの: `node_modules/`・`.git/`・`tsconfig.json` の `outDir` の下・`tests/`・`__tests__/` の下。`CHANGELOG`・`LICENSE` は資料に入れない。
+- 上限: 1 ファイル 64 KB（超えたら先頭の 64 KB だけを渡し、`truncated` を true にする）、合計 2 MB（パスの辞書順に入れ、超えたところで止める。止めたことは `diagnostics` に残す）。
+- 資料が 1 つも無いときは `documents` を空にする。空でも M0 はこれまでどおり動く。
 
 ### 4.1 全体マップ形式 (`EventStormingMap`)
 ```typescript
