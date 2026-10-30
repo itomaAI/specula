@@ -8,9 +8,9 @@
 
 ### 1.1 全体設計制約の適用
 - **配置場所**: `specula/src/core/spec_projector.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
-- **Zero-I/O Core の遵守**: ファイルの読み書きも画面の操作もしない。形式仕様正本・論点カタログ・全体マップを受け取り、ビューの文字列を返す。
+- **Zero-I/O Core の遵守**: ファイルの読み書きも画面の操作もしない。形式仕様正本・論点カタログ・曖昧性レポート・全体マップ・辞書・意図の候補を受け取り、ビューの文字列と実装との対応表を返す。
 - **依存方向の一方向性**: `src/ports/` と `src/types/` だけを参照する。
-- **LLM を使わない**: 射影はすべて決定論的に行う（全体設計 1.2）。LLM が作った文（表示名、論点の文）は、FormalTranspiler と LedgerSynthesizer が記録したものを表示するだけである。
+- **LLM を使わない**: 射影はすべて決定論的に行う（全体設計 1.2）。LLM が作った文（用語、表示名、意図の候補、論点の文、質問の文）は、GlossaryBuilder・IntentSynthesizer・FormalTranspiler・LedgerSynthesizer が記録したものを表示するだけである。
 - **テストコードは作らない**: 仕様からテストコードを作る処理は、別のツールの責務である（仕様 1.2）。
 
 ### 1.2 公開する関数
@@ -18,34 +18,53 @@
 projectSpecification(
   spec: FormalSpecification,
   ledger: DomainLedgerCatalog | null,
+  context: ProjectionContext,
   request: ProjectionRequest,
+): Promise<SpecificationView>;
+
+projectAmbiguities(
+  report: AmbiguityReport,
+  context: ProjectionContext,
+  request: ProjectionRequest,             // format は "AMBIGUITY_DOCUMENT"
 ): Promise<SpecificationView>;
 
 projectSystemMap(
   map: EventStormingMap,
-  request: { format: "SYSTEM_MERMAID" | "SYSTEM_JSON" },
-): SpecificationView;
+  glossary: Glossary,
+  intents: IntentCatalog | null,
+  request: SystemProjectionRequest,
+): Promise<SpecificationView>;
+
+projectImplementationMap(
+  map: EventStormingMap,
+  glossary: Glossary,
+  scenarios: ImplementationMapInput[],
+): Promise<ImplementationMap>;
 ```
 - `projectSpecification` は、シナリオ 1 つのビューを作る。`ledger` が `null` のときは、論点の節に「論点カタログが無い」と書く（LedgerSynthesizer を実行していないため）。
-- `projectSystemMap` は、ScenarioExtractor の全体マップからシステム全体の俯瞰図を作る。シナリオの単位では作れない図（コマンド・イベント・ポリシーのつながり）なので、別の関数にする。
-- `projectSpecification` が非同期なのは、正本のソースの SHA-256 を Web Crypto で計算するためである（3.3。全体設計 1.3 と同じ方法）。
-- 入力の契約が破れているとき（表現形式が対応外、`ledger.scenarioId` が `spec.scenarioId` と違う、論点が `spec` に無い操作や状態変数の識別子を指す）は、例外 `ProjectionContractError` にする（理由の一覧は 7.7）。カタログが古いこと（3.3）は契約違反ではなく、ビューの中で知らせる。
+- `projectAmbiguities` は、FormalTranspiler の `AmbiguityReport` で止まったシナリオの曖昧さの一覧を作る（8.4）。
+- `projectSystemMap` は、ScenarioExtractor の全体マップと辞書からシステム全体の俯瞰図を作る。シナリオの単位では作れない図（コマンド・イベント・ポリシーのつながり）なので、別の関数にする。
+- `projectImplementationMap` は、表示の id から内部の識別子と実装の名前・所在を引く対応表を作る（8.5）。表示の役割に関係なく作る。
+- どれも非同期なのは、正本のソースと全体マップの SHA-256 を Web Crypto で計算するためである（3.3・8.1。全体設計 1.3 と同じ方法）。
+- 入力の契約が破れているとき（表現形式が対応外、`ledger.scenarioId` が `spec.scenarioId` と違う、論点が `spec` に無い操作や状態変数の識別子を指す、辞書が別の全体マップから作られている）は、例外 `ProjectionContractError` にする（理由の一覧は 7.7）。カタログが古いこと（3.3）は契約違反ではなく、ビューの中で知らせる。
 
 ### 1.3 構成
 ```
-[FormalSpecification] + [DomainLedgerCatalog | null] + [ProjectionRequest]
+[FormalSpecification] + [DomainLedgerCatalog | null] + [ProjectionContext] + [ProjectionRequest]
       │
       ▼
 [ContractGuard]         ── 入力の契約を確かめる（破れていれば例外）
       │
       ▼
-[ViewModelBuilder]      ── 表示名の解決、検証の状態、論点、古さの判定を 1 つの中間表現にまとめる（3 節）
-      │
+[ViewModelBuilder]      ── 表示名・用語の解決、検証の状態、論点、古さの判定、
+      │                    表示の役割による実装の併記を 1 つの中間表現にまとめる（3 節・8 節）
       ├──➔ [DocumentRenderer]  ➔ Markdown の仕様書（4.1）
       ├──➔ [MatrixRenderer]    ➔ 操作の一覧表（Markdown の表。4.2）
       └──➔ [FlowRenderer]      ➔ 操作ごとの流れ図（Mermaid。4.3）
 
-[EventStormingMap] ──➔ [SystemMapRenderer] ➔ 全体の俯瞰図（Mermaid または JSON。4.4）
+[AmbiguityReport] + [ProjectionContext] ──➔ [AmbiguityRenderer] ➔ 曖昧さの一覧（Markdown。8.4）
+[EventStormingMap] + [Glossary] + [IntentCatalog | null] ──➔ [SystemMapRenderer] ➔ 全体の俯瞰図（Mermaid または JSON。4.4）
+[EventStormingMap] + [Glossary] + [各シナリオの結果] ──➔ [ImplementationMapBuilder] ➔ 実装との対応表（JSON。8.5）
 ```
 - **すべてのビューを同じ中間表現から作る。** 表示名の解決や「未決」「未検証」の判定を描画ごとに書くと、ビューどうしで表示が食い違うためである。描画の部品は、中間表現を文字列にするだけにする。
 
@@ -59,7 +78,7 @@ projectSystemMap(
 | 検証の状態（検査済みか未検証か）を、論点より前に書く | 未検証の報告を、反例が無かった報告と読み違えないようにするため（FormalSolver の設計 4.1） |
 | 表示名が未生成の項目は、識別子のまま「表示名は未生成」と書く | 実装の名前や定型文で埋めると、LLM の結果と見分けが付かなくなるため（FormalTranspiler の設計 4.2） |
 | LLM の文が未生成の論点は、文の欄に「未生成」と理由を書く | 同じ理由（LedgerSynthesizer の設計 5 節） |
-| 正本のソースを付録に載せるときは、`-- @source:` の行を取り除く | 実装の所在を公開の仕様に出さないため（FormalTranspiler の設計 4.1） |
+| 正本のソースの付録は、表示の役割が Eng のときだけ載せる。載せるときも `-- @source:` の行を取り除く | 正本のソースは識別子と実装の所在を含み、PdM 向けの表示から実装の名前を外すため（全体設計 2.2・8.3）。所在は対応表（8.5）で引けるので、付録には重ねて書かない（FormalTranspiler の設計 4.1） |
 | 状態として検証していない変更（`dataMutations`）は、操作ごとにその旨を書く | データベースへの変更は FormalSolver の検査の対象に入っていないため（FormalTranspiler の設計 2.1） |
 | 不変条件の節には「初回は作らない」と書く | 不変条件が無いことを、不変条件を満たしていることと読み違えないようにするため（FormalTranspiler の設計 3.3） |
 
@@ -119,14 +138,15 @@ projectSystemMap(
 
 ### 4.1 仕様書（DOCUMENT）
 Markdown で、次の順に節を置く。
-1. 題（シナリオの識別子）と、カタログが古いときの注意（3.3）
+1. 題と、カタログが古いときの注意（3.3）。題は「〈表示の id〉 〈起点の用語〉」（例: 「S-01 注文を確定する」）とする。表示の id は `context.displayId`、起点の用語は、辞書で起点のコマンドまたはポリシーの項目（`context.scenario.inletTrigger.id` と同じ id の項目）を引いた `term.label`（8.2）。用語が未生成なら「〈表示の id〉（名前は未生成）」とする。シナリオの内部の識別子は題に出さない（全体設計 2.2）
 2. 検証の状態（3.4）
-3. 状態: 状態変数の表（表示名、値の種類、とりうる値、初期値）と、「直前の操作の結果」も状態に含むこと
-4. 環境が決める条件: 命題の表（表示名）。命題は、各時点で環境が自由に決める条件であること（FormalTranspiler の設計 2.3）を一文で書く
-5. 操作: 操作ごとに、表示名、条件と書き込みの文（3.2。経路の順）、結果（3.1）、状態として検証していない変更
-6. 不変条件: 「初回は作らない」
-7. 論点（3.5）
-8. 付録: 形式仕様のソース（`-- @source:` の行を取り除いたもの）。囲みの記号は、ソースの中の最も長いバッククォートの並びより 1 つ長くする
+3. 意図の候補: `context.intents` からこのシナリオの候補を引き、「候補」と明記して書く（IntentSynthesizer が LLM で作った推測であり、人が確かめていないため）。`context.intents` が `null` か、このシナリオの候補が無ければ「意図の候補が無い」と書く
+4. 状態: 状態変数の表（表示名、値の種類、とりうる値、初期値）と、「直前の操作の結果」も状態に含むこと
+5. 環境が決める条件: 命題の表（表示名）。命題は、各時点で環境が自由に決める条件であること（FormalTranspiler の設計 2.3）を一文で書く
+6. 操作: 操作ごとに、表示名、条件と書き込みの文（3.2。経路の順）、結果（3.1）、状態として検証していない変更
+7. 不変条件: 「初回は作らない」
+8. 論点（3.5）
+9. 付録（表示の役割が Eng のときだけ。2 節）: 形式仕様のソース（`-- @source:` の行を取り除いたもの）。囲みの記号は、ソースの中の最も長いバッククォートの並びより 1 つ長くする。PdM のときは付録の節を置かない
 
 ### 4.2 操作の一覧表（MATRIX）
 - 行を操作、列を「表示名」「実行できる条件」「結果」「状態の変化」「状態として検証していない変更」「関わる論点」とする Markdown の表にする。
@@ -140,31 +160,74 @@ Markdown で、次の順に節を置く。
 
 ### 4.4 全体の俯瞰図（SYSTEM_MERMAID・SYSTEM_JSON）
 - ScenarioExtractor の全体マップの、Bounded Context・コマンド・ドメインイベント・ポリシーと、そのつながり（コマンドが発生させるイベント、イベントの `after`、ポリシーが反応するイベントと起動するコマンド）を図にする。
-- `SYSTEM_MERMAID` は、Bounded Context ごとに `subgraph` を作る。ノードの識別子は全体マップの並び順に `n1`・`n2` … と振り、表示する文は 4.3 と同じ規則で置き換える。名前が未生成の要素は、全体マップの id を出さずに「〈種類〉 nN（名前は未生成）」と書く（7.6）。`subgraph` への振り分けは要素の `contextId` で行う。
-- `SYSTEM_JSON` は `{ nodes: [{ id, kind, label, context }], edges: [{ from, to, kind }] }` の形にする（DAG Viewer で読むため）。キーの並びと配列の並びは決まった順にする。
+- `SYSTEM_MERMAID` は、Bounded Context ごとに `subgraph` を作る。ノードの識別子は全体マップの並び順に `n1`・`n2` … と振り、表示する文は 4.3 と同じ規則で置き換える。`subgraph` への振り分けは要素の `contextId` で行う。
+- ノードの文は、辞書でその要素の項目を引いた `term.label` とする（8.2）。用語が未生成の要素は、全体マップの id を出さずに「〈種類〉 nN（名前は未生成）」と書く（7.6）。
+- `subgraph` の題も、辞書で `BOUNDED_CONTEXT` の項目を引いた `term.label` とする。いまの実装は `DEFAULT_CONTEXT` のような実装の名前を題に出しているので、これをやめる。用語が未生成なら「Bounded Context cN（名前は未生成）」と書く（`cN` は Bounded Context の並び順に振る）。
+- 表示の役割が Eng のときは、ノードの文の後ろに「 / 〈ファイル〉#〈関数〉」を足す（8.3）。PdM のときは足さない。
+- `SYSTEM_JSON` は `{ nodes: [{ id, kind, label, context, intent, implementation }], edges: [{ from, to, kind }] }` の形にする（DAG Viewer で読むため）。`intent` は IntentSynthesizer の候補の文（`intents.contexts[].intent` が `GENERATED` のときの文）で、Bounded Context のノードだけに置く。候補が無いか未生成なら `null` にし、ほかの種類のノードには置かない。シナリオの意図の候補は俯瞰図に載せず、シナリオごとの仕様書（4.1）に書く。俯瞰図は `ScenarioTarget` を受け取らず、起点 1 つが複数のシナリオに分かれることもあるので、コマンドのノードに意図を 1 つ決められないためである（8.6）。`implementation` は表示の役割が Eng のときだけ置き（`{ names, locations }`。辞書の項目の `implementation` を写す）、PdM のときはキーごと置かない。キーの並びと配列の並びは決まった順にする。
 
 ---
 
 ## 5. 型
 
 ```typescript
+type ViewRole = "PdM" | "Eng";            // 既定は PdM（全体設計 2.2）
+
 interface ProjectionRequest {
-  format: "DOCUMENT" | "MATRIX" | "FLOW";
+  format: "DOCUMENT" | "MATRIX" | "FLOW" | "AMBIGUITY_DOCUMENT";
+  viewRole: ViewRole;
+  displayId: string;                      // シナリオの表示の id（"S-01"）。オーケストレーターが切り出しの順に振る
+}
+
+interface SystemProjectionRequest {
+  format: "SYSTEM_MERMAID" | "SYSTEM_JSON";
+  viewRole: ViewRole;
+}
+
+interface ProjectionContext {
+  scenario: ScenarioTarget;               // 起点と期待するイベントの、辞書の項目を引くため
+  glossary: Glossary | null;              // null のときは、地図の要素をすべて「名前は未生成」として表す
+  intents: IntentCatalog | null;          // null のときは「意図の候補が無い」と書く
+}
+
+interface ImplementationMapInput {
+  displayId: string;
+  scenario: ScenarioTarget;
+  spec: FormalSpecification | null;       // FormalTranspiler で止まったシナリオは null
+  ambiguity: AmbiguityReport | null;      // 曖昧さで止まったときだけある
+}
+
+interface ImplementationMap {
+  entries: Array<{
+    displayId: string;                    // "S-01"・"S-01-A-001"・俯瞰図のノードの "n1" など
+    kind: "SCENARIO" | "AMBIGUITY" | "BOUNDED_CONTEXT" | "COMMAND" | "EVENT" | "POLICY" | "STATE_VARIABLE";
+    internalId: string;                   // シナリオの id、地図の要素の id、状態変数の識別子など
+    glossaryEntryId: string | null;       // 辞書の項目の id。実装の名前が辞書と一致しなければ null（8.5）
+    implementation: {
+      names: string[];
+      locations: Array<{ file: string; symbol?: string; line?: number }>;
+    };
+  }>;                                     // 8.5 の順
+  basis: { mapHash: string; documentsHash: string }; // 元にした辞書の basis をそのまま写す
 }
 
 interface SpecificationView {
-  scenarioId: string | null;              // 全体の俯瞰図は null
-  format: "DOCUMENT" | "MATRIX" | "FLOW" | "SYSTEM_MERMAID" | "SYSTEM_JSON";
+  scenarioId: string | null;              // 内部の識別子。ファイルの置き場所を決めるため。全体の俯瞰図は null
+  displayId: string | null;               // 表示の id。全体の俯瞰図は null
+  viewRole: ViewRole;
+  format: "DOCUMENT" | "MATRIX" | "FLOW" | "AMBIGUITY_DOCUMENT" | "SYSTEM_MERMAID" | "SYSTEM_JSON";
   mediaType: "text/markdown" | "text/vnd.mermaid" | "application/json";
   content: string;
   basis: {
-    specSourceHash: string | null;        // いまの正本のソースの SHA-256。全体の俯瞰図は null
+    specSourceHash: string | null;        // いまの正本のソースの SHA-256。全体の俯瞰図と曖昧さの一覧は null
     ledgerReportId: string | null;        // 元にした論点カタログの basis.reportId
     ledgerIsStale: boolean | null;        // カタログが古いか（3.3）。カタログが無ければ null
   };
 }
 ```
 - ビューは正本ではない。保存するのはオーケストレーターの判断だが、いつでも正本から作り直せるものとして扱う（仕様 1.2）。
+- `SpecificationView.scenarioId` は内部の識別子だが、ビューの `content` には出さない。オーケストレーターが出力のディレクトリを決めるためだけに使う（全体設計 4.1）。
+- `projectSystemMap` と `projectImplementationMap` の `glossary` は `null` を受け付けない。GlossaryBuilder が契約のエラーで止まったときは、パイプラインが実行を止めるためである（全体設計 2.1）。シナリオの射影の `context.glossary` が `null` になるのは、単体で呼んだときと試験のときだけである。
 
 ---
 
@@ -209,7 +272,7 @@ interface SpecificationView {
 - **書き込みの条件**: 3.2 の「〈条件〉のとき、」は、条件の文をかぎかっこで囲んで「「〈条件〉」のとき、」とする。条件の文が「成り立たない」で終わるとき、そのまま「のとき」を付けると読みにくいためである。
 - **一覧表の条件と書き込み**: 4.2 の「実行できる条件」と「状態の変化」の列では、各項目の前に経路の位置「(n)」を付ける。条件は前の書き込みを反映した値についての文なので（3.2）、セルの中でも順番が分かるようにする。
 - **Mermaid の文**: 4.3 の置き換えに加えて、`<` を `#lt;`、`>` を `#gt;` にする。
-- **流れ図の起点**: 起点のノードの文は「シナリオ 〈シナリオの識別子〉 の起点」とする。
+- **流れ図の起点**: 起点のノードの文は「シナリオ 〈表示の id〉 の起点」（例: 「シナリオ S-01 の起点」）とする。シナリオの内部の識別子は、起点のファイルと関数を含むので出さない（2026-10-30 に「〈シナリオの識別子〉」から変えた。8.6）。
 
 ### 7.5 従属する反例
 - 3.5 の「従属する反例の件数と種類」は、件数だけを出すことにした。SpecProjector は FormalSolver の報告を受け取らず、論点の `dependentFindings` は FormalSolver の `findings` の中の位置なので、SpecProjector からは種類を引けないためである。
@@ -219,10 +282,64 @@ interface SpecificationView {
 - `subgraph` への振り分けは、要素の `contextId` で行う。
 
 ### 7.7 入力の契約
-`ProjectionContractError` の理由は次の 4 つにした（1.2 の 2 つに 2 つを足した）。
+`ProjectionContractError` の理由は次の 5 つにした（1.2 の 2 つに 2 つを足し、2026-10-30 に辞書の照合の 1 つを足した）。
 | 理由 | 起きるとき |
 | :-- | :-- |
-| `UNSUPPORTED_FORMAT` | 表現形式が `DOCUMENT`・`MATRIX`・`FLOW` のどれでもない（仕様 3.1） |
-| `SCENARIO_MISMATCH` | `ledger.scenarioId` が `spec.scenarioId` と違う |
+| `UNSUPPORTED_FORMAT` | 表現形式が関数の受け付けるものでない。`projectSpecification` は `DOCUMENT`・`MATRIX`・`FLOW`、`projectAmbiguities` は `AMBIGUITY_DOCUMENT`、`projectSystemMap` は `SYSTEM_MERMAID`・`SYSTEM_JSON`（仕様 3.1）。表示の役割が `PdM`・`Eng` のどちらでもないときも、この理由にする |
+| `SCENARIO_MISMATCH` | `ledger.scenarioId` が `spec.scenarioId` と違う。2026-10-30 から、`context.scenario.id` が `spec.scenarioId`（曖昧さの一覧では `report.scenarioId`）と違うときも、この理由にする |
 | `UNKNOWN_OPERATION` | 論点が `spec` に無い操作の識別子を指す |
 | `UNKNOWN_STATE_VARIABLE` | 論点の実行列の値が `spec` に無い状態変数を指す。表示名を引けなくなるため（LedgerSynthesizer の契約と同じ） |
+| `GLOSSARY_STALE` | `projectSystemMap`・`projectImplementationMap` で、`glossary.basis.mapHash` が受け取った全体マップの SHA-256 と違う。別の全体マップから作った辞書では、地図の要素の id が辞書の項目と一致する保証がないため（8.1） |
+
+---
+
+## 8. 辞書と表示の役割（2026-10-30）
+GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から実装の名前を外したこと（全体設計 2.2）に合わせて、本モジュールで決めたことを書く。
+
+### 8.1 辞書と全体マップの照合
+- `projectSystemMap` と `projectImplementationMap` は、受け取った全体マップを正準化した JSON の SHA-256 を計算し、`glossary.basis.mapHash` と比べる。違えば `GLOSSARY_STALE`（7.7）にする。正準化は GlossaryBuilder と同じ方法（全体設計 1.3）を使う。
+- シナリオの射影（`projectSpecification`・`projectAmbiguities`）は全体マップを受け取らないので、照合しない。辞書の項目は id で引き、見つからなければ「名前は未生成」と同じ扱いにする（8.2）。
+
+### 8.2 用語の解決
+- 地図の要素（Bounded Context・コマンド・イベント・ポリシー）は、辞書で同じ id の項目を引き、`term` が `GENERATED` ならその `label` で表す。
+- 項目が無いか、`term` が `NOT_GENERATED` のときは、「〈種類〉 〈番号〉（名前は未生成）」と書く。種類の語は「Bounded Context」「コマンド」「イベント」「ポリシー」、番号は俯瞰図と同じ規則で振る（Bounded Context は `c1`…、ほかは `n1`…。4.4）。シナリオの射影では、起点の用語が無いときに題を「〈表示の id〉（名前は未生成）」とする（4.1）だけなので、番号は使わない。
+- 状態変数・命題・操作・出口は、これまでどおり FormalTranspiler の表示名（`spec.labels`）で表す。辞書の用語は付けない（全体設計 1.2 の辞書の範囲）。
+- `GlossaryTerm.detail`（未生成の理由の詳細）は出さない。7.2 の `LlmText` の `detail` と同じ理由である。
+
+### 8.3 表示の役割
+- `PdM`（既定）: ファイルのパス・関数名・行番号・コードの断片を出さない。
+- `Eng`: 本文の文は `PdM` と同じにし、実装の名前と所在を後ろに併記するだけにする。併記の形は次のとおり。
+  - Markdown: 「〈表示〉（`〈ファイル〉#〈関数〉` L〈行〉）」。所在が複数あるときは読点でつなぐ。関数か行が無いときは、その部分を省く。
+  - Mermaid: ノードの文の後ろに「 / 〈ファイル〉#〈関数〉」を足す（4.3・7.4 の置き換えを、足した部分にも同じように行う）。
+  - JSON: `implementation` のキーを置く（4.4）。
+- 併記の中身は、対応表（8.5）と同じものを使う。ビューごとに別の方法で引くと、表と表示が食い違うためである。
+- 仕様書の付録（形式仕様のソース）は `Eng` のときだけ載せる（2 節・4.1）。
+
+### 8.4 曖昧さの一覧（AMBIGUITY_DOCUMENT）
+`projectAmbiguities` は、FormalTranspiler の `AmbiguityReport` を Markdown にする。
+1. 題: 「〈表示の id〉 〈起点の用語〉 の曖昧さ」（起点の用語の引き方は 4.1 と同じ）と、「このシナリオは曖昧さがあるので、形式仕様の検査まで進まなかった」の一文
+2. 件数: 種類ごとの件数（`report.counts`）
+3. 曖昧さ: `report.issues` の並びのまま、1 件ずつ次を書く
+   - 表示の id: 「〈シナリオの表示の id〉-A-〈3 桁の番号〉」（`S-01-A-001`。全体設計 2.2）
+   - 種類: 固定の語にする。`UNDETERMINED_VALUE` は「値が決まらない」、`EXTERNAL_EFFECT` は「外部への作用がある」、`CONFLICTING_SLICES` は「同じ条件で別の経路に進む」
+   - 質問の文: `question` が `GENERATED` ならその文、`NOT_GENERATED` なら「未生成（LLM に届かなかった）」か「未生成（LLM の出力が検査を通らなかった）」（7.2 と同じ）
+   - `Eng` のときだけ: 所在（`location` を「〈ファイル〉 L〈行〉」の形で）と、原文（`detail`。コードの囲みに入れ、囲みの記号は 4.1 の付録と同じ規則で決める）
+- `unitIds` は出さない。ユニットの id にはファイルと行が入るためである（7.2 の `dataMutations` と同じ理由）。
+- 質問の文に実装の名前が入らないことは、FormalTranspiler の出力の検査で確かめる（全体設計 2.2）。本モジュールは文を書き換えない。
+
+### 8.5 実装との対応表（`implementation_map.json`）
+- `projectImplementationMap` が作る。表示の役割に関係なく、同じ入力からは同じ表を作る。
+- 項目の並び: まず俯瞰図の Bounded Context（`c1`…）、続いて俯瞰図のノード（`n1`…。4.4 の並び）、そのあとシナリオごとに表示の id の順で、シナリオ（`S-01`）→ 曖昧さ（`S-01-A-001`…）→ 状態変数（`S-01-V-01`…、`spec.stateVariables` の並び）とする。
+- 地図の要素とシナリオ: 辞書の項目をそのまま引き、`glossaryEntryId` に項目の id、`implementation` に項目の `implementation` を写す。シナリオは起点のコマンドまたはポリシーの項目を引く。
+- 曖昧さ: `implementation` は `location` から作る（`names` は空、`locations` は 1 件）。辞書の項目とは結び付けない（`glossaryEntryId` は `null`）。
+- 状態変数: 正本の構造に残る出どころ（`spec.sourceMap` で状態変数の識別子から引けるユニット）から所在を作る。実装の名前が辞書の `implementation.names` と完全に一致したときだけ、`glossaryEntryId` にその項目の id を入れる。一致しなければ `null` にし、辞書には足さない（全体設計 2.2。2026-10-30 中瀬古様了承、C0AF4DJJK8A 1793354518.934329）。
+  - 状態変数の実装の名前を `FormalSpecification` のどの欄から取るかは、実装のときに `src/types` を読んで決め、この節に書き足す。いまの設計書の型（FormalTranspiler の設計 4 節）には、状態変数の実装の名前の欄が明示されていない。
+- 状態変数の表示の id（`S-01-V-01`）は対応表のキーとしてだけ使い、PdM 向けのビューには出さない。
+
+### 8.6 既存の設計からの変更
+- 7.6 の俯瞰図のノードの文は、全体マップの `name`（LLM の結果）から辞書の `term.label` に変えた。ScenarioExtractor が名前を作らなくなったためである。
+- `subgraph` の題を、実装の名前（`DEFAULT_CONTEXT` など）から辞書の用語に変えた（4.4）。
+- 仕様書の題と流れ図の起点から、シナリオの内部の識別子を外し、表示の id に変えた（4.1・7.4）。
+- 仕様書に意図の候補の節を足した（4.1）。俯瞰図には Bounded Context の意図の候補だけを載せる（4.4）。
+- 曖昧さの一覧と実装との対応表を、新しい出力として足した（8.4・8.5）。
+- 形式仕様のソースの付録は、`Eng` のときだけ載せる（2 節）。

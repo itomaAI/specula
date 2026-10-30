@@ -1,6 +1,6 @@
 {
   "title": "仕様策定ツール 業務フローとモジュール連携 (Workflow & Engine Mapping)",
-  "caption": "人間の2大業務（策定・レビュー）を支えるエンジンモジュール群の対応マッピング。2 回目以降のループを含む業務の全体像であり、初回の実行の範囲（6 つのモジュールを 1 回通す）は pipeline_flow.json に示す",
+  "caption": "人間の2大業務（策定・レビュー）を支えるエンジンモジュール群の対応マッピング。2 回目以降のループを含む業務の全体像であり、初回の実行の範囲（8 つのモジュールを 1 回通す。辞書の GlossaryBuilder と意図の候補の IntentSynthesizer を含む）は pipeline_flow.json に示す",
   "nodes": [
     {
       "id": "A_CURRENT_SPEC",

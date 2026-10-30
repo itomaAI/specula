@@ -1,21 +1,38 @@
 {
   "title": "仕様抽出・検証パイプライン データフロー",
-  "caption": "初回の実行（現在の範囲）: コードと画面から事実を抽出し、形式仕様正本を作り、検査し、論点にして射影する。人の判断を受けて正本を更新する 2 回目以降の実行は、追加で開発する。",
+  "caption": "初回の実行（現在の範囲）: コードと画面から事実を抽出し、仕様の資料から辞書と意図の候補を作り、形式仕様正本を作り、検査し、論点にして射影する。人の判断を受けて正本を更新する 2 回目以降の実行と、辞書と地図を人に見せて決めてもらうインタラクションビューアーは、追加で開発する。",
   "nodes": [
+    {
+      "id": "T_DOCS",
+      "kind": "type",
+      "name": "仕様の資料",
+      "category": "README・docs・スキーマ定義",
+      "in": "解析対象のリポジトリ",
+      "out": "GlossaryBuilder・IntentSynthesizer",
+      "x": 150,
+      "y": 30,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "RepositoryArtifacts.documents。README・docs/ の Markdown・スキーマ定義。1 ファイルと合計の大きさに上限があり、超えた分は記録して読まない"
+      },
+      "markdown": "### データ型: 仕様の資料（`RepositoryArtifacts.documents`）\n\nGlossaryBuilder が節に分けて用語の手がかりにし、IntentSynthesizer は GlossaryBuilder が選んだ節だけを使う。ScenarioExtractor は読まない（構造の判断は言葉の意味に頼らない）。"
+    },
     {
       "id": "T_SRC",
       "kind": "type",
       "name": "SourceArtifacts",
       "category": "ソースコード",
       "in": "解析対象のリポジトリ",
-      "out": "ContextExtractor",
+      "out": "ContextExtractor・GlossaryBuilder",
       "x": 380,
       "y": 30,
       "width": 190,
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "シナリオの起点から呼び出しをたどるためのソースファイル群"
+        "内容": "シナリオの起点から呼び出しをたどるためのソースファイル群。GlossaryBuilder は記録だけの実装の名前（スキーマのエンティティ・項目など）を拾うために読む"
       },
       "markdown": "### データ型: `SourceArtifacts`\n\n解析対象のソースコード。ContextExtractor は起点のハンドラから呼び出しをたどって読む。"
     },
@@ -41,7 +58,7 @@
       "kind": "module",
       "name": "ScenarioExtractor",
       "category": "全体マップの作成とシナリオの切り出し",
-      "in": "リポジトリの構造 / package.json / スキーマ / 画面のルート",
+      "in": "リポジトリの構造 / package.json / 画面のルート",
       "out": "EventStormingMap + SliceResult",
       "x": 30,
       "y": 160,
@@ -50,9 +67,9 @@
       "details": {
         "分類": "演算モジュール (Module)",
         "公開関数": "discoverSystemContext と sliceScenarios",
-        "LLM の担当": "イベント・コマンドの命名と意図の候補（記録して再利用。届かなければ未生成）"
+        "LLM の担当": "なし（名前は GlossaryBuilder、意図の候補は IntentSynthesizer が作る）"
       },
-      "markdown": "### モジュール: `ScenarioExtractor`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）を作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。"
+      "markdown": "### モジュール: `ScenarioExtractor`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）をコードから決定論的に作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。\n- 構造の判断は言葉の意味に頼らない。"
     },
     {
       "id": "T_TGT",
@@ -60,7 +77,7 @@
       "name": "ScenarioTarget",
       "category": "個別シナリオ",
       "in": "ScenarioExtractor",
-      "out": "ContextExtractor",
+      "out": "ContextExtractor・IntentSynthesizer・SpecProjector",
       "x": 260,
       "y": 160,
       "width": 190,
@@ -69,7 +86,7 @@
         "分類": "データ型 (Data Type)",
         "内容": "起点（inletTrigger）、アクター、readModel（画面があるときだけ）、期待イベント 1 つ、出どころ（origin）"
       },
-      "markdown": "### データ型: `ScenarioTarget`\n\n起点と期待イベントを 1 つずつ持つシナリオ。"
+      "markdown": "### データ型: `ScenarioTarget`\n\n起点と期待イベントを 1 つずつ持つシナリオ。SpecProjector は、起点の辞書の項目を引いて仕様書の題を作る。"
     },
     {
       "id": "M_EXT",
@@ -104,7 +121,7 @@
         "分類": "データ型 (Data Type)",
         "内容": "ユニット（STATE・STATE_WRITE・分岐・出口など）と、出口ごとのスライス"
       },
-      "markdown": "### データ型: `RawContextModel`\n\nM1 が抽出した事実。"
+      "markdown": "### データ型: `RawContextModel`\n\nContextExtractor が抽出した事実。"
     },
     {
       "id": "M_TRANS",
@@ -120,7 +137,7 @@
       "details": {
         "分類": "演算モジュール (Module)",
         "責務": "状態変数と操作の結果から状態を作り、スライスごとに操作の述語を作る。決められない箇所はすべて集めて AmbiguityReport にする",
-        "LLM の担当": "表示名（ソースには入れない）と、曖昧性の質問の文"
+        "LLM の担当": "表示名（ソースには入れない）と、曖昧性の質問の文（実装の名前が入れば検査で落とす）"
       },
       "markdown": "### モジュール: `FormalTranspiler`\n\n- Alloy 6 のソースを機械的な識別子で書く。\n- 曖昧性が 1 件でもあれば、そのシナリオは FormalSolver に進まない。"
     },
@@ -130,7 +147,7 @@
       "name": "AmbiguityReport",
       "category": "決められなかった箇所",
       "in": "FormalTranspiler",
-      "out": "実行の報告（件数と中身）",
+      "out": "SpecProjector（曖昧さの一覧）・実行の報告（件数）",
       "x": 950,
       "y": 300,
       "width": 200,
@@ -139,7 +156,7 @@
         "分類": "データ型 (Data Type)",
         "内容": "UNDETERMINED_VALUE・EXTERNAL_EFFECT・CONFLICTING_SLICES と、種類ごとの件数"
       },
-      "markdown": "### データ型: `AmbiguityReport`\n\n人に確かめる箇所の一覧。オーケストレーターが全シナリオの件数を集計する。"
+      "markdown": "### データ型: `AmbiguityReport`\n\n人に確かめる箇所の一覧。オーケストレーターが全シナリオの件数を集計し、SpecProjector が曖昧さの一覧として射影する。"
     },
     {
       "id": "T_ALLOY",
@@ -200,16 +217,86 @@
       "name": "EventStormingMap",
       "category": "システム全体のマップ",
       "in": "ScenarioExtractor",
-      "out": "SpecProjector（全体の俯瞰図）",
+      "out": "GlossaryBuilder・IntentSynthesizer・SpecProjector（全体の俯瞰図）",
       "x": 30,
       "y": 300,
       "width": 200,
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "Bounded Context・コマンド・ドメインイベント・ポリシー・readModel・アクター"
+        "内容": "Bounded Context・コマンド・ドメインイベント・ポリシー・readModel・アクター。名前と意図は持たない"
       },
-      "markdown": "### データ型: `EventStormingMap`\n\nM0 が作る全体マップ。SpecProjector が全体の俯瞰図を作るときにも使う。"
+      "markdown": "### データ型: `EventStormingMap`\n\nScenarioExtractor が作る全体マップ。GlossaryBuilder が用語を付け、SpecProjector が全体の俯瞰図を作るときにも使う。"
+    },
+    {
+      "id": "M_GLOS",
+      "kind": "module",
+      "name": "GlossaryBuilder",
+      "category": "ユビキタス言語辞書の作成",
+      "in": "EventStormingMap + 仕様の資料 + SourceArtifacts",
+      "out": "Glossary",
+      "x": 30,
+      "y": 440,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "演算モジュール (Module)",
+        "責務": "機械的に拾える実装の名前をできるだけ載せる。地図の要素には資料の節を手がかりに用語を付ける。資料とコードのずれは記録して見せるだけ",
+        "LLM の担当": "地図の要素（Bounded Context・コマンド・イベント・ポリシー）の用語"
+      },
+      "markdown": "### モジュール: `GlossaryBuilder`\n\n- 辞書は用語と実装名の対応を持つ。実装との対応表はこの辞書からの射影である。\n- 後段が見つける名前（状態の変数）は辞書に足さず、実装名の一致で引く。"
+    },
+    {
+      "id": "T_GLOS",
+      "kind": "type",
+      "name": "Glossary",
+      "category": "ユビキタス言語辞書",
+      "in": "GlossaryBuilder",
+      "out": "IntentSynthesizer・SpecProjector",
+      "x": 30,
+      "y": 580,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "項目（種類・用語・実装の名前と所在・手がかりの節）、資料とコードのずれ、読んだ資料、元にした全体マップと資料のハッシュ"
+      },
+      "markdown": "### データ型: `Glossary`\n\n仕様の正本ではない。正本と全体マップを読むための記録である。"
+    },
+    {
+      "id": "M_INT",
+      "kind": "module",
+      "name": "IntentSynthesizer",
+      "category": "意図の候補の作成",
+      "in": "EventStormingMap + SliceResult + Glossary + 仕様の資料",
+      "out": "IntentCatalog",
+      "x": 260,
+      "y": 580,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "演算モジュール (Module)",
+        "責務": "Bounded Context とシナリオの意図の候補を作る。手がかりは辞書が選んだ節だけを使い、辞書の用語（LLM の結果）は入力に入れない",
+        "LLM の担当": "意図の候補の文"
+      },
+      "markdown": "### モジュール: `IntentSynthesizer`\n\n候補は人が確かめるまで候補のままである（初回はすべて CANDIDATE）。"
+    },
+    {
+      "id": "T_INT",
+      "kind": "type",
+      "name": "IntentCatalog",
+      "category": "意図の候補",
+      "in": "IntentSynthesizer",
+      "out": "SpecProjector",
+      "x": 490,
+      "y": 580,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "Bounded Context ごととシナリオごとの意図の候補と、元にした辞書のハッシュ"
+      },
+      "markdown": "### データ型: `IntentCatalog`\n\n仕様書と全体の俯瞰図に「候補」として表示する。"
     },
     {
       "id": "M_LEDG",
@@ -251,18 +338,18 @@
       "kind": "module",
       "name": "SpecProjector",
       "category": "人が読むビューの作成",
-      "in": "FormalSpecification + DomainLedgerCatalog（全体の俯瞰図は EventStormingMap）",
-      "out": "SpecificationView",
+      "in": "FormalSpecification + DomainLedgerCatalog + Glossary + IntentCatalog（曖昧さの一覧は AmbiguityReport、全体の俯瞰図は EventStormingMap）",
+      "out": "SpecificationView + ImplementationMap",
       "x": 720,
       "y": 440,
       "width": 200,
       "height": 84,
       "details": {
         "分類": "演算モジュール (Module)",
-        "責務": "仕様書・操作の一覧表・操作の流れ図・全体の俯瞰図を、1 つの中間表現から決定論的に作る",
+        "責務": "仕様書・操作の一覧表・操作の流れ図・曖昧さの一覧・全体の俯瞰図を、1 つの中間表現から決定論的に作る。地図の要素は辞書の用語で表し、実装の名前は表示の役割が Eng のときだけ併記する",
         "LLM の担当": "なし"
       },
-      "markdown": "### モジュール: `SpecProjector`\n\n論点は未決、未検証は未検証、未生成は未生成と表示する。"
+      "markdown": "### モジュール: `SpecProjector`\n\n論点は未決、未検証は未検証、未生成は未生成と表示する。表示の役割は PdM（既定）と Eng。"
     },
     {
       "id": "T_VIEWS",
@@ -270,16 +357,33 @@
       "name": "SpecificationView",
       "category": "ビュー",
       "in": "SpecProjector",
-      "out": "PdM / 意思決定者",
+      "out": "PdM / Eng / 意思決定者",
       "x": 720,
       "y": 580,
       "width": 200,
       "height": 84,
       "details": {
         "分類": "表示層 (Views)",
-        "内容": "仕様書（Markdown）、操作の一覧表、操作の流れ図（Mermaid）、全体の俯瞰図（Mermaid・JSON）"
+        "内容": "仕様書（Markdown）、操作の一覧表、操作の流れ図（Mermaid）、曖昧さの一覧（Markdown）、全体の俯瞰図（Mermaid・JSON）"
       },
-      "markdown": "### 成果物: `SpecificationView`\n\nいつでも正本から作り直せる。正本は形式仕様。"
+      "markdown": "### 成果物: `SpecificationView`\n\nいつでも正本から作り直せる。正本は形式仕様。PdM 向けの表示には実装の名前を出さない。"
+    },
+    {
+      "id": "T_IMAP",
+      "kind": "type",
+      "name": "ImplementationMap",
+      "category": "実装との対応表",
+      "in": "SpecProjector",
+      "out": "Eng 向けの表示・利用者",
+      "x": 950,
+      "y": 440,
+      "width": 200,
+      "height": 84,
+      "details": {
+        "分類": "データ型 (Data Type)",
+        "内容": "表示の id（S-01・S-01-A-001・n1 など）から、内部の識別子・辞書の項目・実装の名前と所在を引く表（implementation_map.json）"
+      },
+      "markdown": "### データ型: `ImplementationMap`\n\n辞書と実行の結果から作る射影。表示の役割に関係なく出力する。"
     }
   ],
   "edges": [
@@ -288,6 +392,15 @@
     { "from": "T_TGT", "to": "M_EXT" },
     { "from": "T_SRC", "to": "M_EXT" },
     { "from": "T_VIS", "to": "M_EXT" },
+    { "from": "T_MAP", "to": "M_GLOS" },
+    { "from": "T_DOCS", "to": "M_GLOS" },
+    { "from": "T_SRC", "to": "M_GLOS" },
+    { "from": "M_GLOS", "to": "T_GLOS" },
+    { "from": "T_MAP", "to": "M_INT" },
+    { "from": "T_TGT", "to": "M_INT" },
+    { "from": "T_GLOS", "to": "M_INT" },
+    { "from": "T_DOCS", "to": "M_INT" },
+    { "from": "M_INT", "to": "T_INT" },
     { "from": "M_EXT", "to": "T_RAW" },
     { "from": "T_RAW", "to": "M_TRANS" },
     { "from": "M_TRANS", "to": "T_ALLOY" },
@@ -299,7 +412,12 @@
     { "from": "M_LEDG", "to": "T_LEDG" },
     { "from": "T_ALLOY", "to": "M_PROJ" },
     { "from": "T_LEDG", "to": "M_PROJ" },
+    { "from": "T_AMB", "to": "M_PROJ" },
     { "from": "T_MAP", "to": "M_PROJ" },
-    { "from": "M_PROJ", "to": "T_VIEWS" }
+    { "from": "T_TGT", "to": "M_PROJ" },
+    { "from": "T_GLOS", "to": "M_PROJ" },
+    { "from": "T_INT", "to": "M_PROJ" },
+    { "from": "M_PROJ", "to": "T_VIEWS" },
+    { "from": "M_PROJ", "to": "T_IMAP" }
   ]
 }
