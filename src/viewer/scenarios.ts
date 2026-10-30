@@ -240,4 +240,5 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
 }
 
 // 仕様不備一覧（issues.ts）も同じ題と件数の文を出すために使う（設計 6.7）。
-export { ambiguityCountText, ambiguityTotal, sourcesOf, titleOf as scenarioTitleOf, valueOf };
+// 用語辞典（glossary.ts）は、用語の文を同じ形にするために labelOfEntry を使う（設計 6.8）。
+export { ambiguityCountText, ambiguityTotal, labelOfEntry, sourcesOf, titleOf as scenarioTitleOf, valueOf };
