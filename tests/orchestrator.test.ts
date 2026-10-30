@@ -74,6 +74,8 @@ const FILES: Record<string, string> = {
 
 const REPO: RepositoryArtifacts = {
   files: Object.entries(FILES).map(([path, text]) => ({ path, text })),
+  documents: [],
+  omittedDocuments: [],
 };
 
 /** M1 が読む口からは src/m.ts を外す（M0 の全体マップにはあるが、起点のファイルが無いので M1 で止まる）。 */

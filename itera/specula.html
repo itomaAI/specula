@@ -78,7 +78,7 @@
     // 3. リポジトリを読み、オーケストレーターに渡す。
     log(`リポジトリを読む: ${repoDir}`);
     const repo = await specula.readIteraRepository(source, repoDir);
-    log(`ファイル ${repo.files.length} 件`);
+    log(`ファイル ${repo.files.length} 件、仕様の資料 ${repo.documents.length} 件（合計の上限で外した資料 ${repo.omittedDocuments.length} 件）`);
     log('解析を始める（LLM の依頼があれば、AI エージェントの答えを待つ）');
     const result = await specula.runPipeline(repo, { fs: specula.withRoot(fs, repoDir), llm, solver });
 

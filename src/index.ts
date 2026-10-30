@@ -46,6 +46,7 @@ export type {
   Policy,
   ReadModel,
   RepositoryArtifacts,
+  RepositoryDocument,
   ScenarioSelection,
   ScenarioTarget,
   SliceResult,

@@ -31,6 +31,8 @@ const unreachableLlm = (): FakeLlm => new FakeLlm(() => null);
 function repo(files: Record<string, string>, screenshots?: string[]): RepositoryArtifacts {
   return {
     files: Object.entries(files).map(([path, text]) => ({ path, text })),
+    documents: [],
+    omittedDocuments: [],
     ...(screenshots === undefined ? {} : { screenshots }),
   };
 }
