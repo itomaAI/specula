@@ -155,6 +155,7 @@ export type {
   PipelineResult,
   RunReport,
   ScenarioArtifacts,
+  ScenarioRunBase,
   ScenarioRunResult,
   StoppedStage,
 } from "./types/run.js";

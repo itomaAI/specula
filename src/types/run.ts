@@ -8,7 +8,7 @@ import type { Glossary } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
 import type { ImplementationMap, SpecificationView, ViewRole } from "./projection.js";
-import type { EventStormingMap, ExtractionDiagnostics, ScenarioSelection } from "./scenario.js";
+import type { Actor, EventStormingMap, ExtractionDiagnostics, ScenarioSelection, ScenarioTarget } from "./scenario.js";
 import type { SolverOptions, SolverReport, UnverifiedReason } from "./solver.js";
 
 export interface PipelineDeps {
@@ -30,30 +30,34 @@ export interface PipelineOptions {
 /** 契約のエラーで止まった段。 */
 export type StoppedStage = "M1" | "M2" | "M3" | "M4" | "M5";
 
+/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は ScenarioTarget の欄を写したもの。 */
+export interface ScenarioRunBase {
+  scenarioId: string;
+  /** 表示の id（"S-01"。切り出しの順。全体設計 2.2）。 */
+  displayId: string;
+  boundedContext: string;
+  inletType: ScenarioTarget["inletType"];
+  actor: Actor;
+  /** 画面のルート。画面を持たないシナリオは null。 */
+  route: string | null;
+  /** 期待イベントの識別子。 */
+  expectedEvent: string;
+}
+
 export type ScenarioRunResult =
-  | {
-      scenarioId: string;
-      /** 表示の id（"S-01"。切り出しの順。全体設計 2.2）。 */
-      displayId: string;
-      boundedContext: string;
+  | (ScenarioRunBase & {
       kind: "COMPLETED";
       outcome: VerificationOutcome;
       /** 未検証の理由の種類。検査済みなら null。 */
       unverifiedReason: UnverifiedReason | null;
       findingCount: number;
       issueCount: number;
-    }
-  | {
-      scenarioId: string;
-      displayId: string;
-      boundedContext: string;
+    })
+  | (ScenarioRunBase & {
       kind: "AMBIGUOUS";
       counts: Record<AmbiguityKind, number>;
-    }
-  | {
-      scenarioId: string;
-      displayId: string;
-      boundedContext: string;
+    })
+  | (ScenarioRunBase & {
       kind: "STOPPED";
       stage: StoppedStage;
       /** エラーの名前（"InletNotFoundError" など）。 */
@@ -61,7 +65,7 @@ export type ScenarioRunResult =
       /** エラーの reason。reason を持たないエラー（SyntaxExtractionError）は null。 */
       reason: string | null;
       detail: string;
-    };
+    });
 
 export interface RunReport {
   system: {
@@ -113,6 +117,17 @@ export interface RunReport {
     ambiguity: Record<AmbiguityKind, number>;
     verification: Record<VerificationOutcome, number>;
   };
+  /** 検査の範囲（全体設計 2.1）。 */
+  inspectionScope: {
+    /** 検査はシナリオごとに行い、シナリオどうしの矛盾は見ていない。 */
+    unit: "PER_SCENARIO";
+    /** 初回は業務上の不変条件が無いので検査しない（FormalSolver の報告と同じ値）。 */
+    invariantChecks: SolverReport["invariantChecks"];
+    /** 検証の結果がこの報告に無いシナリオの表示の id（切り出しの順）。未検証・曖昧さで止まった・途中で止まった。 */
+    scenariosWithoutVerification: string[];
+  };
+  /** 元にした辞書の basis をそのまま写す（意図の候補・実装との対応表と同じ）。 */
+  basis: Glossary["basis"];
 }
 
 /** シナリオ 1 つの成果物。報告の scenarios と同じ順・同じ id。 */
