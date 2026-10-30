@@ -165,5 +165,10 @@ export { runPipeline } from "./core/orchestrator.js";
 // 入口（コマンドラインと Itera OS の起動アプリ）が使う共通の関数。
 export { withRoot } from "./lib/rooted_file_system.js";
 export { writeOutputs, safeName } from "./lib/write_outputs.js";
+export { readRunOutputs } from "./lib/read_outputs.js";
+
+// SpecViewer（画面）。ビューモデルを作る部分（src/viewer/）。描く側は起動アプリ（SpecViewer 基本設計 1.1）。
+export type { FileRead, RunOutputs, RunOutputsCheck, RunOutputsProblem, ScenarioOutputs } from "./viewer/types.js";
+export { checkRunOutputs } from "./viewer/check.js";
 
 export const VERSION = "0.1.0";
