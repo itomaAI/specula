@@ -106,6 +106,17 @@ export type {
 export { LedgerContractError, ROOT_PRIORITY } from "./types/ledger.js";
 export { M4_PROMPT_VERSION, synthesizeLedger } from "./core/ledger_synthesizer.js";
 
+// M5（SpecProjector）
+export type {
+  ProjectionRequest,
+  ScenarioViewFormat,
+  SpecificationView,
+  SystemProjectionRequest,
+  SystemViewFormat,
+} from "./types/projection.js";
+export { ProjectionContractError } from "./types/projection.js";
+export { projectSpecification, projectSystemMap } from "./core/spec_projector.js";
+
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";
 

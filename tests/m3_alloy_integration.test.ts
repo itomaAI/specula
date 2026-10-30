@@ -9,6 +9,7 @@ import { extractContext } from "../src/core/context_extractor.js";
 import { transpileFormal } from "../src/core/formal_transpiler.js";
 import { verifySpecification } from "../src/core/formal_solver.js";
 import { synthesizeLedger } from "../src/core/ledger_synthesizer.js";
+import { projectSpecification } from "../src/core/spec_projector.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
 import type { SolverRequest } from "../src/ports/SolverPort.js";
@@ -225,4 +226,38 @@ test("M1 → M2 → M3 → M4: 届かない出口のある例は、到達でき�
   assert.deepEqual(issue?.operations, report.findings[0]?.operations);
   assert.equal(issue?.decision, null);
   assert.equal(issue?.claim.status, "NOT_GENERATED");
+});
+
+// ---------------------------------------------------------------------------
+// M1 → M2 → M3 → M4 → M5。LLM は届かないので表示名はすべて未生成になる。
+// 仕様 3.2 のとおり、識別子が出てよいのは「（表示名は未生成）」を添えたところだけであることを確かめる。
+
+const M5_IDENTIFIER = /\b(?:v\d+(?:_\d+|_unknown)?|c\d+|op\d+(?:_guard)?|o\d+|m3_\w+)\b/;
+
+test("M1 → M2 → M3 → M4 → M5: 本物のエンジンの結果から仕様書を作り、未決・検証の状態・識別子の扱いが設計どおり", { skip }, async () => {
+  const facts = await extractContext(target("src/r.ts", "read"), { fs: new MemoryFs({ "src/r.ts": UNREACHABLE_SOURCE.join("\n") }) });
+  const result = await transpileFormal(facts, {});
+  if (result.kind !== "SPEC") assert.fail(`SPEC ではない: ${JSON.stringify(result)}`);
+  const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 3 });
+  const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
+
+  const view = await projectSpecification(result.spec, catalog, { format: "DOCUMENT" });
+  const again = await projectSpecification(result.spec, catalog, { format: "DOCUMENT" });
+  assert.equal(view.content, again.content);
+  assert.equal(view.basis.ledgerIsStale, false);
+  assert.equal(view.basis.ledgerReportId, report.reportId);
+
+  const body = view.content.slice(0, view.content.indexOf("## 付録"));
+  assert.ok(body.includes("検査済み。論点 1 件（元の反例 1 件をまとめたもの）。"));
+  assert.ok(body.includes("### 到達しない操作"));
+  assert.ok(body.includes("- 状態: 未決"));
+  assert.ok(body.includes("- 主張: 未生成（LLM に届かなかった）"));
+  assert.ok(!view.content.includes("@source"));
+  assert.ok(!view.content.includes("src/r.ts"));
+  assert.doesNotMatch(body.replace(/[A-Za-z0-9_]+（表示名は未生成）/g, ""), M5_IDENTIFIER);
+
+  for (const format of ["MATRIX", "FLOW"] as const) {
+    const other = await projectSpecification(result.spec, catalog, { format });
+    assert.ok(!other.content.includes("src/r.ts"), format);
+  }
 });
