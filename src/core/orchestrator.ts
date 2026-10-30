@@ -21,6 +21,7 @@ import type {
   PipelineResult,
   RunReport,
   ScenarioArtifacts,
+  ScenarioRunBase,
   ScenarioRunResult,
   StoppedStage,
 } from "../types/run.js";
@@ -143,8 +144,24 @@ export async function runPipeline(
     slice: { scenarioCount: sliced.scenarios.length, rejected: sliced.rejected.map((item) => ({ ...item })) },
     scenarios: results,
     totals: totalsOf(results),
+    inspectionScope: inspectionScopeOf(results),
+    basis: { ...glossary.basis },
   };
   return { report, map, glossary, intents, systemViews, scenarios: artifacts, implementationMap };
+}
+
+/**
+ * 検査の範囲（全体設計 2.1）。検査はシナリオごと。初回は不変条件の検査をしない。
+ * 検証の結果が報告に無いシナリオ（未検証・曖昧さで止まった・途中で止まった）の表示の id を、切り出しの順に並べる。
+ */
+function inspectionScopeOf(results: readonly ScenarioRunResult[]): RunReport["inspectionScope"] {
+  return {
+    unit: "PER_SCENARIO",
+    invariantChecks: { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" },
+    scenariosWithoutVerification: results
+      .filter((result) => result.kind !== "COMPLETED" || result.outcome === "UNVERIFIED")
+      .map((result) => result.displayId),
+  };
 }
 
 function intentsSummaryOf(intents: IntentCatalog): RunReport["intents"] {
@@ -182,6 +199,19 @@ function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
   };
 }
 
+/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は ScenarioTarget の欄を写す。 */
+function rowBaseOf(target: ScenarioTarget, displayId: string): ScenarioRunBase {
+  return {
+    scenarioId: target.id,
+    displayId,
+    boundedContext: target.boundedContext,
+    inletType: target.inletType,
+    actor: { id: target.actor.id, name: target.actor.name },
+    route: target.readModel?.route ?? null,
+    expectedEvent: target.expectedEvent,
+  };
+}
+
 async function runScenario(
   target: ScenarioTarget,
   displayId: string,
@@ -189,7 +219,7 @@ async function runScenario(
   deps: PipelineDeps,
   options: PipelineOptions,
 ): Promise<[ScenarioRunResult, ScenarioArtifacts]> {
-  const base = { scenarioId: target.id, displayId, boundedContext: target.boundedContext };
+  const base = rowBaseOf(target, displayId);
 
   const facts = await stage("M1", () => extractContext(target, { fs: deps.fs }));
   const transpiled = await stage("M2", () => transpileFormal(facts, { llm: deps.llm }, null));
@@ -230,9 +260,7 @@ function stoppedResult(target: ScenarioTarget, displayId: string, stopped: Stopp
   const reason = "reason" in error && typeof error.reason === "string" ? error.reason : null;
   const detail = "detail" in error && typeof error.detail === "string" ? error.detail : error.message;
   return {
-    scenarioId: target.id,
-    displayId,
-    boundedContext: target.boundedContext,
+    ...rowBaseOf(target, displayId),
     kind: "STOPPED",
     stage: stopped.stage,
     error: error.name,

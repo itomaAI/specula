@@ -58,7 +58,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | シナリオの数と内訳 | `totals.completed`・`ambiguous`・`stopped` | 「仕様になった」「曖昧さで止まった」「途中で止まった」と書く |
 | 曖昧さの件数 | `totals.ambiguity` | `PdM` では「エンジニアの確認待ち: N 件」と合計だけを出す。`Eng` では種類ごとに出す |
 | 検証の状態の内訳 | `totals.verification` | `NONE_FOUND_WITHIN_SCOPE` は「指定の範囲で、行った検査では見つからなかった」と書く |
-| 検査の範囲 | 固定の文と、実行条件 | 「検査はシナリオごとに行った。シナリオどうしの矛盾は見ていない」と、行っていない検査 |
+| 検査の範囲 | `inspectionScope` | 「検査はシナリオごとに行った。シナリオどうしの矛盾は見ていない」（`unit`）と、行っていない検査（`invariantChecks` が `NOT_APPLICABLE` なら「不変条件の検査はしていない」、`scenariosWithoutVerification` のシナリオは「検証の結果が無い」） |
 | 未生成の数 | `glossary.notGenerated`・`intents.notGenerated` | 0 件でなければ目立たせる |
 | 読んだ資料の数 | `glossary.documents` | 上限で読まなかった資料があれば出す |
 
@@ -85,8 +85,8 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | 表示の id・シナリオの名前・Bounded Context | `run_report.json`・辞書 | |
 | 意図の候補 | `intents.json` | 確定の状態の印。未生成ならその理由 |
 | 利用者が書いた目的 | `userIntent` | 利用者が定義したシナリオで、目的があるときだけ |
-| 起点の種類 | `COMMAND` または `POLICY` | 「操作」「反応」と書く。**今の出力に無い**（7 節） |
-| アクター・画面のルート・期待イベント | `ScenarioTarget` | 画面を持たないシステムでは画面のルートは無い。**今の出力に無い**（7 節） |
+| 起点の種類 | `run_report.json` のシナリオの行の `inletType` | `COMMAND` は「操作」、`POLICY` は「反応」と書く |
+| アクター・画面のルート・期待イベント | `run_report.json` のシナリオの行の `actor`・`route`・`expectedEvent` | 画面を持たないシナリオでは `route` が `null` なので、画面のルートを出さない |
 | 検証の状態 | `ledger.json` の検証の状態 | 論点より前に置く |
 | 検査の範囲 | 固定の文 | 「このシナリオだけを検査した。ほかのシナリオとの矛盾は見ていない」 |
 | 論点の件数 | `ledger.json` | 仕様不備一覧へのリンク |
@@ -208,6 +208,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **横断の不備の一覧をファイルとしても出すか**: 今の出力はシナリオごとのファイルだけである。LLM に読ませる用途があるので、ファイルとして出すなら、作るのはオーケストレーターか SpecProjector になる（仕様 1.2 の「画面だけが持つ情報を作らない」）。
 - **画面の実行環境**: 起動アプリ（Itera OS の app）を先に作る。Node.js で使う場合（静的な HTML を書き出すなど）の形は決めていない。
 - **出力に足す必要があるもの**（仕様 1.2 により、画面の側では補わない。足すのは出力を作るモジュールとオーケストレーター）:
-  - **実行の報告の `basis`**: `run_report.json` は元の全体マップと資料のハッシュを持たない。辞書・意図の候補・実装との対応表・俯瞰図は `basis` を持つので、`checkRunOutputs` はこの 4 つが一致することだけを確かめられる（仕様 3.1）。実行の報告にも `basis` を足せば、5 つがそろう。
+  - ~~**実行の報告の `basis`**~~: 2026-10-31 に足した（全体設計 2.1）。`run_report.json` は辞書の `basis` を写すので、`checkRunOutputs` は辞書・意図の候補・実装との対応表・実行の報告の 4 つがそろっていることを確かめられる（仕様 3.1）。
+  - **俯瞰図の `basis`**: 俯瞰図の JSON（`system_map.json`）の中身は、元にした全体マップと資料のハッシュを持たない（`SpecificationView.basis` は形式仕様正本と論点カタログのためのもので、俯瞰図では `null`）。このままでは、俯瞰図だけが別の実行のものでも確かめられない。地図 1・地図 2 の書き出し方を決めるとき（次の項）に、一緒に足す。
   - **地図 1・地図 2 と、地図 2 の足す要素を含む版**: `writeOutputs`（`src/lib/write_outputs.ts`）は俯瞰図を `system_map.json` の 1 つだけ書く。SpecProjector 基本設計 8.9 の形にしたあとは、地図 1（`CONTEXT_MAP`）、Bounded Context ごとの地図 2（`CONTEXT_DETAIL`）、3.4 の切り替えのための `includeSupporting: true` の版を書き出す必要がある。ファイルを分けるか、1 つの JSON の中で階層や足す要素に印を付けるかは、実装のときに決める。
-  - **シナリオの起点の種類・アクター・画面のルート・期待イベント**: `run_report.json` のシナリオの行は、表示の id・Bounded Context・状態・件数だけを持つ。3.2 の冒頭のこれらの項目を出すには、実行の報告のシナリオの行に足す必要がある。足すまでは、この項目を出さない。
+  - ~~**シナリオの起点の種類・アクター・画面のルート・期待イベント**~~: 2026-10-31 に、実行の報告のシナリオの行に `inletType`・`actor`・`route`・`expectedEvent` を足した（全体設計 2.1）。3.2 の冒頭はこれを使う。

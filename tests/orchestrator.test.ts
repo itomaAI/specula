@@ -5,8 +5,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { displayIdsOf, runPipeline } from "../src/core/orchestrator.js";
+import { discoverSystemContext, sliceScenarios } from "../src/core/scenario_extractor.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
+import type { EngineInfo, SolverPort, SolverResponse } from "../src/ports/SolverPort.js";
 import type { RepositoryArtifacts } from "../src/types/scenario.js";
 
 class MemoryFs implements FileSystemPort {
@@ -120,6 +122,52 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
     ambiguity: { UNDETERMINED_VALUE: 1, EXTERNAL_EFFECT: 2, CONFLICTING_SLICES: 0 },
     verification: { FOUND: 0, NONE_FOUND_WITHIN_SCOPE: 0, UNVERIFIED: 1 },
   });
+
+  // シナリオの行の項目は ScenarioTarget の欄を写したもの（全体設計 2.1）。止まったシナリオも同じ欄を持つ。
+  const targets = sliceScenarios(discoverSystemContext(REPO)).scenarios;
+  assert.deepEqual(
+    report.scenarios.map((scenario) => [scenario.scenarioId, scenario.inletType, scenario.actor, scenario.route, scenario.expectedEvent]),
+    targets.map((target) => [
+      target.id,
+      target.inletType,
+      { id: target.actor.id, name: target.actor.name },
+      target.readModel?.route ?? null,
+      target.expectedEvent,
+    ]),
+  );
+  // 画面の無いライブラリなので、画面のルートはどれも null
+  assert.deepEqual(
+    report.scenarios.map((scenario) => scenario.route),
+    [null, null, null],
+  );
+
+  // 検査の範囲: 未検証・曖昧さで止まった・途中で止まったのどれも、検証の結果を持たない
+  assert.deepEqual(report.inspectionScope, {
+    unit: "PER_SCENARIO",
+    invariantChecks: { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" },
+    scenariosWithoutVerification: ["S-01", "S-02", "S-03"],
+  });
+
+  // 元にした入力は辞書の basis の写し（意図の候補・実装との対応表と同じ）
+  assert.deepEqual(report.basis, result.glossary.basis);
+  assert.deepEqual(report.basis, result.intents.basis);
+  assert.deepEqual(report.basis, result.implementationMap.basis);
+});
+
+test("検査の範囲: 検証の結果を持つシナリオは、検証の結果が無いシナリオに入れない", async () => {
+  // どの検査にも UNSAT を返す偽のエンジン（M3 のテストの ScriptedSolver と同じ既定の答え）。
+  const engine: EngineInfo = { alloyVersion: "6.test", satSolver: "sat4j", satSolverVersion: null };
+  const solver: SolverPort = {
+    async run(): Promise<SolverResponse> {
+      return { kind: "UNSAT", engine };
+    },
+  };
+  const { report } = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver });
+  const [completed] = report.scenarios;
+  assert.ok(completed?.kind === "COMPLETED");
+  assert.notEqual(completed.outcome, "UNVERIFIED", JSON.stringify(completed));
+  assert.deepEqual(report.inspectionScope.scenariosWithoutVerification, ["S-02", "S-03"]);
+  assert.deepEqual(report.inspectionScope.invariantChecks, { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" });
 });
 
 test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナリオは 3 形式のビューを持つ", async () => {
