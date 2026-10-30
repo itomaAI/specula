@@ -171,6 +171,11 @@ export { readRunOutputs } from "./lib/read_outputs.js";
 export type {
   AmbiguityItemView,
   FileRead,
+  GlossaryContextSectionView,
+  GlossaryEntryView,
+  GlossaryGapsView,
+  GlossarySourceView,
+  GlossaryView,
   IssueListView,
   RunOutputs,
   RunOutputsCheck,
@@ -188,6 +193,7 @@ export type {
 export { checkRunOutputs } from "./viewer/check.js";
 export { buildScenarioDetails, buildScenarioList } from "./viewer/scenarios.js";
 export { buildIssueList } from "./viewer/issues.js";
+export { buildGlossaryView } from "./viewer/glossary.js";
 export type { MarkdownBlock } from "./viewer/markdown.js";
 export { parseMarkdown, tableCells } from "./viewer/markdown.js";
 

@@ -4,7 +4,8 @@
 
 import type { IssueGroupView, VerificationView } from "../core/m5/view_model.js";
 import type { AmbiguityKind, AmbiguityReport, FormalSpecification } from "../types/formal.js";
-import type { Glossary, GlossaryLocation } from "../types/glossary.js";
+import type { Glossary, GlossaryLocation, PresentedEntryKind } from "../types/glossary.js";
+import type { ConfirmationStatus } from "../types/index.js";
 import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "../types/ledger.js";
 import type { ImplementationMap } from "../types/projection.js";
@@ -238,4 +239,76 @@ export interface IssueListView {
   ambiguityTotal: number;
   /** PdM ではシナリオ別の件数の表として、Eng では質問の一覧として描く。 */
   ambiguities: ScenarioAmbiguitiesView[];
+}
+
+// ---- 用語辞典（設計 3.5・6.8） ----
+// 表示の id（"c1"・"n1"）は implementation_map.json の行の glossaryEntryId で引く（俯瞰図と同じ番号）。
+// ビューモデルには地図の識別子（内部の識別子）を入れない。ずれのタブの項目も、表示の id と用語の文に直して持つ。
+
+/** 用語の出どころ 1 つ。節の識別子「<資料のパス>#<見出しの並び>」を資料と見出しに分けたもの（GlossaryBuilder 設計 2 節）。 */
+export interface GlossarySourceView {
+  document: string;
+  /** 見出しの並び（" > " でつないだもの）。見出しの無い節は空文字。 */
+  heading: string;
+}
+
+/** 用語辞典の 1 項目（設計 3.5）。地図の要素（Bounded Context・コマンド・イベント・ポリシー）だけ。 */
+export interface GlossaryEntryView {
+  /** 俯瞰図と同じ表示の id。実装との対応表が無いか、対応表に行が無ければ null。 */
+  displayId: string | null;
+  kind: PresentedEntryKind;
+  /** 「Bounded Context」「コマンド」「イベント」「ポリシー」（俯瞰図と同じ文）。 */
+  kindText: string;
+  /** 表示名と確定の状態の印。未生成なら「（名前は未生成）」。 */
+  term: string;
+  /** 用語の確定の状態。絞り込みに使う。 */
+  termStatus: ConfirmationStatus;
+  /** 意味（資料の抜粋）と確定の状態の印。抜粋が無ければ「資料に記述が無い」。 */
+  meaning: string;
+  /** 抜粋を上限で切ったとき true。 */
+  meaningTruncated: boolean;
+  /** 用語の手がかりにした節（選んだ順）。 */
+  sources: GlossarySourceView[];
+  /** またぐポリシーだけ。「〈Bounded Context〉へまたぐ」または「〈Bounded Context〉からまたいでくる」。ほかは null。 */
+  crossing: string | null;
+  /** 実装の名前と所在。Eng のときだけある。 */
+  implementation: { names: string[]; locations: GlossaryLocation[] } | null;
+}
+
+/** Bounded Context 1 つの区切り。所属の無い項目（全体マップのポリシー）は context が null の区切りに入る。 */
+export interface GlossaryContextSectionView {
+  /** Bounded Context の表示の id。所属の無い区切りか、引けなければ null。 */
+  displayId: string | null;
+  /** Bounded Context の用語の文。所属の無い区切りは「所属する Bounded Context が無い」。 */
+  title: string;
+  entries: GlossaryEntryView[];
+}
+
+/** 資料とコードのずれのタブ（設計 3.5）。項目は用語の文と表示の id で指す。 */
+export interface GlossaryGapsView {
+  /** 資料に記述が無い要素。 */
+  undocumented: Array<{ displayId: string | null; term: string }>;
+  /** 同義の候補（同じ Bounded Context の中で同じ用語）。 */
+  sharedTerms: Array<{ term: string; context: string; entries: Array<{ displayId: string | null; term: string }> }>;
+  /** Bounded Context ごとに意味が違う言葉。ずれではなく別の区分。 */
+  contextHomonyms: Array<{ term: string; entries: Array<{ displayId: string | null; term: string; context: string }> }>;
+  /** 2 つ以上の資料から節が選ばれた項目。 */
+  multiSource: Array<{ displayId: string | null; term: string; documents: string[] }>;
+  /** 項目に対応しない資料の名前。件数と、開いたときの一覧。 */
+  unmatchedDocumentNames: { count: number; items: Array<{ name: string; sources: GlossarySourceView[] }> };
+}
+
+/** 用語辞典（設計 3.5）。辞書が無ければ unavailable に理由を入れ、ほかは空にする。 */
+export interface GlossaryView {
+  /** 辞書が無いときの理由。辞書があれば null。 */
+  unavailable: string | null;
+  /** 確定の状態の説明の文（候補には印を付けないため、一覧の上に 1 回だけ出す）。辞書が無ければ null。 */
+  statusNote: string | null;
+  /** 実装との対応表が無く、表示の id を引けないときの文。引けるときは null。 */
+  displayIdNote: string | null;
+  /** Bounded Context が 1 つだけなら false（区切りを出さない）。 */
+  showContextSections: boolean;
+  /** Bounded Context の順は俯瞰図と同じ（c1 の順）。所属の無い区切りは最後。 */
+  sections: GlossaryContextSectionView[];
+  gaps: GlossaryGapsView | null;
 }
