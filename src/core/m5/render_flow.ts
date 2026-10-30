@@ -12,7 +12,8 @@ export function renderFlow(model: ViewModel): string {
   if (model.ledgerIsStale === true) {
     lines.push("  %% 注意: 論点カタログは、いまの形式仕様正本とは別の版から作った。");
   }
-  lines.push(`  s${mermaidLabel(`シナリオ ${model.scenarioId} の起点`)}`);
+  // 起点は表示の id で書く。内部の識別子は起点のファイルと関数を含むので出さない（設計 7.4・8.6）。
+  lines.push(`  s${mermaidLabel(`シナリオ ${model.displayId} の起点`)}`);
 
   for (const operation of model.operations) {
     const head = `${operation.id}_0`;

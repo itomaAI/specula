@@ -1,7 +1,7 @@
 // オーケストレーター（全体設計 2・2.1）。M0〜M5 をつなぎ、シナリオごとの結果を実行の報告にまとめる。
 // コアに属するので、ファイルには書かない（成果物と報告を値で返す。書き込みは入口が行う）。
 //
-// - シナリオは M0 の切り出しの順に 1 つずつ進める。
+// - シナリオは M0 の切り出しの順に 1 つずつ進める。表示の id（S-01 …）もこの順に振る（全体設計 2.2）。
 // - 各段の入力の契約のエラーだけを「その段で止まった」として残し、次のシナリオへ進む。
 //   それ以外の例外（環境の故障）は投げ直して、実行全体を止める。
 
@@ -11,7 +11,7 @@ import { InletNotFoundError, SyntaxExtractionError } from "../types/context.js";
 import { SolverContractError } from "../types/solver.js";
 import type { VerificationOutcome } from "../types/ledger.js";
 import { LedgerContractError } from "../types/ledger.js";
-import { ProjectionContractError } from "../types/projection.js";
+import { ProjectionContractError, type ProjectionContext, type ViewRole } from "../types/projection.js";
 import type { Glossary } from "../types/glossary.js";
 import type { IntentCatalog } from "../types/intent.js";
 import type { RepositoryArtifacts, ScenarioTarget } from "../types/scenario.js";
@@ -64,32 +64,52 @@ async function stage<T>(name: StoppedStage, run: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * 表示の id（全体設計 2.2）。切り出しの順に S-01、S-02 … と振る。
+ * 桁は 2 桁を最小にし、シナリオが 100 件以上なら全体を件数の桁にそろえる（文字列で並べても順が崩れないように）。
+ */
+export function displayIdsOf(count: number): string[] {
+  const width = Math.max(2, String(count).length);
+  return Array.from({ length: count }, (_, index) => `S-${String(index + 1).padStart(width, "0")}`);
+}
+
+/** 1 回の実行で共有する、シナリオの射影の入力。 */
+interface ProjectionInputs {
+  glossary: Glossary;
+  intents: IntentCatalog;
+  viewRole: ViewRole;
+}
+
 export async function runPipeline(
   repo: RepositoryArtifacts,
   deps: PipelineDeps,
   options: PipelineOptions = {},
 ): Promise<PipelineResult> {
+  const viewRole: ViewRole = options.viewRole ?? "PdM";
   const map = discoverSystemContext(repo);
   // 1 回の実行に 1 回だけ動く段。契約のエラーは止めずに投げ直す（全体設計 2.1）。
   const glossary = await buildGlossary(map, repo, { llm: deps.llm });
   const sliced = sliceScenarios(map, options.selection);
   const intents = await synthesizeIntents(map, sliced, glossary, repo, { llm: deps.llm });
   const systemViews = {
-    mermaid: await projectSystemMap(map, glossary, { format: "SYSTEM_MERMAID" }),
-    json: await projectSystemMap(map, glossary, { format: "SYSTEM_JSON" }),
+    mermaid: await projectSystemMap(map, glossary, intents, { format: "SYSTEM_MERMAID", viewRole }),
+    json: await projectSystemMap(map, glossary, intents, { format: "SYSTEM_JSON", viewRole }),
   };
 
+  const inputs: ProjectionInputs = { glossary, intents, viewRole };
+  const displayIds = displayIdsOf(sliced.scenarios.length);
   const results: ScenarioRunResult[] = [];
   const artifacts: ScenarioArtifacts[] = [];
-  for (const target of sliced.scenarios) {
+  for (const [index, target] of sliced.scenarios.entries()) {
+    const displayId = displayIds[index]!;
     try {
-      const [result, artifact] = await runScenario(target, deps, options);
+      const [result, artifact] = await runScenario(target, displayId, inputs, deps, options);
       results.push(result);
       artifacts.push(artifact);
     } catch (error) {
       if (!(error instanceof Stopped)) throw error;
-      results.push(stoppedResult(target, error));
-      artifacts.push({ scenarioId: target.id, kind: "STOPPED" });
+      results.push(stoppedResult(target, displayId, error));
+      artifacts.push({ scenarioId: target.id, displayId, kind: "STOPPED" });
     }
   }
 
@@ -147,25 +167,29 @@ function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
 
 async function runScenario(
   target: ScenarioTarget,
+  displayId: string,
+  inputs: ProjectionInputs,
   deps: PipelineDeps,
   options: PipelineOptions,
 ): Promise<[ScenarioRunResult, ScenarioArtifacts]> {
-  const base = { scenarioId: target.id, boundedContext: target.boundedContext };
+  const base = { scenarioId: target.id, displayId, boundedContext: target.boundedContext };
 
   const facts = await stage("M1", () => extractContext(target, { fs: deps.fs }));
   const transpiled = await stage("M2", () => transpileFormal(facts, { llm: deps.llm }, null));
   if (transpiled.kind === "AMBIGUITY") {
     return [
       { ...base, kind: "AMBIGUOUS", counts: { ...transpiled.report.counts } },
-      { scenarioId: target.id, kind: "AMBIGUOUS", ambiguity: transpiled.report },
+      { scenarioId: target.id, displayId, kind: "AMBIGUOUS", ambiguity: transpiled.report },
     ];
   }
   const spec = transpiled.spec;
   const solverReport = await stage("M3", () => verifySpecification(spec, { solver: deps.solver }, options.solver));
   const ledger = await stage("M4", () => synthesizeLedger(solverReport, spec, { llm: deps.llm }));
-  const document = await stage("M5", () => projectSpecification(spec, ledger, { format: "DOCUMENT" }));
-  const matrix = await stage("M5", () => projectSpecification(spec, ledger, { format: "MATRIX" }));
-  const flow = await stage("M5", () => projectSpecification(spec, ledger, { format: "FLOW" }));
+  const context: ProjectionContext = { scenario: target, glossary: inputs.glossary, intents: inputs.intents };
+  const request = (format: "DOCUMENT" | "MATRIX" | "FLOW") => ({ format, viewRole: inputs.viewRole, displayId });
+  const document = await stage("M5", () => projectSpecification(spec, ledger, context, request("DOCUMENT")));
+  const matrix = await stage("M5", () => projectSpecification(spec, ledger, context, request("MATRIX")));
+  const flow = await stage("M5", () => projectSpecification(spec, ledger, context, request("FLOW")));
 
   return [
     {
@@ -176,16 +200,17 @@ async function runScenario(
       findingCount: solverReport.findings.length,
       issueCount: ledger.issues.length,
     },
-    { scenarioId: target.id, kind: "COMPLETED", spec, solverReport, ledger, document, matrix, flow },
+    { scenarioId: target.id, displayId, kind: "COMPLETED", spec, solverReport, ledger, document, matrix, flow },
   ];
 }
 
-function stoppedResult(target: ScenarioTarget, stopped: Stopped): ScenarioRunResult {
+function stoppedResult(target: ScenarioTarget, displayId: string, stopped: Stopped): ScenarioRunResult {
   const error = stopped.error;
   const reason = "reason" in error && typeof error.reason === "string" ? error.reason : null;
   const detail = "detail" in error && typeof error.detail === "string" ? error.detail : error.message;
   return {
     scenarioId: target.id,
+    displayId,
     boundedContext: target.boundedContext,
     kind: "STOPPED",
     stage: stopped.stage,

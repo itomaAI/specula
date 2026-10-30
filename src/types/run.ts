@@ -7,7 +7,7 @@ import type { AmbiguityKind, AmbiguityReport, FormalSpecification } from "./form
 import type { Glossary } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
-import type { SpecificationView } from "./projection.js";
+import type { SpecificationView, ViewRole } from "./projection.js";
 import type { EventStormingMap, ExtractionDiagnostics, ScenarioSelection } from "./scenario.js";
 import type { SolverOptions, SolverReport, UnverifiedReason } from "./solver.js";
 
@@ -23,6 +23,8 @@ export interface PipelineDeps {
 export interface PipelineOptions {
   selection?: ScenarioSelection;
   solver?: SolverOptions;
+  /** 利用者向けの出力の表示の役割（全体設計 2.2）。無ければ "PdM"。 */
+  viewRole?: ViewRole;
 }
 
 /** 契約のエラーで止まった段。 */
@@ -31,6 +33,8 @@ export type StoppedStage = "M1" | "M2" | "M3" | "M4" | "M5";
 export type ScenarioRunResult =
   | {
       scenarioId: string;
+      /** 表示の id（"S-01"。切り出しの順。全体設計 2.2）。 */
+      displayId: string;
       boundedContext: string;
       kind: "COMPLETED";
       outcome: VerificationOutcome;
@@ -41,12 +45,14 @@ export type ScenarioRunResult =
     }
   | {
       scenarioId: string;
+      displayId: string;
       boundedContext: string;
       kind: "AMBIGUOUS";
       counts: Record<AmbiguityKind, number>;
     }
   | {
       scenarioId: string;
+      displayId: string;
       boundedContext: string;
       kind: "STOPPED";
       stage: StoppedStage;
@@ -104,6 +110,7 @@ export interface RunReport {
 export type ScenarioArtifacts =
   | {
       scenarioId: string;
+      displayId: string;
       kind: "COMPLETED";
       spec: FormalSpecification;
       solverReport: SolverReport;
@@ -112,8 +119,8 @@ export type ScenarioArtifacts =
       matrix: SpecificationView;
       flow: SpecificationView;
     }
-  | { scenarioId: string; kind: "AMBIGUOUS"; ambiguity: AmbiguityReport }
-  | { scenarioId: string; kind: "STOPPED" };
+  | { scenarioId: string; displayId: string; kind: "AMBIGUOUS"; ambiguity: AmbiguityReport }
+  | { scenarioId: string; displayId: string; kind: "STOPPED" };
 
 export interface PipelineResult {
   report: RunReport;

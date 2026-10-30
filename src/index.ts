@@ -131,11 +131,13 @@ export { M4_PROMPT_VERSION, synthesizeLedger } from "./core/ledger_synthesizer.j
 
 // M5（SpecProjector）
 export type {
+  ProjectionContext,
   ProjectionRequest,
   ScenarioViewFormat,
   SpecificationView,
   SystemProjectionRequest,
   SystemViewFormat,
+  ViewRole,
 } from "./types/projection.js";
 export { ProjectionContractError } from "./types/projection.js";
 export { projectSpecification, projectSystemMap } from "./core/spec_projector.js";

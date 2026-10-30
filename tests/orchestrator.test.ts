@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { runPipeline } from "../src/core/orchestrator.js";
+import { displayIdsOf, runPipeline } from "../src/core/orchestrator.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
 import type { RepositoryArtifacts } from "../src/types/scenario.js";
@@ -210,4 +210,60 @@ test("選択で起点を絞ると、そのシナリオだけを回す", async ()
     ["AMBIGUOUS"],
   );
   assert.equal(result.report.totals.ambiguous, 1);
+});
+
+test("表示の id を切り出しの順に S-01 … と振り、報告と成果物とビューに同じ id を載せる", async () => {
+  const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
+  assert.deepEqual(
+    result.report.scenarios.map((scenario) => scenario.displayId),
+    ["S-01", "S-02", "S-03"],
+  );
+  assert.deepEqual(
+    result.scenarios.map((scenario) => [scenario.scenarioId, scenario.displayId]),
+    result.report.scenarios.map((scenario) => [scenario.scenarioId, scenario.displayId]),
+  );
+
+  const completed = result.scenarios[0];
+  assert.ok(completed?.kind === "COMPLETED");
+  for (const view of [completed.document, completed.matrix, completed.flow]) {
+    assert.equal(view.displayId, "S-01");
+    assert.equal(view.viewRole, "PdM");
+    assert.ok(view.content.includes("S-01"), view.format);
+    assert.ok(!view.content.includes(completed.scenarioId), view.format);
+  }
+});
+
+test("既定の役割は PdM で仕様書に付録が無く、Eng を渡すと付録が付く", async () => {
+  const pdm = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
+  const eng = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null }, { viewRole: "Eng" });
+  const a = pdm.scenarios[0];
+  const b = eng.scenarios[0];
+  assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");
+  assert.ok(!a.document.content.includes("## 付録"));
+  assert.ok(b.document.content.includes("## 付録: 形式仕様のソース"));
+  assert.equal(b.document.viewRole, "Eng");
+  assert.equal(pdm.systemViews.json.viewRole, "PdM");
+  assert.equal(eng.systemViews.json.viewRole, "Eng");
+});
+
+test("選択で絞っても、表示の id は回したシナリオの中で S-01 から振る", async () => {
+  const result = await runPipeline(
+    REPO,
+    { fs: sourceFs(), llm: NO_LLM, solver: null },
+    { selection: { filter: { inlets: ["src/g.ts#go"] } } },
+  );
+  assert.deepEqual(result.report.scenarios.map((scenario) => scenario.displayId), ["S-01"]);
+});
+
+test("displayIdsOf: 2 桁を最小にし、100 件以上なら件数の桁にそろえる", () => {
+  assert.deepEqual(displayIdsOf(0), []);
+  assert.deepEqual(displayIdsOf(1), ["S-01"]);
+  const ninetyNine = displayIdsOf(99);
+  assert.equal(ninetyNine.length, 99);
+  assert.equal(ninetyNine[0], "S-01");
+  assert.equal(ninetyNine[98], "S-99");
+  const hundred = displayIdsOf(100);
+  assert.equal(hundred[0], "S-001");
+  assert.equal(hundred[99], "S-100");
+  assert.deepEqual([...hundred].sort(), hundred);
 });

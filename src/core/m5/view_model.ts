@@ -7,7 +7,9 @@
 import type { FormalSpecification } from "../../types/formal.js";
 import type { DomainLedgerCatalog, LedgerIssue } from "../../types/ledger.js";
 import type { LlmText } from "../../types/index.js";
+import type { ProjectionContext, ProjectionRequest, ViewRole } from "../../types/projection.js";
 import type { FindingKind, UnverifiedReason } from "../../types/solver.js";
+import { markdownImplementationNote } from "./implementation.js";
 import { checkText, domainValuesText, initialText, labelOf, outcomeText, traceOutcomeText, valueText } from "./labels.js";
 import { stepText } from "./sentences.js";
 
@@ -30,7 +32,7 @@ export interface OperationView {
   outcome: string;
   /** 状態として検証していない変更（dataMutations）の件数。中身は実装の所在なので出さない。 */
   dataMutationCount: number;
-  /** この操作が関わる論点の識別子（カタログの並び）。 */
+  /** この操作が関わる論点の表示の id（"S-01-L-001"。カタログの並び）。 */
   issueIds: string[];
 }
 
@@ -68,8 +70,26 @@ export interface IssueGroupView {
   issues: IssueView[];
 }
 
+/** 仕様書の「意図の候補」の節（M5 の設計 4.1 の 3）。 */
+export interface IntentView {
+  /** IntentSynthesizer の候補の文。未生成なら「未生成（理由）」。 */
+  text: string;
+  /** 利用者定義のシナリオで、利用者が書いた目的。無ければ null。 */
+  userIntent: string | null;
+}
+
 export interface ViewModel {
-  scenarioId: string;
+  // シナリオの内部の識別子（SCN-<ファイル>#<関数>）は持たない。起点のファイルと関数を含むので、
+  // どのビューにも出さないため（M5 の設計 4.1・7.4・8.6）。
+  /** 表示の id（"S-01"）。 */
+  displayId: string;
+  /** 題: 「S-01 〈起点の用語〉」、用語が未生成なら「S-01（名前は未生成）」（設計 4.1）。 */
+  title: string;
+  /** 題の後ろに足す併記（Eng のときだけ。設計 8.3）。PdM と、所在が無いときは ""。 */
+  titleNote: string;
+  viewRole: ViewRole;
+  /** このシナリオの意図の候補。意図の候補の一覧が無いか、このシナリオの候補が無ければ null。 */
+  intent: IntentView | null;
   specSourceHash: string;
   ledgerReportId: string | null;
   ledgerIsStale: boolean | null;
@@ -173,16 +193,51 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
   };
 }
 
+/**
+ * 題（設計 4.1）。起点のコマンドまたはポリシーの項目を辞書で引く（設計 8.2）。
+ * 項目が無いか、種類が起点の種類と違うか、用語が未生成なら「名前は未生成」とする。
+ * 併記は Eng のときだけ、項目の implementation.locations から作る（設計 8.3）。
+ */
+function titleOf(context: ProjectionContext, request: ProjectionRequest): { title: string; titleNote: string } {
+  const inlet = context.scenario.inletTrigger.id;
+  const entry = context.glossary?.entries.find((candidate) => candidate.id === inlet);
+  const matched = entry !== undefined && entry.kind === context.scenario.inletType ? entry : undefined;
+  const term = matched?.term;
+  const title =
+    term !== undefined && term.status === "GENERATED" ? `${request.displayId} ${term.label}` : `${request.displayId}（名前は未生成）`;
+  const titleNote =
+    request.viewRole === "Eng" && matched !== undefined ? markdownImplementationNote(matched.implementation.locations) : "";
+  return { title, titleNote };
+}
+
+/** このシナリオの意図の候補（設計 4.1 の 3）。一覧が無いか、このシナリオの候補が無ければ null。 */
+function intentOf(context: ProjectionContext): IntentView | null {
+  const item = context.intents?.scenarios.find((candidate) => candidate.scenarioId === context.scenario.id);
+  if (item === undefined) return null;
+  return { text: llmText(item.intent), userIntent: item.userIntent ?? null };
+}
+
 export function buildViewModel(
   spec: FormalSpecification,
   ledger: DomainLedgerCatalog | null,
   specSourceHash: string,
+  context: ProjectionContext,
+  request: ProjectionRequest,
 ): ViewModel {
+  // 論点の表示の id（"S-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
+  // 論点の識別子 "LEDGER-<scenarioId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
+  // ビューには出さない。内部の識別子との対応は実装との対応表（設計 8.5）に持つ。
+  const issueDisplayIds = new Map(
+    (ledger?.issues ?? []).map((issue, index) => [issue.id, `${request.displayId}-L-${String(index + 1).padStart(3, "0")}`] as const),
+  );
+  const displayIssueId = (id: string): string => issueDisplayIds.get(id)!;
+
   const issueIdsByOperation = new Map<string, string[]>();
   for (const issue of ledger?.issues ?? []) {
     for (const operation of issue.operations) {
       const ids = issueIdsByOperation.get(operation) ?? [];
-      if (!ids.includes(issue.id)) ids.push(issue.id);
+      const displayId = displayIssueId(issue.id);
+      if (!ids.includes(displayId)) ids.push(displayId);
       issueIdsByOperation.set(operation, ids);
     }
   }
@@ -193,11 +248,16 @@ export function buildViewModel(
       : ISSUE_HEADINGS.map(({ kind, heading }) => ({
           kind,
           heading,
-          issues: ledger.issues.filter((issue) => issue.kind === kind).map((issue) => issueView(spec, issue)),
+          issues: ledger.issues
+            .filter((issue) => issue.kind === kind)
+            .map((issue) => ({ ...issueView(spec, issue), id: displayIssueId(issue.id) })),
         })).filter((group) => group.issues.length > 0);
 
   return {
-    scenarioId: spec.scenarioId,
+    displayId: request.displayId,
+    ...titleOf(context, request),
+    viewRole: request.viewRole,
+    intent: intentOf(context),
     specSourceHash,
     ledgerReportId: ledger === null ? null : ledger.basis.reportId,
     ledgerIsStale: ledger === null ? null : ledger.basis.specSourceHash !== specSourceHash,
