@@ -371,7 +371,7 @@ test("俯瞰図: 番号は形と includeSupporting によらず同じ要素に�
   const order = await labelsOf(levelRequest("SYSTEM_JSON", "CONTEXT_DETAIL", { contextId: "src_order", includeSupporting: true }));
   const ship = await labelsOf(levelRequest("SYSTEM_JSON", "CONTEXT_DETAIL", { contextId: "src_ship" }));
   for (const [id, label] of [...order, ...ship]) {
-    if (whole.has(id)) assert.equal(label, whole.get(id), id);
+    if (whole.has(id)) assert.equal(label, whole.get(id), String(id));
   }
   assert.equal(whole.get("n5"), "ポリシー: 締めたら出荷する");
   assert.equal(order.get("n5"), "ポリシー: 締めたら出荷する");
