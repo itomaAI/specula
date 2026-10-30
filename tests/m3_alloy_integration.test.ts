@@ -186,13 +186,16 @@ test("M1 → M2 → M3 → M4: 真偽値の例は論点 0 件で、「スコー�
   assert.deepEqual(catalog.issues, []);
 });
 
-// 条件の旗がどこでも true にならないので、旗が立っているときの出口には届かない。
+// 条件の旗に書くのは false だけなので、旗が立っているときの出口には届かない。
+// 旗に書き込みが無いと M1 は状態変数にせず、条件は環境が決める命題になって両方の出口に届く（552f28d の CI で確かめた）。
+// そのため、旗を false に書く行を経路に置いている。
 const UNREACHABLE_SOURCE = [
   "let locked = false;",
   "export function read() {",
   "  if (locked) {",
   '    return "locked";',
   "  }",
+  "  locked = false;",
   '  return "read";',
   "}",
 ];
