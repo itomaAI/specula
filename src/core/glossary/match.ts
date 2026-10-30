@@ -13,6 +13,8 @@ import type { DocumentSection } from "./sections.js";
 
 export const MAX_SECTIONS = 3;
 export const EXCERPT_CHARS = 1500;
+/** 意味（資料の抜粋）の上限の字数（設計 5.3）。 */
+export const MEANING_CHARS = 400;
 
 export interface SelectedSection {
   section: string;
@@ -93,6 +95,29 @@ export function excerptOf(text: string): { text: string; truncated: boolean } {
   return chars.length <= EXCERPT_CHARS
     ? { text, truncated: false }
     : { text: chars.slice(0, EXCERPT_CHARS).join(""), truncated: true };
+}
+
+/**
+ * 意味（資料の抜粋）の本文（GlossaryBuilder の設計 5.3）。LLM に渡した抜粋（excerptOf の結果）から切り出すので、
+ * 意味の抜粋が変われば LLM の入力も変わり、記録のキーも変わる。
+ * - 見出しの節（識別子が "#" で終わらない節）は、先頭の見出しの行を飛ばす。見出しの無い節とスキーマは飛ばさない。
+ * - 続く空行を飛ばし、次の空行の直前までの最初の段落を取る。段落が無ければ null。
+ * - 先頭の MEANING_CHARS 字まで。上限で切ったとき、または段落が LLM の抜粋の末尾まで続き、その抜粋が切られていたときは truncated。
+ * - 本文には何も足さない（節の本文にある文字列そのもの）。
+ */
+export function meaningOf(selected: SelectedSection): { text: string; truncated: boolean } | null {
+  const lines = selected.text.split("\n");
+  let start = selected.section.endsWith("#") ? 0 : 1;
+  while (start < lines.length && (lines[start] ?? "").trim() === "") start += 1;
+  let end = start;
+  while (end < lines.length && (lines[end] ?? "").trim() !== "") end += 1;
+  if (end === start) return null;
+  const chars = Array.from(lines.slice(start, end).join("\n"));
+  const cut = chars.length > MEANING_CHARS;
+  return {
+    text: cut ? chars.slice(0, MEANING_CHARS).join("") : chars.join(""),
+    truncated: cut || (end === lines.length && selected.truncated),
+  };
 }
 
 function baseNameOf(path: string): string {

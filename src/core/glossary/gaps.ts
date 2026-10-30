@@ -35,14 +35,30 @@ export function recordGaps(
     .map(([name, found]) => ({ name, sections: [...found].sort(compareIds) }))
     .sort((a, b) => compareIds(a.name, b.name));
 
-  const byTerm = new Map<string, string[]>();
+  // 同義の候補は Bounded Context ごとに数え、違う Bounded Context の同じ用語は別の区分にする（設計 5.2）。
+  // 所属が決まらない項目（反応するイベントが全体マップに無いポリシー）は、どちらにも数えない。
+  const byTerm = new Map<string, Map<string, string[]>>();
   for (const entry of presented) {
-    if (entry.term?.status !== "GENERATED") continue;
-    byTerm.set(entry.term.term, [...(byTerm.get(entry.term.term) ?? []), entry.id]);
+    if (entry.term?.status !== "GENERATED" || entry.contextId === null) continue;
+    const contexts = byTerm.get(entry.term.term) ?? new Map<string, string[]>();
+    contexts.set(entry.contextId, [...(contexts.get(entry.contextId) ?? []), entry.id]);
+    byTerm.set(entry.term.term, contexts);
   }
   const sharedTerms = [...byTerm.entries()]
-    .filter(([, ids]) => ids.length >= 2)
-    .map(([term, ids]) => ({ term, entryIds: [...ids].sort(compareIds) }))
+    .flatMap(([term, contexts]) =>
+      [...contexts.entries()]
+        .filter(([, ids]) => ids.length >= 2)
+        .map(([contextId, ids]) => ({ term, contextId, entryIds: [...ids].sort(compareIds) })),
+    )
+    .sort((a, b) => compareIds(a.term, b.term) || compareIds(a.contextId, b.contextId));
+  const contextHomonyms = [...byTerm.entries()]
+    .filter(([, contexts]) => contexts.size >= 2)
+    .map(([term, contexts]) => ({
+      term,
+      entries: [...contexts.entries()]
+        .map(([contextId, ids]) => ({ entryId: [...ids].sort(compareIds)[0] ?? "", contextId }))
+        .sort((a, b) => compareIds(a.contextId, b.contextId)),
+    }))
     .sort((a, b) => compareIds(a.term, b.term));
 
   const multiSourceEntries = presented
@@ -53,7 +69,7 @@ export function recordGaps(
     .filter((item) => item.documents.length >= 2)
     .sort((a, b) => compareIds(a.entryId, b.entryId));
 
-  return { undocumentedEntries, unmatchedDocumentNames, sharedTerms, multiSourceEntries };
+  return { undocumentedEntries, unmatchedDocumentNames, sharedTerms, contextHomonyms, multiSourceEntries };
 }
 
 /** コードの囲みの外にあるインラインコードのうち、識別子の形をした名前。 */

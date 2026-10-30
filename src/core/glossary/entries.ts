@@ -16,8 +16,29 @@ import type { EventStormingMap, RepositoryDocument } from "../../types/scenario.
 import type { EntryKind, GlossaryEntry, GlossaryLocation } from "../../types/glossary.js";
 import { compareIds } from "../m0/boundary.js";
 
-/** 集めた項目。sources と term は後のステップで付ける。 */
-export type CollectedEntry = Omit<GlossaryEntry, "term" | "sources">;
+/** 集めた項目。sources・term・所属・確定の状態・抜粋は後で付ける。 */
+export type CollectedEntry = Omit<GlossaryEntry, "term" | "sources" | "contextId" | "crossesTo" | "termStatus" | "excerpt">;
+
+/**
+ * 提示する項目の所属の Bounded Context と、またいでいる先（GlossaryBuilder の設計 5.1）。全体マップの所属を写すだけ。
+ * - Bounded Context は自分自身。コマンドとイベントは全体マップの contextId。
+ * - ポリシーは全体マップに所属を持たないので、反応するイベントの Bounded Context に所属させる。
+ *   起動するコマンドの Bounded Context がそれと違えば、それをまたいでいる先にする（俯瞰図の地図 1 の矢印の向きと同じ）。
+ */
+export function contextsOf(map: EventStormingMap): Map<string, { contextId: string | null; crossesTo: string | null }> {
+  const result = new Map<string, { contextId: string | null; crossesTo: string | null }>();
+  for (const context of map.boundedContexts) result.set(context.id, { contextId: context.id, crossesTo: null });
+  for (const command of map.commands) result.set(command.id, { contextId: command.contextId, crossesTo: null });
+  for (const event of map.events) result.set(event.id, { contextId: event.contextId, crossesTo: null });
+  const eventContext = new Map(map.events.map((event) => [event.id, event.contextId] as const));
+  const commandContext = new Map(map.commands.map((command) => [command.id, command.contextId] as const));
+  for (const policy of map.policies) {
+    const from = eventContext.get(policy.triggerEventId) ?? null;
+    const to = commandContext.get(policy.actionCommandId) ?? null;
+    result.set(policy.id, { contextId: from, crossesTo: from !== null && to !== null && to !== from ? to : null });
+  }
+  return result;
+}
 
 export function collectEntries(map: EventStormingMap, documents: readonly RepositoryDocument[]): CollectedEntry[] {
   const entries = new Map<string, { kind: EntryKind; scope: CollectedEntry["scope"]; names: Set<string>; locations: GlossaryLocation[] }>();

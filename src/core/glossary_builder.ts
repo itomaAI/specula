@@ -9,9 +9,9 @@ import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
 import { canonicalJson } from "../lib/canonical_json.js";
 import { sha256Hex } from "../lib/sha256.js";
 import { compareIds } from "./m0/boundary.js";
-import { collectEntries } from "./glossary/entries.js";
+import { collectEntries, contextsOf } from "./glossary/entries.js";
 import { recordGaps } from "./glossary/gaps.js";
-import { cluesOf, selectSections } from "./glossary/match.js";
+import { cluesOf, meaningOf, selectSections } from "./glossary/match.js";
 import { splitSections } from "./glossary/sections.js";
 import { nameTerms } from "./glossary/terms.js";
 
@@ -24,21 +24,44 @@ export async function buildGlossary(
   const collected = collectEntries(map, repo.documents);
   const selected = selectSections(cluesOf(map), sections);
   const terms = await nameTerms(map, repo, selected, deps.llm);
+  const contexts = contextsOf(map);
 
-  const entries: GlossaryEntry[] = collected.map((entry) => {
+  const entries: GlossaryEntry[] = collected.map((entry): GlossaryEntry => {
     if (entry.scope === "RECORDED") {
-      return { id: entry.id, kind: entry.kind, scope: entry.scope, implementation: entry.implementation, sources: [] };
+      return {
+        id: entry.id,
+        kind: entry.kind,
+        scope: entry.scope,
+        implementation: entry.implementation,
+        sources: [],
+        contextId: null,
+        crossesTo: null,
+        termStatus: null,
+        excerpt: null,
+      };
     }
     const term = terms.get(entry.id);
     // 提示する項目は、すべて Step 4 で用語を頼んでいる。無ければ Step 2 と Step 4 の食い違い（実装の誤り）なので止める。
     if (term === undefined) throw new Error(`GlossaryBuilder: 提示する項目 ${entry.id} に用語の結果が無い`);
+    const chosen = selected.get(entry.id) ?? [];
+    const first = chosen[0];
+    const meaning = first === undefined ? null : meaningOf(first);
+    const context = contexts.get(entry.id) ?? { contextId: null, crossesTo: null };
     return {
       id: entry.id,
       kind: entry.kind,
       scope: entry.scope,
       term,
       implementation: entry.implementation,
-      sources: (selected.get(entry.id) ?? []).map((section) => section.section),
+      sources: chosen.map((section) => section.section),
+      contextId: context.contextId,
+      crossesTo: context.crossesTo,
+      // 確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（設計 5.1）。
+      termStatus: term.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED",
+      excerpt:
+        first === undefined || meaning === null
+          ? null
+          : { text: meaning.text, source: first.section, truncated: meaning.truncated, status: "CANDIDATE" },
     };
   });
 

@@ -176,6 +176,7 @@ function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
       undocumentedEntries: glossary.gaps.undocumentedEntries.length,
       unmatchedDocumentNames: glossary.gaps.unmatchedDocumentNames.length,
       sharedTerms: glossary.gaps.sharedTerms.length,
+      contextHomonyms: glossary.gaps.contextHomonyms.length,
       multiSourceEntries: glossary.gaps.multiSourceEntries.length,
     },
   };
