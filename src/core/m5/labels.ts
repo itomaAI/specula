@@ -8,11 +8,27 @@
 
 import type { OutletKind } from "../../types/context.js";
 import type { FormalSpecification, StateVariable } from "../../types/formal.js";
+import type { ConfirmationStatus } from "../../types/index.js";
 
 export function labelOf(spec: FormalSpecification, id: string): string {
   const label = spec.labels[id];
   if (label !== undefined && label.status === "GENERATED") return label.text;
   return `${id}（表示名は未生成）`;
+}
+
+/**
+ * 確定の状態の印（設計 8.9）。候補は印を付けない（仕様書の冒頭に 1 回だけ書くため）。
+ * 未生成も印を付けない。文そのものが「未生成」と書かれていて、もう分かるため。
+ */
+export function statusMark(status: ConfirmationStatus | null | undefined): string {
+  if (status === "CONFIRMED") return "（確定）";
+  if (status === "NEEDS_RECHECK") return "（要再確認）";
+  return "";
+}
+
+/** 表示名に確定の状態の印を足す。項目を定義する箇所でだけ使い、文の中の表示名には使わない（設計 8.9）。 */
+export function markedLabelOf(spec: FormalSpecification, id: string): string {
+  return `${labelOf(spec, id)}${statusMark(spec.labelStatus[id])}`;
 }
 
 export const OUTLET_KIND_TEXT: Readonly<Record<OutletKind, string>> = {
@@ -42,7 +58,10 @@ export function domainValuesText(spec: FormalSpecification, variable: StateVaria
     case "INT":
       return "整数";
     case "ENUM":
-      return variable.values.map((value) => valueText(spec, variable, value)).join("、");
+      // 列挙の値は、ここが定義の箇所なので確定の状態の印を付ける（設計 8.9）。
+      return variable.values
+        .map((value) => (value === `${variable.id}_unknown` ? valueText(spec, variable, value) : markedLabelOf(spec, value)))
+        .join("、");
   }
 }
 
@@ -52,10 +71,13 @@ export function initialText(spec: FormalSpecification, variable: StateVariable):
   return valueText(spec, variable, variable.initial);
 }
 
-/** 出口（o1 など）を「〈表示名〉（〈出口の種類の語〉）」で表示する。出口の種類は、その出口を持つ最初の操作から取る。 */
-export function outcomeText(spec: FormalSpecification, outcome: string): string {
+/**
+ * 出口（o1 など）を「〈表示名〉（〈出口の種類の語〉）」で表示する。出口の種類は、その出口を持つ最初の操作から取る。
+ * marked が true なら表示名に確定の状態の印を足す（操作の「結果」の行。実行列の中では足さない。設計 8.9）。
+ */
+export function outcomeText(spec: FormalSpecification, outcome: string, marked = false): string {
   const operation = spec.operations.find((candidate) => candidate.outcome === outcome);
-  const label = labelOf(spec, outcome);
+  const label = marked ? markedLabelOf(spec, outcome) : labelOf(spec, outcome);
   return operation === undefined ? label : `${label}（${OUTLET_KIND_TEXT[operation.outletKind]}）`;
 }
 

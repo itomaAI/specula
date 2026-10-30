@@ -10,7 +10,17 @@ import type { LlmText } from "../../types/index.js";
 import type { ProjectionContext, ProjectionRequest, ViewRole } from "../../types/projection.js";
 import type { FindingKind, UnverifiedReason } from "../../types/solver.js";
 import { markdownImplementationNote } from "./implementation.js";
-import { checkText, domainValuesText, initialText, labelOf, outcomeText, traceOutcomeText, valueText } from "./labels.js";
+import {
+  checkText,
+  domainValuesText,
+  initialText,
+  labelOf,
+  markedLabelOf,
+  outcomeText,
+  statusMark,
+  traceOutcomeText,
+  valueText,
+} from "./labels.js";
 import { stepText } from "./sentences.js";
 
 export interface StateVariableView {
@@ -158,6 +168,9 @@ function verificationView(spec: FormalSpecification, ledger: DomainLedgerCatalog
     }
   }
 
+  // 検査の範囲（設計 8.9）。検査はシナリオごとに行い、シナリオどうしの矛盾は見ていない。
+  lines.push("検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。");
+
   if (v.unexecutedChecks.length > 0) {
     lines.push(`実行しなかった検査: ${v.unexecutedChecks.map((id) => checkText(spec, id)).join("、")}`);
   }
@@ -183,9 +196,9 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
   return {
     id: issue.id,
     status: "未決",
-    claim: llmText(issue.claim),
-    observation: llmText(issue.observation),
-    question: llmText(issue.question),
+    claim: `${llmText(issue.claim)}${statusMark(issue.claimStatus)}`,
+    observation: `${llmText(issue.observation)}${statusMark(issue.observationStatus)}`,
+    question: `${llmText(issue.question)}${statusMark(issue.questionStatus)}`,
     operations: issue.operations.map((operation) => labelOf(spec, operation)),
     trace,
     options: issue.options.map((option) => ({ id: option.id, meaning: option.meaning })),
@@ -206,8 +219,11 @@ export function titleOf(
   const entry = context.glossary?.entries.find((candidate) => candidate.id === inlet);
   const matched = entry !== undefined && entry.kind === context.scenario.inletType ? entry : undefined;
   const term = matched?.term;
+  // 用語に確定の状態の印を足す（設計 8.9）。候補と未生成には付かない。
   const title =
-    term !== undefined && term.status === "GENERATED" ? `${request.displayId} ${term.label}` : `${request.displayId}（名前は未生成）`;
+    term !== undefined && term.status === "GENERATED"
+      ? `${request.displayId} ${term.label}${statusMark(matched?.termStatus)}`
+      : `${request.displayId}（名前は未生成）`;
   const titleNote =
     request.viewRole === "Eng" && matched !== undefined ? markdownImplementationNote(matched.implementation.locations) : "";
   return { title, titleNote };
@@ -217,7 +233,7 @@ export function titleOf(
 function intentOf(context: ProjectionContext): IntentView | null {
   const item = context.intents?.scenarios.find((candidate) => candidate.scenarioId === context.scenario.id);
   if (item === undefined) return null;
-  return { text: llmText(item.intent), userIntent: item.userIntent ?? null };
+  return { text: `${llmText(item.intent)}${statusMark(item.intentStatus)}`, userIntent: item.userIntent ?? null };
 }
 
 export function buildViewModel(
@@ -264,18 +280,20 @@ export function buildViewModel(
     specSourceHash,
     ledgerReportId: ledger === null ? null : ledger.basis.reportId,
     ledgerIsStale: ledger === null ? null : ledger.basis.specSourceHash !== specSourceHash,
+    // 表示名の確定の状態の印は、項目を定義する箇所（状態変数・列挙の値・環境が決める条件・操作・操作の結果）
+    // にだけ付ける。条件・書き込み・実行列・検査の文の中の表示名には付けない（設計 8.9）。
     stateVariables: spec.stateVariables.map((variable) => ({
-      label: labelOf(spec, variable.id),
+      label: markedLabelOf(spec, variable.id),
       domain: DOMAIN_TEXT[variable.domain],
       values: domainValuesText(spec, variable),
       initial: initialText(spec, variable),
     })),
-    propositions: spec.propositions.map((prop) => labelOf(spec, prop.id)),
+    propositions: spec.propositions.map((prop) => markedLabelOf(spec, prop.id)),
     operations: spec.operations.map((operation) => ({
       id: operation.id,
-      label: labelOf(spec, operation.id),
+      label: markedLabelOf(spec, operation.id),
       steps: operation.steps.map((step) => ({ kind: step.kind, text: stepText(spec, step) })),
-      outcome: outcomeText(spec, operation.outcome),
+      outcome: outcomeText(spec, operation.outcome, true),
       dataMutationCount: operation.dataMutations.length,
       issueIds: issueIdsByOperation.get(operation.id) ?? [],
     })),

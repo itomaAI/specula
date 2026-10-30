@@ -500,3 +500,78 @@ test("M5: 契約の違反", async () => {
     reason("UNSUPPORTED_FORMAT"),
   );
 });
+
+test("M5: 仕様書の冒頭に、表示名と用語は候補であることを 1 回だけ書く（設計 8.9）", async () => {
+  const notice = "この文書の表示名と用語は、人が確かめていない候補である。";
+  for (const ledger of [await catalog(), null]) {
+    const view = await projectSpecification(SPEC, ledger, CONTEXT, DOCUMENT);
+    const at = view.content.indexOf(notice);
+    assert.ok(at > 0 && at < view.content.indexOf("## 検証の状態"));
+    assert.equal(view.content.split(notice).length, 2);
+    // 候補の項目には個別の印を付けない（冒頭の文が印の書き方を 1 回ずつ挙げるだけ）
+    assert.ok(!view.content.includes("（候補）"));
+    assert.equal(view.content.split("（確定）").length, 2);
+    assert.equal(view.content.split("（要再確認）").length, 2);
+  }
+});
+
+test("M5: 検証の状態の節に、検査の範囲の文を書く。カタログが無ければ書かない（設計 8.9）", async () => {
+  const scopeText = "- 検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。\n";
+  const unverified = await catalog({
+    verification: {
+      outcome: "UNVERIFIED",
+      status: "UNVERIFIED",
+      reason: null,
+      scope: { scope: 3, maxSteps: 10, bitwidth: 4 },
+      unexecutedChecks: [],
+      invariantChecks: { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" },
+      nonExhaustiveChecks: [],
+    },
+  });
+  for (const ledger of [await catalog(), await catalog({}, []), unverified]) {
+    const view = await projectSpecification(SPEC, ledger, CONTEXT, DOCUMENT);
+    const at = view.content.indexOf(scopeText);
+    assert.ok(at > view.content.indexOf("## 検証の状態") && at < view.content.indexOf("## 意図の候補"), ledger.verification.outcome);
+  }
+  const missing = await projectSpecification(SPEC, null, CONTEXT, DOCUMENT);
+  assert.ok(!missing.content.includes("検査はこのシナリオだけで行った"));
+});
+
+test("M5: 確定と要再確認の印は、項目を定義する箇所と題・意図・論点の文にだけ付け、文の中の表示名には付けない（設計 8.9）", async () => {
+  const spec: FormalSpecification = {
+    ...SPEC,
+    labelStatus: { ...SPEC.labelStatus, v1: "CONFIRMED", v1_2: "NEEDS_RECHECK", c1: "CONFIRMED", op1: "NEEDS_RECHECK", o1: "CONFIRMED" },
+  };
+  const intents = intentsWith(generated("受付中の注文を締め切り、それ以上の変更を止める"));
+  const context: ProjectionContext = {
+    ...CONTEXT,
+    glossary: { ...GLOSSARY, entries: GLOSSARY.entries.map((entry) => ({ ...entry, termStatus: "CONFIRMED" as const })) },
+    intents: { ...intents, scenarios: intents.scenarios.map((item) => ({ ...item, intentStatus: "NEEDS_RECHECK" as const })) },
+  };
+  const ledger = await catalog({}, [issue({ claimStatus: "CONFIRMED", questionStatus: "NEEDS_RECHECK" })]);
+  const view = await projectSpecification(spec, ledger, context, DOCUMENT);
+  const content = view.content;
+
+  // 題・意図・論点の文
+  assert.ok(content.startsWith("# 仕様書: S-01 注文の締め（確定）\n"), content);
+  assert.ok(content.includes("- 候補: 受付中の注文を締め切り、それ以上の変更を止める（要再確認）\n"));
+  assert.ok(content.includes("- 主張: 締め切り済みの注文にも、扱いが決まっているべきである。（確定）\n"));
+  assert.ok(content.includes("- 観測事実: 締め切り済みで強制の指定があるとき、受け付ける操作が無かった。\n"));
+  assert.ok(content.includes("- 判断質問: 締め切り済みの注文に強制の指定が来たら、どう扱いますか。（要再確認）\n"));
+
+  // 項目を定義する箇所
+  assert.ok(content.includes("| 注文の状態（確定） | 列挙 | 受付中、締め切り済み（要再確認）、初期値は決まらない | 受付中 |"));
+  assert.ok(content.includes("- 強制の指定（確定）\n"));
+  assert.ok(content.includes("### 注文を締める（要再確認）\n"));
+  assert.ok(content.includes("- 結果: 締めた結果（確定）（戻り値を返して終わる）\n"));
+
+  // 文の中の表示名には付けない
+  assert.ok(content.includes("1. 条件: 注文の状態が受付中である\n"));
+  assert.ok(content.includes("| 1 | 注文の状態: 締め切り済み、試行回数: 1、確認済み \\| 印: 真 | 締めた結果（戻り値を返して終わる） | 強制の指定 |"));
+  assert.ok(content.includes("- 関わる操作: 注文を締める、"));
+
+  // 中間表現に入れるので、操作の一覧表にも同じ印が出る
+  const matrix = await projectSpecification(spec, ledger, context, request("MATRIX"));
+  assert.ok(matrix.content.startsWith("# 操作の一覧表: S-01 注文の締め（確定）\n"), matrix.content);
+  assert.ok(matrix.content.includes("| 注文を締める（要再確認） |"));
+});
