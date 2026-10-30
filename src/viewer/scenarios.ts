@@ -238,3 +238,6 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
     return { ...base, verification: null, issueCount: null, issueGroups: null, tabs: null, notice };
   });
 }
+
+// 仕様不備一覧（issues.ts）も同じ題と件数の文を出すために使う（設計 6.7）。
+export { ambiguityCountText, ambiguityTotal, sourcesOf, titleOf as scenarioTitleOf, valueOf };
