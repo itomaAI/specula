@@ -5,6 +5,7 @@ import type { FileSystemPort } from "../ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
 import type { AmbiguityKind, AmbiguityReport, FormalSpecification } from "./formal.js";
 import type { Glossary } from "./glossary.js";
+import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
 import type { SpecificationView } from "./projection.js";
 import type { EventStormingMap, ExtractionDiagnostics, ScenarioSelection } from "./scenario.js";
@@ -76,6 +77,14 @@ export interface RunReport {
     /** ずれの種類ごとの件数（Glossary.gaps の 4 つ）。 */
     gaps: { undocumentedEntries: number; unmatchedDocumentNames: number; sharedTerms: number; multiSourceEntries: number };
   };
+  /** 意図の候補の要約（全体設計 2.1）。 */
+  intents: {
+    /** 候補の欄の数（Bounded Context とシナリオ）。未生成のものも数える。 */
+    contextCount: number;
+    scenarioCount: number;
+    /** 候補が未生成の欄の数（理由の種類ごと。Bounded Context とシナリオの合計）。 */
+    notGenerated: { UNREACHABLE: number; INVALID_OUTPUT: number };
+  };
   slice: {
     scenarioCount: number;
     rejected: Array<{ inlet: string; reason: string }>;
@@ -110,6 +119,7 @@ export interface PipelineResult {
   report: RunReport;
   map: EventStormingMap;
   glossary: Glossary;
+  intents: IntentCatalog;
   systemViews: { mermaid: SpecificationView; json: SpecificationView };
   scenarios: ScenarioArtifacts[];
 }

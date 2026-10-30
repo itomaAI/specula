@@ -3,7 +3,7 @@
 // Step 1〜3 と Step 5 は決定的。Step 4（用語）だけが LLM を使う。LLM が無ければ用語はすべて NOT_GENERATED（UNREACHABLE）。
 
 import type { JsonValue } from "../types/index.js";
-import type { EventStormingMap, RepositoryArtifacts } from "../types/scenario.js";
+import type { EventStormingMap, RepositoryArtifacts, RepositoryDocument } from "../types/scenario.js";
 import type { Glossary, GlossaryEntry } from "../types/glossary.js";
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
 import { canonicalJson } from "../lib/canonical_json.js";
@@ -42,9 +42,6 @@ export async function buildGlossary(
     };
   });
 
-  const documentsJson: JsonValue = [...repo.documents]
-    .sort((a, b) => compareIds(a.path, b.path))
-    .map((document) => ({ path: document.path, text: document.text }));
   return {
     entries,
     gaps: recordGaps(entries, sections, selected),
@@ -55,9 +52,20 @@ export async function buildGlossary(
     },
     basis: {
       mapHash: await mapHashOf(map),
-      documentsHash: await sha256Hex(canonicalJson(documentsJson)),
+      documentsHash: await documentsHashOf(repo.documents),
     },
   };
+}
+
+/**
+ * 資料の SHA-256（辞書の basis.documentsHash）。資料をパスの辞書順に並べ、パスと本文だけを正準化する。
+ * IntentSynthesizer が、辞書の選んだ節を同じ資料から切り出せるかを確かめるときも、これを使う。
+ */
+export async function documentsHashOf(documents: readonly RepositoryDocument[]): Promise<string> {
+  const documentsJson: JsonValue = [...documents]
+    .sort((a, b) => compareIds(a.path, b.path))
+    .map((document) => ({ path: document.path, text: document.text }));
+  return sha256Hex(canonicalJson(documentsJson));
 }
 
 /**

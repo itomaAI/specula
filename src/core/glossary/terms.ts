@@ -88,13 +88,7 @@ export async function nameTerms(
   const requests: Array<{ id: string; kind: TermRequestKind; input: { [key: string]: JsonValue } }> = [];
 
   for (const context of map.boundedContexts) {
-    const filePaths = [
-      ...new Set(
-        [...map.commands, ...map.events]
-          .filter((element) => element.contextId === context.id)
-          .map((element) => element.handler.file),
-      ),
-    ].sort(compareIds);
+    const filePaths = contextFilesOf(map, context.id);
     requests.push({ id: context.id, kind: "BOUNDED_CONTEXT", input: { contextId: context.id, rootPaths: [...context.rootPaths], filePaths } });
   }
   const eventById = new Map(map.events.map((event) => [event.id, event] as const));
@@ -162,6 +156,18 @@ async function ask(llm: LanguageModelPort | undefined, kind: TermRequestKind, in
   // 形の確認は済んでいるので、ここで外れることは無い。外れたら INVALID_OUTPUT として扱う。
   if ("detail" in parsed) return { status: "NOT_GENERATED", reason: "INVALID_OUTPUT", detail: parsed.detail };
   return { status: "GENERATED", term: parsed.term, label: parsed.label, recordKey: result.recordKey };
+}
+
+/**
+ * Bounded Context の「含まれるファイル」: 全体マップでそのコンテキストに属するコマンドとイベントのハンドラのファイル（辞書順）。
+ * 全体マップはコンテキストごとのファイルの一覧を持たないため。IntentSynthesizer も同じものを使う。
+ */
+export function contextFilesOf(map: EventStormingMap, contextId: string): string[] {
+  return [
+    ...new Set(
+      [...map.commands, ...map.events].filter((element) => element.contextId === contextId).map((element) => element.handler.file),
+    ),
+  ].sort(compareIds);
 }
 
 /** 関数の頭の数行（行番号は 1 から）。ファイルが無ければ空の文字列。 */

@@ -87,7 +87,8 @@ function isWordChar(ch: string | undefined): boolean {
   return ch !== undefined && /[A-Za-z0-9_-]/.test(ch);
 }
 
-function excerptOf(text: string): { text: string; truncated: boolean } {
+/** 節の本文の抜粋（先頭の EXCERPT_CHARS 字まで）。IntentSynthesizer も同じ規則で抜粋を作る。 */
+export function excerptOf(text: string): { text: string; truncated: boolean } {
   const chars = Array.from(text);
   return chars.length <= EXCERPT_CHARS
     ? { text, truncated: false }
