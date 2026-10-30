@@ -290,12 +290,14 @@ test("曖昧性: UNDETERMINED_VALUE と EXTERNAL_EFFECT（引数と受け手）�
     ],
   );
   for (const issue of report.issues) assert.deepEqual(issue.question, { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "LLM のポートが渡されていない" });
+  for (const issue of report.issues) assert.equal(issue.questionStatus, "NOT_GENERATED", "LLM 無しの質問の文は未生成（M2 の設計 6）");
 
   const llm = new FakeLlm(politeAnswer);
   const asked = await transpileFormal(await facts(AMBIGUOUS_SOURCE, "go"), { llm });
   assert.deepEqual(llm.tasks, ["m2.ambiguity-question"], "質問の文はレポートごとに 1 回");
   assert.ok(asked.kind === "AMBIGUITY");
   assert.deepEqual(asked.report.issues[1]?.question, { status: "GENERATED", text: "質問 2", recordKey: "rk-m2.ambiguity-question" });
+  for (const issue of asked.report.issues) assert.equal(issue.questionStatus, "CANDIDATE", "書けた質問の文は候補（M2 の設計 6）");
 });
 
 const PURE_CALL_SOURCE = [
@@ -381,7 +383,14 @@ test("表示名: 1 回で全部の識別子に付く。形が合わなければ�
   const broken = spec(await transpileFormal(model, { llm: tooLong }));
   for (const label of Object.values(broken.labels)) assert.equal(label.status === "NOT_GENERATED" && label.reason, "INVALID_OUTPUT");
 
+  // 確定の状態は labels と同じキーで、書けたら CANDIDATE、未生成なら NOT_GENERATED（M2 の設計 6）。
+  assert.deepEqual(Object.keys(named.labelStatus), Object.keys(named.labels));
+  for (const status of Object.values(named.labelStatus)) assert.equal(status, "CANDIDATE");
+  for (const status of Object.values(broken.labelStatus)) assert.equal(status, "NOT_GENERATED");
+
   const none = spec(await transpileFormal(model, {}));
+  assert.deepEqual(Object.keys(none.labelStatus), Object.keys(none.labels));
+  for (const status of Object.values(none.labelStatus)) assert.equal(status, "NOT_GENERATED");
   assert.equal(none.source, named.source);
   assert.equal(none.source, broken.source);
   assert.deepEqual(none.sourceMap, named.sourceMap);

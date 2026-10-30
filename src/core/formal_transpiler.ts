@@ -1,6 +1,7 @@
 // M2（FormalTranspiler）: RawContextModel から Alloy 6 の FormalSpecification か AmbiguityReport を作る（M2 の設計 1.3）。
 // ファイルを読み書きしない。LLM は表示名と質問の文にだけ使い、ソースは LLM の結果によらず同じ入力から同じものになる。
 
+import type { ConfirmationStatus, LlmText } from "../types/index.js";
 import type { RawContextModel } from "../types/context.js";
 import type { FormalSpecification, TranspilerResult } from "../types/formal.js";
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
@@ -36,7 +37,10 @@ export async function transpileFormal(
       kind: "AMBIGUITY",
       report: {
         scenarioId: facts.scenarioId,
-        issues: collected.issues.map((issue, index) => ({ ...issue, question: questions[index] as (typeof questions)[number] })),
+        issues: collected.issues.map((issue, index) => {
+          const question = questions[index] as (typeof questions)[number];
+          return { ...issue, question, questionStatus: statusOf(question) };
+        }),
         counts: collected.counts,
       },
     };
@@ -73,6 +77,8 @@ export async function transpileFormal(
     items.push({ id: operation.outcome, kind: "OUTCOME", name: `${operation.outletKind} ${scope}`.trim(), expression: outlet?.name ?? "" });
   });
   const labels = await labelVocabulary(deps.llm, facts.scenarioId, items);
+  const labelStatus: Record<string, ConfirmationStatus> = {};
+  for (const [id, label] of Object.entries(labels)) labelStatus[id] = statusOf(label);
 
   return {
     kind: "SPEC",
@@ -84,6 +90,7 @@ export async function transpileFormal(
       operations: paths.operations,
       sourceMap,
       labels,
+      labelStatus,
       previousDiff: { status: "NOT_COMPUTED", reason: previous === undefined || previous === null ? "FIRST_RUN" : "OUT_OF_SCOPE" },
     },
   };
@@ -92,4 +99,9 @@ export async function transpileFormal(
 function initialText(details: Record<string, string | number | boolean | null> | undefined): string {
   const initial = details?.["initial"];
   return typeof initial === "string" ? initial : "";
+}
+
+/** 確定の状態。確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（M2 の設計 6。GlossaryBuilder・IntentSynthesizer と同じ規則）。 */
+function statusOf(text: LlmText): ConfirmationStatus {
+  return text.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED";
 }

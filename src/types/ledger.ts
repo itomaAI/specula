@@ -1,6 +1,6 @@
 // M4（LedgerSynthesizer）の出力の型（M4 の設計 6）。
 
-import type { LlmText } from "./index.js";
+import type { ConfirmationStatus, LlmText } from "./index.js";
 import type { FindingKind, SolverConditions, SolverReport, TraceStep } from "./solver.js";
 
 /**
@@ -59,6 +59,10 @@ export interface LedgerIssue {
   observation: LlmText;
   /** 人に判断を求める問い（LLM）。 */
   question: LlmText;
+  /** 3 つの文の確定の状態（NOT_GENERATED か CANDIDATE。M4 の設計 8）。論点の decision とは別の欄。 */
+  claimStatus: ConfirmationStatus;
+  observationStatus: ConfirmationStatus;
+  questionStatus: ConfirmationStatus;
   options: LedgerOption[];
   /** 初回は常に未決。2 回目以降のために置く。 */
   decision: null;

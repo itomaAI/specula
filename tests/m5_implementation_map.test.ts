@@ -124,6 +124,7 @@ const SPEC: FormalSpecification = {
     op1: ["src/order.ts:11:3:BRANCH_CONDITION", "src/order.ts:12:5:RETURN"],
   },
   labels: {},
+  labelStatus: {},
   previousDiff: { status: "NOT_COMPUTED", reason: "FIRST_RUN" },
 };
 
@@ -138,6 +139,9 @@ function issue(id: string, operations: string[]): LedgerIssue {
     claim: NOT_GENERATED,
     observation: NOT_GENERATED,
     question: NOT_GENERATED,
+    claimStatus: "NOT_GENERATED",
+    observationStatus: "NOT_GENERATED",
+    questionStatus: "NOT_GENERATED",
     options: [{ id: "SPECIFY_HANDLING", meaning: "この状況での扱いを決めて、実装に足す" }],
     decision: null,
   };
@@ -185,6 +189,7 @@ const AMBIGUITY: AmbiguityReport = {
       location: { file: "src/order.ts", line: 22, column: 5 },
       detail: "status = next()",
       question: NOT_GENERATED,
+      questionStatus: "NOT_GENERATED",
     },
   ],
   counts: { UNDETERMINED_VALUE: 1, EXTERNAL_EFFECT: 0, CONFLICTING_SLICES: 0 },

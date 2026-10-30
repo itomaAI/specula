@@ -80,6 +80,7 @@ const SPEC: FormalSpecification = {
     v1_2: { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" },
     op1: generated("強制的に閉じる"),
   },
+  labelStatus: { v1: "CANDIDATE", v1_1: "CANDIDATE", v1_2: "NOT_GENERATED", op1: "CANDIDATE" },
   previousDiff: { status: "NOT_COMPUTED", reason: "FIRST_RUN" },
 };
 
@@ -227,8 +228,17 @@ test("M4: LLM が届かなければ 3 つの文を未生成にし、論点の構
   assert.equal(issue?.claim.status, "NOT_GENERATED");
   assert.equal(issue?.observation.status, "NOT_GENERATED");
   assert.equal(issue?.question.status, "NOT_GENERATED");
+  assert.deepEqual([issue?.claimStatus, issue?.observationStatus, issue?.questionStatus], ["NOT_GENERATED", "NOT_GENERATED", "NOT_GENERATED"]);
   assert.equal(issue?.options.length, 3);
   assert.deepEqual(issue?.dependentFindings, [0]);
+});
+
+test("M4: 書けた文の確定の状態は CANDIDATE で、論点の決定は未決のまま（M4 の設計 8）", async () => {
+  const catalog = await synthesizeLedger(await report([COVER]), SPEC, { llm: new FakeLlm() });
+  const issue = catalog.issues[0];
+  assert.equal(issue?.claim.status, "GENERATED");
+  assert.deepEqual([issue?.claimStatus, issue?.observationStatus, issue?.questionStatus], ["CANDIDATE", "CANDIDATE", "CANDIDATE"]);
+  assert.equal(issue?.decision, null);
 });
 
 test("M4: 文に形式仕様の識別子が出たら INVALID_OUTPUT にする", async () => {

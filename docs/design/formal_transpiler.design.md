@@ -178,6 +178,7 @@ interface FormalSpecification {
   }>;
   sourceMap: Record<string, string[]>;             // Alloy の識別子 → ユニットの識別子
   labels: Record<string, LlmText>;                 // Alloy の識別子 → 表示名
+  labelStatus: Record<string, ConfirmationStatus>; // labels と同じキー。表示名の確定の状態（6 節）
   previousDiff: { status: "NOT_COMPUTED"; reason: "FIRST_RUN" | "OUT_OF_SCOPE" };
 }
 
@@ -249,6 +250,7 @@ interface AmbiguityIssue {
   location: UnitLocation;         // 最初のユニットの所在（ContextExtractor のユニットの所在。列を含む。ContextExtractor のユニットに symbol が無いため）
   detail: string;                 // 式や呼び出しの原文
   question: LlmText;              // 人への質問の文（LLM。task: "m2.ambiguity-question"）
+  questionStatus: ConfirmationStatus; // 質問の文の確定の状態（6 節）
 }
 
 interface AmbiguityReport {
@@ -259,3 +261,29 @@ interface AmbiguityReport {
 ```
 - 種類・ユニット・所在・原文は決定論的に決める。質問の文だけを LLM で作り、届かなければ `NOT_GENERATED` とする。
 - オーケストレーターは、全シナリオの `counts` を合計して実行の報告に出す（全体設計 2 節）。件数が多いときに優先度で畳むのは、将来の課題である。
+
+---
+
+## 6. 画面の仕様に合わせて足したもの（2026-10-31）
+
+仕様 2.2 の変更（表示名と質問の文に、その確定の状態を持たせる）を、次の形で実装した。確定の状態（`ConfirmationStatus`）の意味は SpecViewer の仕様 2.4 にあり、型は `src/types/index.ts` にある。実装は `src/types/formal.ts`・`src/core/formal_transpiler.ts`。
+
+### 6.1 型に足すもの
+```typescript
+interface FormalSpecification {
+  // …これまでの欄…
+  labelStatus: Record<string, ConfirmationStatus>;  // labels と同じキー。各表示名の確定の状態
+}
+
+interface AmbiguityIssue {
+  // …これまでの欄…
+  questionStatus: ConfirmationStatus;               // 質問の文の確定の状態
+}
+```
+
+### 6.2 決めたこと
+- 状態は、文（`LlmText`）とは別の欄に持つ。仕様が「文と、その確定の状態」を出力に持つと書いているためである。GlossaryBuilder の `termStatus`、IntentSynthesizer の `intentStatus` と同じ形にそろえる。また、`CONFIRMED`・`NEEDS_RECHECK` は文から求められないので、確定の操作を足すときにはどのみち欄が要る。
+- 確定の操作は現在の範囲に無いので、本モジュールが書くのは `NOT_GENERATED` と `CANDIDATE` だけである。文が `GENERATED` なら `CANDIDATE`、`NOT_GENERATED` なら `NOT_GENERATED` とする（GlossaryBuilder・IntentSynthesizer と同じ規則）。
+- 状態は、表示名や質問の文を受け取った直後に、同じ関数で付ける。`labelStatus` のキーは `labels` のキーと必ず一致する。
+- 採らなかった案: 欄を足さず、`LlmText` から状態を求める関数を後段と共有する案。今は文と状態がずれないが、出力の形が仕様と合わず、確定の操作を足すときに型を変えることになるため採らなかった。
+- SpecProjector はまだこの欄を読まない。表示は SpecProjector の変更（画面の仕様に合わせる変更の次の段）で行う。
