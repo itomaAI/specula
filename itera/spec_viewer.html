@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>specula viewer</title>
+<style>
+  :root { --line: #c9ced6; --muted: #5f6b7a; --accent: #1e5bb8; --warn: #b26a00; --bad: #c62828; --bg2: #f4f6f9; }
+  /* 色はすべて明るい背景の前提で決めているので、OS のテーマ（暗い背景）に左右されないよう背景も固定する。 */
+  html, body { background: #fff; color-scheme: light; }
+  body { font-family: system-ui, sans-serif; margin: 0; color: #1d232b; font-size: 14px; }
+  select, input { color: #1d232b; background: #fff; }
+  header { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 8px; align-items: center; z-index: 2; flex-wrap: wrap; }
+  header h1 { font-size: 1rem; margin: 0 12px 0 0; }
+  header button { border: 1px solid var(--line); background: #fff; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+  header button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  header .role { margin-left: auto; color: var(--muted); }
+  main { padding: 12px 16px 48px; }
+  h2 { font-size: 1.1rem; margin: 16px 0 8px; }
+  h3 { font-size: 1rem; margin: 14px 0 6px; }
+  h4 { font-size: 0.95rem; margin: 12px 0 4px; }
+  table { border-collapse: collapse; margin: 6px 0 12px; }
+  th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--bg2); font-weight: 600; }
+  tr.link { cursor: pointer; }
+  tr.link:hover td { background: #eef4ff; }
+  a.link, span.link { color: var(--accent); cursor: pointer; text-decoration: underline; }
+  .muted { color: var(--muted); }
+  .warn { color: var(--warn); font-weight: 600; }
+  .error { color: var(--bad); }
+  .box { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin: 8px 0; background: #fff; }
+  .undecided { display: inline-block; border: 1px dashed var(--bad); color: var(--bad); padding: 0 6px; border-radius: 3px; font-size: 0.85em; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 12px 0 8px; }
+  .tabs button { border: 1px solid var(--line); border-bottom: none; background: var(--bg2); padding: 4px 10px; cursor: pointer; border-radius: 4px 4px 0 0; }
+  .tabs button.active { background: #fff; font-weight: 600; }
+  pre { background: var(--bg2); padding: 8px; overflow: auto; white-space: pre; font-size: 0.85rem; }
+  blockquote { border-left: 3px solid var(--line); margin: 6px 0; padding: 2px 10px; color: var(--muted); }
+  .filters { display: flex; gap: 12px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  .graph { position: relative; margin: 8px 0; }
+  .graph svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .gnode { position: absolute; width: 200px; box-sizing: border-box; border: 1px solid #7a8899; border-radius: 6px; background: #fff; padding: 4px 6px; font-size: 0.8rem; cursor: default; word-break: break-word; }
+  .gnode.clickable { cursor: pointer; }
+  .gnode.clickable:hover { border-color: var(--accent); }
+  .gnode.selected { outline: 2px solid var(--accent); }
+  .gnode.broken { border: 2px solid var(--bad); }
+  .k-BOUNDED_CONTEXT { background: #eef1f6; }
+  .k-COMMAND { background: #e3f0ff; }
+  .k-EVENT { background: #fff2dd; }
+  .k-POLICY { background: #f1e6ff; }
+  .k-ACTOR { background: #fffbe0; }
+  .k-READ_MODEL { background: #e6f6e6; }
+  .k-AGGREGATE { background: #fbe9e9; }
+  .k-START { background: #eef1f6; }
+  .k-OPERATION { background: #e3f0ff; }
+  .k-STEP { background: #f7f8fa; }
+  .k-RESULT { background: #e6f6e6; }
+  .crossing { color: var(--warn); font-size: 0.75rem; }
+  .popup { border: 1px solid var(--accent); border-radius: 6px; padding: 8px 12px; margin: 8px 0; background: #f7faff; }
+</style>
+</head>
+<body>
+<header id="menu"></header>
+<main id="main"><div id="log"></div></main>
+<script>
+// SpecViewer の起動アプリ（SpecViewer 基本設計 1.1）。出力先のファイルを読み、ビューモデルを作る部分（bundle の buildRunView）を呼び、結果を描くだけ。
+// 表示の判定（役割による出し分け、未決・未検証・候補の判定）はここに書かない。文はビューモデルの文をそのまま出す。
+// LLM の文を含むので、文字はすべて textContent で入れ、innerHTML を使わない（設計 6.4）。
+//
+// 引数（spawn の属性）:
+//   out      （必須）specula の出力先の VFS のディレクトリ
+//   bundle   （必須）specula.itera.js の VFS のパス
+//   viewRole （任意）"PdM"（既定）か "Eng"
+(async () => {
+  const MetaOS = window.MetaOS;
+  const mainEl = document.getElementById('main');
+  const menuEl = document.getElementById('menu');
+  const trim = (path) => String(path || '').trim().replace(/\/+$/, '');
+  const messageOf = (error) => (error instanceof Error ? error.message : String(error));
+
+  // 要素を作る。文字は textContent でだけ入れる。
+  function el(tag, props, ...children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props || {})) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === 'class') node.className = value;
+      else if (key === 'text') node.textContent = String(value);
+      else if (key === 'onclick') node.addEventListener('click', value);
+      else node.setAttribute(key, String(value));
+    }
+    for (const child of children.flat()) {
+      if (child === null || child === undefined || child === false) continue;
+      node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+    }
+    return node;
+  }
+  const textLine = (text, cls) => el('div', { class: cls, text });
+  const link = (text, onclick) => el('span', { class: 'link', text, onclick });
+  const locationText = (loc) => `${loc.file}${loc.line !== undefined ? `:${loc.line}` : ''}${loc.symbol ? ` ${loc.symbol}` : ''}`;
+
+  let view = null;
+  // グラフの配置（renderGraph）は、画面を DOM に入れたあとに高さを測って決める（render が呼ぶ）。
+  let pendingLayouts = [];
+  let state = { screen: 'scenarios', id: null, tab: 'document', filter: {}, mapContext: null, mapSupporting: false, selected: null, glossaryTab: 'entries' };
+
+  try {
+    const args = (await MetaOS.system.getArgs()) || {};
+    const outDir = trim(args.out);
+    const bundlePath = trim(args.bundle);
+    const missing = [['out', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
+    if (missing.length > 0) {
+      fail([`引数が足りない: ${missing.join(', ')}`, '使い方: spawn の属性に out（specula の出力先）・bundle（specula.itera.js）を渡す。viewRole（PdM か Eng）は任意。']);
+      return;
+    }
+    const viewRole = String(args.viewRole || '').trim() || 'PdM';
+    if (viewRole !== 'PdM' && viewRole !== 'Eng') {
+      fail([`引数の誤り: viewRole は PdM か Eng（${viewRole} を受け取った）`]);
+      return;
+    }
+
+    const bundleText = await MetaOS.fs.read(bundlePath);
+    const bundleUrl = URL.createObjectURL(new Blob([bundleText], { type: 'text/javascript' }));
+    const specula = await import(bundleUrl);
+    URL.revokeObjectURL(bundleUrl);
+
+    const fs = new specula.IteraVfsAdapter(MetaOS.fs);
+    const outputs = await specula.readRunOutputs(fs, outDir);
+    const check = specula.checkRunOutputs(outputs);
+    if (!check.ok) {
+      fail(['画面を作れない（出力が事前条件を満たしていない）:',
+        ...check.problems.map((p) => `- ${p.scenario ? `${p.scenario} の ` : ''}${p.file}: ${p.detail}`)]);
+      return;
+    }
+    view = specula.buildRunView(outputs, viewRole);
+    if (view.map.kind === 'OK' && view.map.startWithDetail && view.map.details.length > 0) state.mapContext = 0;
+    render();
+  } catch (error) {
+    fail([`画面を作れなかった（環境の故障）: ${messageOf(error)}`]);
+  }
+
+  function fail(lines) {
+    mainEl.replaceChildren(...lines.map((line) => textLine(line, 'error')));
+  }
+
+  function go(patch) {
+    state = { ...state, selected: null, highlightRows: null, ...patch };
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  // ---- Global Menu ----
+  function renderMenu() {
+    const items = [['scenarios', 'シナリオ一覧'], ['map', '全体地図'], ['issues', '仕様不備一覧'], ['glossary', '用語辞典']];
+    const current = state.screen === 'detail' ? 'scenarios' : state.screen;
+    menuEl.replaceChildren(
+      el('h1', { text: 'specula' }),
+      ...items.map(([screen, label]) => el('button', { class: current === screen ? 'active' : null, text: label, onclick: () => go({ screen, id: null, filter: {} }) })),
+      el('span', { class: 'role', text: `表示の役割: ${view.viewRole}` }),
+    );
+  }
+
+  function render() {
+    renderMenu();
+    const screens = { scenarios: renderScenarioList, detail: renderDetail, map: renderMap, issues: renderIssues, glossary: renderGlossary };
+    pendingLayouts = [];
+    mainEl.replaceChildren(...[].concat(screens[state.screen]()));
+    const layouts = pendingLayouts;
+    pendingLayouts = [];
+    for (const layout of layouts) layout();
+  }
+
+  // ---- シナリオ一覧（設計 3.1） ----
+  function renderScenarioList() {
+    const list = view.scenarioList;
+    const s = list.summary;
+    const notGenerated = s.notGenerated.glossary + s.notGenerated.intents;
+    const summary = el('div', { class: 'box' },
+      textLine(`解析したファイル ${s.parsedFileCount} 件（解析に失敗 ${s.parseFailureCount} 件）。Bounded Context ${s.boundedContextCount}・コマンド ${s.commandCount}・イベント ${s.eventCount}。`),
+      textLine(`シナリオ: 仕様になった ${s.scenarioCounts.COMPLETED} 件・曖昧さで止まった ${s.scenarioCounts.AMBIGUOUS} 件・途中で止まった ${s.scenarioCounts.STOPPED} 件。`),
+      textLine(s.ambiguity.text),
+      s.ambiguity.byKind ? el('ul', {}, s.ambiguity.byKind.map((k) => el('li', { text: `${k.text}: ${k.count} 件` }))) : null,
+      s.verification.length > 0 ? el('div', {}, textLine('検証の状態:'), el('ul', {}, s.verification.map((v) => el('li', { text: `${v.text}: ${v.count} 件` })))) : null,
+      el('div', {}, textLine('検査の範囲:'), el('ul', {}, s.inspectionScope.map((t) => el('li', { text: t })))),
+      textLine(`未生成: 用語 ${s.notGenerated.glossary} 件・意図の候補 ${s.notGenerated.intents} 件`, notGenerated > 0 ? 'warn' : 'muted'),
+      textLine(`読んだ資料 ${s.documents.read} 件（上限で切った ${s.documents.truncated} 件・読まなかった ${s.documents.omitted} 件）`, s.documents.omitted > 0 ? 'warn' : 'muted'),
+    );
+
+    const f = state.filter;
+    const kinds = [['', 'すべて'], ['COMPLETED', '仕様になった'], ['AMBIGUOUS', '曖昧さで止まった'], ['STOPPED', '途中で止まった']];
+    const contexts = [...new Set(list.rows.map((r) => r.boundedContext))];
+    const verifications = [...new Set(list.rows.map((r) => r.verificationText).filter((t) => t !== null))];
+    const select = (key, options) => {
+      const node = el('select', {}, options.map(([value, label]) => el('option', { value, text: label })));
+      node.value = f[key] || '';
+      node.addEventListener('change', () => go({ filter: { ...f, [key]: node.value } }));
+      return node;
+    };
+    const filters = el('div', { class: 'filters' },
+      el('label', {}, '状態 ', select('kind', kinds)),
+      list.showContextColumn ? el('label', {}, 'Bounded Context ', select('context', [['', 'すべて'], ...contexts.map((c) => [c, c])])) : null,
+      el('label', {}, '検証 ', select('verification', [['', 'すべて'], ...verifications.map((v) => [v, v])])),
+      el('label', {}, '並び ', select('sort', [['', '表示の id の順'], ['count', '件数の多い順']])),
+    );
+
+    let rows = list.rows.filter((r) => (!f.kind || r.kind === f.kind) && (!f.context || r.boundedContext === f.context) && (!f.verification || r.verificationText === f.verification));
+    if (f.sort === 'count') {
+      const countOf = (r) => { const m = /(\d+) 件/.exec(r.countText || ''); return m ? Number(m[1]) : -1; };
+      rows = [...rows].sort((a, b) => countOf(b) - countOf(a));
+    }
+    const eng = view.viewRole === 'Eng';
+    const head = ['表示の id', 'シナリオ', '状態', '検証', '件数', '意図の候補', ...(list.showContextColumn ? ['Bounded Context'] : []), ...(eng ? ['起点の所在'] : [])];
+    const table = el('table', {},
+      el('tr', {}, head.map((h) => el('th', { text: h }))),
+      rows.map((r) => el('tr', { class: 'link', onclick: () => openScenario(r.displayId, r.kind) },
+        el('td', { text: r.displayId }),
+        el('td', { text: r.title }),
+        el('td', { text: r.kindText }),
+        el('td', { text: r.verificationText || '' }),
+        el('td', { text: r.countText || '' }),
+        el('td', { text: r.intentText, title: r.intentText, style: 'max-width:28em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }),
+        list.showContextColumn ? el('td', { text: r.boundedContext }) : null,
+        eng ? el('td', { text: (r.inletLocations || []).map(locationText).join('\n'), style: 'white-space:pre' }) : null,
+      )),
+    );
+    return [el('h2', { text: 'シナリオ一覧' }), summary, filters, textLine(`${rows.length} 件`, 'muted'), table];
+  }
+
+  // 曖昧さで止まったシナリオは、Eng では仕様不備一覧（そのシナリオで絞り込み）へ（設計 4 節）。
+  function openScenario(displayId, kind) {
+    if (kind === 'AMBIGUOUS' && view.viewRole === 'Eng') go({ screen: 'issues', filter: { scenario: displayId } });
+    else go({ screen: 'detail', id: displayId, tab: 'document' });
+  }
+
+  // ---- シナリオの詳細（設計 3.2） ----
+  function renderDetail() {
+    const d = view.scenarioDetails.find((x) => x.displayId === state.id);
+    if (!d) return [textLine(`シナリオ ${state.id} が無い`, 'error')];
+    const fields = [
+      ['状態', d.kindText], ['Bounded Context', d.boundedContext], ['意図の候補', d.intentText],
+      d.userIntent !== null ? ['利用者が書いた目的', d.userIntent] : null,
+      ['起点の種類', d.inletTypeText], ['アクター', d.actor],
+      d.route !== null ? ['画面のルート', d.route] : null,
+      ['期待イベント', d.expectedEvent],
+      d.inletLocations ? ['起点の所在', d.inletLocations.map(locationText).join('\n')] : null,
+    ].filter(Boolean);
+    const out = [
+      el('div', {}, link('← シナリオ一覧', () => go({ screen: 'scenarios', id: null }))),
+      el('h2', { text: d.title }),
+      el('table', {}, fields.map(([k, v]) => el('tr', {}, el('th', { text: k }), el('td', { text: v, style: 'white-space:pre-wrap' })))),
+    ];
+    if (d.verification) {
+      out.push(el('div', { class: 'box' }, el('strong', { text: d.verification.headline }), el('ul', {}, d.verification.lines.map((t) => el('li', { text: t })))));
+    }
+    if (d.issueCount !== null) {
+      out.push(el('div', {}, d.issueCount > 0
+        ? link(`論点 ${d.issueCount} 件（仕様不備一覧で見る）`, () => go({ screen: 'issues', filter: { scenario: d.displayId } }))
+        : textLine('論点 0 件', 'muted')));
+    }
+    if (d.notice !== null) {
+      out.push(el('div', { class: 'box' }, textLine(d.notice)));
+      if (d.kind === 'AMBIGUOUS' && view.viewRole === 'Eng') out.push(link('仕様不備一覧（このシナリオ）', () => go({ screen: 'issues', filter: { scenario: d.displayId } })));
+    }
+    if (d.tabs) out.push(...renderTabs(d));
+    return out;
+  }
+
+  function renderTabs(d) {
+    const tabs = [['document', '仕様書'], ['matrix', '操作の一覧表'], ['flow', '操作の流れ図'], ...(d.tabs.source !== null ? [['source', '形式仕様のソース']] : [])];
+    const bar = el('div', { class: 'tabs' }, tabs.map(([key, label]) => el('button', { class: state.tab === key ? 'active' : null, text: label, onclick: () => { state.tab = key; render(); } })));
+    let body;
+    if (state.tab === 'matrix') body = renderBlocks(d.tabs.matrix, state.highlightRows || null);
+    else if (state.tab === 'flow') body = renderFlow(d.tabs.flow);
+    else if (state.tab === 'source') body = el('pre', { text: d.tabs.source });
+    else body = renderBlocks(d.tabs.document, null);
+    return [bar, body];
+  }
+
+  // Markdown のブロック（設計 6.6）。行の中の書式は解釈しない。highlightRows は操作の一覧表の最初の表で目立たせる行の位置。
+  function renderBlocks(blocks, highlightRows) {
+    const box = el('div', {});
+    let firstTable = true;
+    for (const b of blocks) {
+      if (b.kind === 'heading') box.appendChild(el(`h${Math.min(6, b.level + 1)}`, { text: b.text }));
+      else if (b.kind === 'paragraph') box.appendChild(el('p', { text: b.text }));
+      else if (b.kind === 'list') box.appendChild(el(b.ordered ? 'ol' : 'ul', {}, b.items.map((t) => el('li', { text: t }))));
+      else if (b.kind === 'quote') box.appendChild(el('blockquote', { text: b.text }));
+      else if (b.kind === 'code') box.appendChild(el('pre', { text: b.text }));
+      else if (b.kind === 'table') {
+        const marks = firstTable && highlightRows ? new Set(highlightRows) : new Set();
+        firstTable = false;
+        box.appendChild(el('table', {},
+          el('tr', {}, b.header.map((h) => el('th', { text: h }))),
+          b.rows.map((row, i) => el('tr', { style: marks.has(i) ? 'background:#fff3c4' : null }, row.map((c) => el('td', { text: c }))))));
+      }
+    }
+    return box;
+  }
+
+  // ---- グラフ（流れ図と地図。設計 6.4・6.9） ----
+  // 配置はビューモデルの層と並びの位置だけを使い、画素の座標はここで決める。ノードを置いて高さを測ってから、層ごとの縦の位置を決める。
+  function renderGraph(nodes, edges, layout, opts) {
+    const colWidth = 230, gap = 50;
+    const wrap = el('div', { class: 'graph' });
+    const boxes = nodes.map((n, i) => {
+      const box = el('div', { class: `gnode k-${n.kind}${opts.isClickable && opts.isClickable(i) ? ' clickable' : ''}${opts.isSelected && opts.isSelected(i) ? ' selected' : ''}${n.broken ? ' broken' : ''}` },
+        el('div', { text: n.label }), n.extra ? el('div', { class: 'crossing', text: n.extra }) : null);
+      box.style.left = `${layout.orderOf[i] * colWidth}px`;
+      if (opts.onClick) box.addEventListener('click', () => opts.onClick(i));
+      wrap.appendChild(box);
+      return box;
+    });
+    // 高さは DOM に入れないと測れないので、render が画面を差し替えた直後に同期で測る（pendingLayouts）。
+    pendingLayouts.push(() => {
+      const heights = boxes.map((b) => b.offsetHeight);
+      const tops = [];
+      let y = 0;
+      for (const layer of layout.layers) {
+        tops.push(y);
+        y += Math.max(30, ...layer.map((i) => heights[i])) + gap;
+      }
+      boxes.forEach((b, i) => { b.style.top = `${tops[layout.layerOf[i]]}px`; });
+      const width = Math.max(1, ...layout.layers.map((l) => l.length)) * colWidth;
+      wrap.style.height = `${y}px`;
+      wrap.style.width = `${width}px`;
+      const ns = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(ns, 'svg');
+      svg.setAttribute('width', String(width));
+      svg.setAttribute('height', String(y));
+      const defs = document.createElementNS(ns, 'defs');
+      const marker = document.createElementNS(ns, 'marker');
+      marker.setAttribute('id', 'arrow'); marker.setAttribute('viewBox', '0 0 10 10'); marker.setAttribute('refX', '10'); marker.setAttribute('refY', '5');
+      marker.setAttribute('markerWidth', '7'); marker.setAttribute('markerHeight', '7'); marker.setAttribute('orient', 'auto-start-reverse');
+      const tip = document.createElementNS(ns, 'path'); tip.setAttribute('d', 'M0,0 L10,5 L0,10 z'); tip.setAttribute('fill', '#7a8899');
+      marker.appendChild(tip); defs.appendChild(marker); svg.appendChild(defs);
+      edges.forEach((e, k) => {
+        if (e.from === e.to) return;
+        const a = boxes[e.from], b = boxes[e.to];
+        const x1 = a.offsetLeft + a.offsetWidth / 2, x2 = b.offsetLeft + b.offsetWidth / 2;
+        const down = !layout.reversed[k];
+        const y1 = down ? a.offsetTop + a.offsetHeight : a.offsetTop;
+        const y2 = down ? b.offsetTop : b.offsetTop + b.offsetHeight;
+        const line = document.createElementNS(ns, 'line');
+        line.setAttribute('x1', String(x1)); line.setAttribute('y1', String(y1)); line.setAttribute('x2', String(x2)); line.setAttribute('y2', String(y2));
+        line.setAttribute('stroke', e.broken ? '#c62828' : '#7a8899'); line.setAttribute('stroke-width', '1.5');
+        if (!down) line.setAttribute('stroke-dasharray', '4 3');
+        line.setAttribute('marker-end', 'url(#arrow)');
+        svg.appendChild(line);
+        if (e.text) {
+          const label = document.createElementNS(ns, 'text');
+          label.setAttribute('x', String((x1 + x2) / 2 + 4)); label.setAttribute('y', String((y1 + y2) / 2));
+          label.setAttribute('font-size', '11'); label.setAttribute('fill', '#5f6b7a');
+          label.textContent = e.text;
+          svg.appendChild(label);
+        }
+      });
+      wrap.insertBefore(svg, wrap.firstChild);
+    });
+    return el('div', { style: 'overflow:auto' }, wrap);
+  }
+
+  function renderFlow(flow) {
+    if (flow.kind !== 'OK') return textLine(flow.reason, 'error');
+    return el('div', {}, flow.notes.map((n) => textLine(n, 'warn')), renderGraph(flow.nodes, flow.edges, flow.layout, {}));
+  }
+
+  // ---- 全体地図（設計 3.4） ----
+  function renderMap() {
+    const m = view.map;
+    if (m.kind !== 'OK') return [el('h2', { text: '全体地図' }), textLine(m.reason, 'error')];
+    if (state.mapContext === null) {
+      const g = m.contextMap;
+      const out = [el('h2', { text: '全体地図（地図 1: Bounded Context）' }),
+        renderGraph(g.nodes, g.edges, g.layout, { isClickable: () => true, isSelected: (i) => state.selected === i, onClick: (i) => { state.selected = i; render(); } })];
+      if (state.selected !== null) {
+        const node = g.nodes[state.selected];
+        out.push(renderPopup(node, [
+          link('地図 2 を開く', () => go({ mapContext: state.selected, mapSupporting: false })),
+          ' ',
+          node.popup.entry ? link('この Bounded Context のシナリオ一覧', () => go({ screen: 'scenarios', filter: { context: node.popup.entry.term } })) : null,
+        ]));
+      }
+      return out;
+    }
+    const detail = m.details[state.mapContext];
+    const g = state.mapSupporting ? detail.supporting : detail.core;
+    const toggle = el('label', {}, (() => { const c = el('input', { type: 'checkbox' }); c.checked = state.mapSupporting; c.addEventListener('change', () => go({ mapSupporting: c.checked })); return c; })(), ' アクター・リードモデル・アグリゲートも出す');
+    // またぐ印は表示の id だけでは読みにくいので、地図 1 の同じ id の要素の文を添える。
+    const contextName = (id) => { const c = m.contextMap.nodes.find((x) => x.displayId === id); return c ? `${id} ${c.label}` : id; };
+    const nodes = g.nodes.map((n) => ({ ...n, extra: n.crossing ? `${contextName(n.crossing.from)} から ${contextName(n.crossing.to)} へまたぐ` : null }));
+    const out = [
+      m.startWithDetail ? null : el('div', {}, link('← 地図 1', () => go({ mapContext: null }))),
+      el('h2', { text: `全体地図（地図 2: ${detail.context.label}）` }),
+      el('div', { class: 'filters' }, toggle),
+      renderGraph(nodes, g.edges, g.layout, { isClickable: () => true, isSelected: (i) => state.selected === i, onClick: (i) => { state.selected = i; render(); } }),
+    ];
+    if (state.selected !== null && g.nodes[state.selected]) out.push(renderPopup(g.nodes[state.selected], []));
+    return out.filter(Boolean);
+  }
+
+  function renderPopup(node, actions) {
+    const p = node.popup;
+    return el('div', { class: 'popup' },
+      el('strong', { text: `${node.displayId} ${node.label}` }),
+      p.entry ? el('div', {}, textLine(`用語: ${p.entry.term}`), textLine(`意味: ${p.entry.meaning}${p.entry.meaningTruncated ? '（抜粋を上限で切った）' : ''}`)) : null,
+      p.entryNote ? textLine(p.entryNote, 'muted') : null,
+      p.intent !== null ? textLine(`意図の候補: ${p.intent}`) : null,
+      p.scenarioCount !== null ? textLine(`属するシナリオ: ${p.scenarioCount} 件`) : null,
+      p.scenarios !== null ? el('div', {}, 'この要素を起点にしたシナリオ: ', p.scenarios.length === 0 ? '無い' : '',
+        ...p.scenarios.map((id) => el('span', {}, link(id, () => openScenario(id, (view.scenarioDetails.find((d) => d.displayId === id) || {}).kind)), ' '))) : null,
+      p.lookupNote ? textLine(p.lookupNote, 'muted') : null,
+      node.implementation ? textLine(`実装: ${node.implementation.names.join(', ')} / ${node.implementation.locations.map(locationText).join(', ')}`, 'muted') : null,
+      actions.length > 0 ? el('div', { style: 'margin-top:6px' }, actions) : null,
+    );
+  }
+
+  // ---- 仕様不備一覧（設計 3.3） ----
+  function renderIssues() {
+    const v = view.issues;
+    const f = state.filter;
+    const ids = [...new Set([...v.scenarios.map((s) => s.displayId), ...v.ambiguities.map((a) => a.displayId)])];
+    const sel = el('select', {}, el('option', { value: '', text: 'すべて' }), ids.map((id) => el('option', { value: id, text: id })));
+    sel.value = f.scenario || '';
+    sel.addEventListener('change', () => go({ filter: { ...f, scenario: sel.value } }));
+    const kindSel = el('select', {}, [['', '論点と曖昧さ'], ['issue', '論点だけ'], ['ambiguity', '曖昧さだけ']].map(([value, text]) => el('option', { value, text })));
+    kindSel.value = f.type || '';
+    kindSel.addEventListener('change', () => go({ filter: { ...f, type: kindSel.value } }));
+    const out = [el('h2', { text: `仕様不備一覧（論点 ${v.issueTotal} 件・曖昧さ ${v.ambiguityTotal} 件）` }),
+      el('div', { class: 'filters' }, el('label', {}, 'シナリオ ', sel), el('label', {}, '種類 ', kindSel))];
+    const pick = (id) => !f.scenario || f.scenario === id;
+
+    if (f.type !== 'ambiguity') {
+      out.push(el('h3', { text: '論点' }));
+      const shown = v.scenarios.filter((s) => pick(s.displayId));
+      if (shown.length === 0) out.push(textLine('論点は無い', 'muted'));
+      for (const s of shown) {
+        out.push(el('h4', {}, link(s.title, () => go({ screen: 'detail', id: s.displayId, tab: 'document' })), ` 論点 ${s.issueCount} 件`));
+        for (const g of s.groups) {
+          if (g.issues.length === 0) continue;
+          out.push(textLine(g.heading, 'muted'));
+          for (const issue of g.issues) out.push(renderIssue(s, issue));
+        }
+      }
+    }
+    if (f.type !== 'issue') {
+      out.push(el('h3', { text: view.viewRole === 'PdM' ? 'エンジニアの確認待ち' : '曖昧さ' }));
+      const shown = v.ambiguities.filter((a) => pick(a.displayId));
+      if (shown.length === 0) out.push(textLine('曖昧さで止まったシナリオは無い', 'muted'));
+      else if (view.viewRole === 'PdM') {
+        out.push(el('table', {}, el('tr', {}, el('th', { text: 'シナリオ' }), el('th', { text: '件数' })),
+          shown.map((a) => el('tr', { class: 'link', onclick: () => go({ screen: 'detail', id: a.displayId }) }, el('td', { text: a.title }), el('td', { text: a.countText })))));
+      } else {
+        for (const a of shown) {
+          out.push(el('h4', {}, link(a.title, () => go({ screen: 'detail', id: a.displayId })), ` ${a.countText}`));
+          out.push(el('table', {}, el('tr', {}, ['表示の id', '種類', '質問', '箇所', '原文'].map((h) => el('th', { text: h }))),
+            (a.items || []).map((it) => el('tr', {}, el('td', { text: it.id }), el('td', { text: it.kindText }), el('td', { text: it.question }),
+              el('td', { text: `${it.location.file}:${it.location.line}` }), el('td', {}, el('pre', { text: it.detail, style: 'margin:0' }))))));
+        }
+      }
+    }
+    return out;
+  }
+
+  function renderIssue(s, issue) {
+    const rows = s.operationRows[issue.id] || [];
+    return el('div', { class: 'box' },
+      el('div', {}, el('strong', { text: issue.id }), ' ', el('span', { class: 'undecided', text: `決定: ${issue.status}` })),
+      textLine(`主張: ${issue.claim}`), textLine(`観測事実: ${issue.observation}`), textLine(`判断質問: ${issue.question}`),
+      issue.operations.length > 0 ? el('div', {}, `関わる操作: ${issue.operations.join('、')} `,
+        rows.length > 0 ? link('操作の一覧表で見る', () => go({ screen: 'detail', id: s.displayId, tab: 'matrix', highlightRows: rows })) : null) : null,
+      el('div', {}, textLine('選択肢（どれも採択していない）:'), el('ul', {}, issue.options.map((o) => el('li', { text: `${o.id}: ${o.meaning}` })))),
+      issue.trace ? el('table', {}, el('tr', {}, ['#', '状態', '結果', '条件'].map((h) => el('th', { text: h }))),
+        issue.trace.map((t) => el('tr', {}, el('td', { text: t.index }), el('td', { text: t.values.join('\n'), style: 'white-space:pre' }), el('td', { text: t.outcome }), el('td', { text: t.holds })))) : null,
+      issue.dependentCount > 0 ? textLine(`従属する反例: ${issue.dependentCount} 件`, 'muted') : null,
+    );
+  }
+
+  // ---- 用語辞典（設計 3.5） ----
+  function renderGlossary() {
+    const g = view.glossary;
+    const out = [el('h2', { text: '用語辞典' })];
+    if (g.unavailable !== null) return [...out, textLine(g.unavailable, 'error')];
+    out.push(el('div', { class: 'tabs' }, [['entries', '用語の一覧'], ['gaps', '資料とコードのずれ']].map(([key, label]) =>
+      el('button', { class: state.glossaryTab === key ? 'active' : null, text: label, onclick: () => { state.glossaryTab = key; render(); } }))));
+    if (state.glossaryTab === 'gaps') return [...out, renderGaps(g.gaps)];
+    if (g.statusNote) out.push(textLine(g.statusNote, 'muted'));
+    if (g.displayIdNote) out.push(textLine(g.displayIdNote, 'warn'));
+    const eng = view.viewRole === 'Eng';
+    const head = ['表示の id', '用語', '種類', '意味', '用語の出どころ', 'またぎ', ...(eng ? ['実装'] : [])];
+    for (const section of g.sections) {
+      if (g.showContextSections) out.push(el('h3', { text: `${section.displayId ? `${section.displayId} ` : ''}${section.title}` }));
+      out.push(el('table', {}, el('tr', {}, head.map((h) => el('th', { text: h }))),
+        section.entries.map((e) => el('tr', {},
+          el('td', {}, e.displayId ? link(e.displayId, () => openMapNode(e.displayId)) : ''),
+          el('td', { text: e.term }), el('td', { text: e.kindText }),
+          el('td', { text: `${e.meaning}${e.meaningTruncated ? '（抜粋を上限で切った）' : ''}`, style: 'max-width:32em' }),
+          el('td', { text: e.sources.map((s) => `${s.document}${s.heading ? ` # ${s.heading}` : ''}`).join('\n'), style: 'white-space:pre-wrap' }),
+          el('td', { text: e.crossing || '' }),
+          eng ? el('td', { text: e.implementation ? `${e.implementation.names.join(', ')}\n${e.implementation.locations.map(locationText).join('\n')}` : '', style: 'white-space:pre-wrap' }) : null))));
+    }
+    return out;
+  }
+
+  // 用語辞典の項目から地図 2 の要素へ（設計 4 節・6.8）。表示の id は俯瞰図の要素の id と同じ。
+  function openMapNode(displayId) {
+    const m = view.map;
+    if (m.kind !== 'OK') { go({ screen: 'map' }); return; }
+    if (displayId.startsWith('c')) {
+      const index = m.contextMap.nodes.findIndex((n) => n.displayId === displayId);
+      go({ screen: 'map', mapContext: index >= 0 ? index : null });
+      return;
+    }
+    const at = m.details.findIndex((d) => d.core.nodes.some((n) => n.displayId === displayId));
+    if (at < 0) { go({ screen: 'map', mapContext: null }); return; }
+    const selected = m.details[at].core.nodes.findIndex((n) => n.displayId === displayId);
+    state = { ...state, screen: 'map', mapContext: at, mapSupporting: false, selected };
+    render();
+  }
+
+  function renderGaps(gaps) {
+    if (!gaps) return textLine('ずれの情報が無い', 'muted');
+    const name = (x) => `${x.displayId ? `${x.displayId} ` : ''}${x.term}`;
+    return el('div', {},
+      el('h3', { text: `資料に記述が無い要素（${gaps.undocumented.length} 件）` }),
+      el('ul', {}, gaps.undocumented.map((x) => el('li', { text: name(x) }))),
+      el('h3', { text: `同義の候補（${gaps.sharedTerms.length} 件）` }),
+      el('ul', {}, gaps.sharedTerms.map((x) => el('li', { text: `${x.term}（${x.context}）: ${x.entries.map(name).join('、')}` }))),
+      el('h3', { text: `Bounded Context ごとに意味が違う言葉（${gaps.contextHomonyms.length} 件）` }),
+      el('ul', {}, gaps.contextHomonyms.map((x) => el('li', { text: `${x.term}: ${x.entries.map((e) => `${name(e)}（${e.context}）`).join('、')}` }))),
+      el('h3', { text: `2 つ以上の資料から節を選んだ項目（${gaps.multiSource.length} 件）` }),
+      el('ul', {}, gaps.multiSource.map((x) => el('li', { text: `${name(x)}: ${x.documents.join('、')}` }))),
+      el('details', {}, el('summary', { text: `項目に対応しない資料の名前（${gaps.unmatchedDocumentNames.count} 件）` }),
+        el('ul', {}, gaps.unmatchedDocumentNames.items.map((x) => el('li', { text: `${x.name}（${x.sources.map((s) => s.document).join('、')}）` })))),
+    );
+  }
+})();
+</script>
+</body>
+</html>
