@@ -6,11 +6,24 @@ import type { LlmText } from "./index.js";
  * M0 に渡すリポジトリの中身。読み込みは呼び出し元（アダプターの側）が行い、コアはファイルを読まない。
  * - files: テキストのファイルだけ。path はリポジトリのルートからの相対パス（"/" 区切り、先頭に "./" を付けない）。
  *   package.json と tsconfig.json も、ここに入っていれば読む。
+ * - documents: 仕様の資料（README・docs/ の Markdown・スキーマ定義）。ScenarioExtractor は読まない。GlossaryBuilder の入力。
+ *   集める規則と上限は ScenarioExtractor の設計 4.0（リーダーが同じ規則で集める）。
+ * - omittedDocuments: 合計の上限を超えたので入れなかった資料のパス（辞書順）。
  * - screenshots: 画面画像のパス（任意）。画面のルートと結び付けられるものだけをリードモデルに付ける。
  */
 export interface RepositoryArtifacts {
   files: Array<{ path: string; text: string }>;
+  documents: RepositoryDocument[];
+  omittedDocuments: string[];
   screenshots?: string[];
+}
+
+/** 仕様の資料 1 つ。truncated は 1 ファイルの上限を超えたので先頭だけを入れたとき true。 */
+export interface RepositoryDocument {
+  path: string;
+  kind: "README" | "DOC" | "SCHEMA";
+  text: string;
+  truncated: boolean;
 }
 
 /** コードの中の位置。symbol は関数の名前、line は 1 から数える。 */

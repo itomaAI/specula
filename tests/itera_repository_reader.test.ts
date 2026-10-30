@@ -60,4 +60,36 @@ for (const listReturns of ["paths", "names"] as const) {
     assert.equal(artifacts.files.find((f) => f.path === "src/b.ts")?.text, "export const b = 1;");
     assert.ok(source.reads.every((p) => p.startsWith("user/repo/") && !p.includes("node_modules") && !p.includes("/dist/")));
   });
+
+  test(`仕様の資料（README・docs の Markdown・スキーマ定義）を documents に入れ、outDir と tests の下を除く（list が ${listReturns} を返す）`, async () => {
+    const source = sourceOf(
+      {
+        ...TREE,
+        "user/repo/tsconfig.json": '{ "compilerOptions": { "outDir": "build" } // コメント\n}',
+        "user/repo/docs/specs/a.spec.md": "# a",
+        "user/repo/docs/CHANGELOG.md": "# changes",
+        "user/repo/prisma/schema.prisma": "model A {}",
+        "user/repo/packages/billing/README.md": "# billing",
+        "user/repo/build/docs/old.md": "# built",
+        "user/repo/tests/docs/t.md": "# test",
+        "user/repo/node_modules/x/README.md": "# dep",
+      },
+      listReturns,
+    );
+
+    const artifacts = await readIteraRepository(source, "user/repo");
+
+    assert.deepEqual(
+      artifacts.documents.map((d) => [d.path, d.kind, d.truncated]),
+      [
+        ["README.md", "README", false],
+        ["docs/specs/a.spec.md", "DOC", false],
+        ["packages/billing/README.md", "README", false],
+        ["prisma/schema.prisma", "SCHEMA", false],
+      ],
+    );
+    assert.equal(artifacts.documents.find((d) => d.path === "docs/specs/a.spec.md")?.text, "# a");
+    assert.deepEqual(artifacts.omittedDocuments, []);
+    assert.ok(!artifacts.files.some((f) => f.path.endsWith(".md")));
+  });
 }

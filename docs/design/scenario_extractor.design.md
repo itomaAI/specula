@@ -163,11 +163,12 @@ interface RepositoryArtifacts {
 ファイルを読むのは呼び出し元（アダプターの側）であり、コアはファイルを読まない。どのファイルを渡すかも呼び出し元が決める。`package.json` と `tsconfig.json` は、`files` に入っていれば読む。
 
 `documents` は、パイプラインが同じ `RepositoryArtifacts` を `GlossaryBuilder` に渡すために、ここで定義する（本モジュールの処理には使わない）。入れる資料は、Node.js 版と Itera OS 版のリーダー（`NodeRepositoryReader`・`IteraRepositoryReader`）が同じ規則で集める。
-- `README`: 名前が `README`・`README.md`・`README.mdx`（大文字小文字を区別しない）のファイル。リポジトリの直下と、コンテキストの根（4.3 の「コンテキストの境界」）の直下にあるもの。
-- `DOC`: `docs/`・`doc/` の下の `.md`・`.mdx`。
+- `README`: 名前が `README`・`README.md`・`README.mdx`（大文字小文字を区別しない）のファイル。リポジトリの直下と、コンテキストの根（4.3 の「コンテキストの境界」）の直下にあるもの。根の決め方は境界と同じ（`packages/` などの直下のディレクトリ。どの深さでもよい）だが、根が 1 つしか無くて境界で分けないときも、その根の README は入れる。
+- `DOC`: パスのどこかに `docs/` か `doc/` のディレクトリがある `.md`・`.mdx`（コンテキストの根の下の `docs/` も入る）。
 - `SCHEMA`: `.sql`・`.prisma`・`.graphql`・`.gql` のファイル。
-- 除くもの: `node_modules/`・`.git/`・`tsconfig.json` の `outDir` の下・`tests/`・`__tests__/` の下。`CHANGELOG`・`LICENSE` は資料に入れない。
-- 上限: 1 ファイル 64 KB（超えたら先頭の 64 KB だけを渡し、`truncated` を true にする）、合計 2 MB（パスの辞書順に入れ、超えたところで止める。入れなかった資料のパスは `omittedDocuments` に入れ、`GlossaryBuilder` が報告に出す）。
+- 除くもの: `node_modules/`・`.git/`・`dist/`・`tsconfig.json` の `outDir` の下・`tests/`・`__tests__/` の下。名前が `CHANGELOG`・`LICENSE` で始まるもの（大文字小文字を区別しない）は資料に入れない。
+- 上限は UTF-8 のバイト数で数える。1 ファイル 64 KB（超えたら、文字の途中で切らずに先頭の 64 KB 以内だけを渡し、`truncated` を true にする）、合計 2 MB（パスの辞書順に入れ、入れると合計を超える資料に来たら、その資料とそれ以降をすべて入れない。入れなかった資料のパスは `omittedDocuments` に入れ、`GlossaryBuilder` が報告に出す）。
+- 規則の実装は `src/adapters/repository_documents.ts` にまとめ、2 つのリーダーから使う。
 - 資料が 1 つも無いときは `documents` を空にする。本モジュールの出力は `documents` の有無で変わらない。
 
 ### 4.1 全体マップ形式 (`EventStormingMap`)

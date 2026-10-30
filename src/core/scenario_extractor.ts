@@ -104,14 +104,15 @@ export async function sliceScenarios(
 
 // ---------------------------------------------------------------------------
 
-interface TsconfigSummary {
+export interface TsconfigSummary {
   /** "dist" のような正規化した相対パス。指定が無ければ null。 */
   outDir: string | null;
   /** 正規化した相対パス。"." は ""。 */
   rootDir: string;
 }
 
-function readTsconfig(text: string | undefined): TsconfigSummary {
+/** tsconfig.json の outDir と rootDir を読む。リーダー（資料の除外）からも使う。 */
+export function readTsconfig(text: string | undefined): TsconfigSummary {
   const fallback: TsconfigSummary = { outDir: null, rootDir: "" };
   if (text === undefined) return fallback;
   const value = tryParseJsonc(text);

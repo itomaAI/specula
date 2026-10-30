@@ -68,7 +68,7 @@ export function analyzeBoundaries(paths: readonly string[]): BoundaryResult {
  * パスの中で最初に現れる境界のディレクトリ（packages など）と、その直下のディレクトリまでを返す。
  * 直下がファイル（packages/index.ts など）のときは根にしない。
  */
-function boundaryRootOf(path: string): string | null {
+export function boundaryRootOf(path: string): string | null {
   const segments = path.split("/");
   for (let i = 0; i < segments.length - 2; i += 1) {
     const segment = segments[i];
