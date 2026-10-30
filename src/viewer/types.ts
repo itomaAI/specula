@@ -8,7 +8,7 @@ import type { Glossary, GlossaryLocation, PresentedEntryKind } from "../types/gl
 import type { ConfirmationStatus } from "../types/index.js";
 import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "../types/ledger.js";
-import type { ImplementationMap } from "../types/projection.js";
+import type { ImplementationMap, ViewRole } from "../types/projection.js";
 import type { RunReport, SystemMapBundle } from "../types/run.js";
 import type { MarkdownBlock } from "./markdown.js";
 
@@ -451,3 +451,23 @@ export type MapView =
       details: ContextDetailMapView[];
     }
   | { kind: "UNAVAILABLE"; reason: string };
+
+/**
+ * 1 回の実行の画面すべてのビューモデル（設計 1.2・6.11）。buildRunView が 4 つの画面とシナリオの詳細を束ねる。
+ * 画面どうしのリンクは、各ビューモデルが持つ表示の id（"S-01"・"S-01-L-001"・"c1"・"n1"）で張る（設計 4 節・6.7）。
+ * そのため、別のリンクの表は持たない。
+ */
+export interface RunView {
+  /** 画面の表示の役割（起動アプリの引数）。 */
+  viewRole: ViewRole;
+  /** シナリオ一覧（設計 3.1）。Global Menu の先頭。 */
+  scenarioList: ScenarioListView;
+  /** シナリオの詳細（設計 3.2）。scenarioList.rows と同じ順・同じ数。 */
+  scenarioDetails: ScenarioDetailView[];
+  /** 仕様不備一覧（設計 3.3）。 */
+  issues: IssueListView;
+  /** 用語辞典（設計 3.5）。 */
+  glossary: GlossaryView;
+  /** 全体地図（設計 3.4）。俯瞰図が無いか形が違えば理由だけを持つ。 */
+  map: MapView;
+}
