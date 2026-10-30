@@ -46,9 +46,9 @@ const SPEC: FormalSpecification = {
   scenarioId: SCENARIO_ID,
   source: SOURCE,
   stateVariables: [
-    { id: "v1", unitId: "src/order.ts:3:7:STATE", domain: "ENUM", values: ["v1_1", "v1_2", "v1_unknown"], valueLiterals: { v1_1: '"open"', v1_2: '"closed"' }, initial: "v1_1" },
-    { id: "v2", unitId: "src/order.ts:4:7:STATE", domain: "INT", values: [], valueLiterals: {}, initial: "0" },
-    { id: "v3", unitId: "src/order.ts:5:7:STATE", domain: "BOOL", values: [], valueLiterals: {}, initial: null },
+    { id: "v1", unitId: "src/order.ts:3:7:STATE", name: "status", domain: "ENUM", values: ["v1_1", "v1_2", "v1_unknown"], valueLiterals: { v1_1: '"open"', v1_2: '"closed"' }, initial: "v1_1" },
+    { id: "v2", unitId: "src/order.ts:4:7:STATE", name: "retryCount", domain: "INT", values: [], valueLiterals: {}, initial: "0" },
+    { id: "v3", unitId: "src/order.ts:5:7:STATE", name: "locked", domain: "BOOL", values: [], valueLiterals: {}, initial: null },
   ],
   propositions: [{ id: "c1", unitId: "src/order.ts:9:5:BRANCH_CONDITION", expression: "request.force" }],
   operations: [

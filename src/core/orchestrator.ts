@@ -31,7 +31,7 @@ import { extractContext } from "./context_extractor.js";
 import { transpileFormal } from "./formal_transpiler.js";
 import { verifySpecification } from "./formal_solver.js";
 import { synthesizeLedger } from "./ledger_synthesizer.js";
-import { projectAmbiguities, projectSpecification, projectSystemMap } from "./spec_projector.js";
+import { projectAmbiguities, projectImplementationMap, projectSpecification, projectSystemMap } from "./spec_projector.js";
 
 const AMBIGUITY_KINDS: readonly AmbiguityKind[] = ["UNDETERMINED_VALUE", "EXTERNAL_EFFECT", "CONFLICTING_SLICES"];
 const OUTCOMES: readonly VerificationOutcome[] = ["FOUND", "NONE_FOUND_WITHIN_SCOPE", "UNVERIFIED"];
@@ -113,6 +113,22 @@ export async function runPipeline(
     }
   }
 
+  // 実装との対応表は、俯瞰図と同じくシナリオごとの段の外で 1 回だけ作る。契約のエラーは実行全体を止める。
+  const implementationMap = await projectImplementationMap(
+    map,
+    glossary,
+    sliced.scenarios.map((target, index) => {
+      const artifact = artifacts[index]!;
+      return {
+        displayId: artifact.displayId,
+        scenario: target,
+        spec: artifact.kind === "COMPLETED" ? artifact.spec : null,
+        ambiguity: artifact.kind === "AMBIGUOUS" ? artifact.ambiguity : null,
+        ledger: artifact.kind === "COMPLETED" ? artifact.ledger : null,
+      };
+    }),
+  );
+
   const report: RunReport = {
     system: {
       mode: map.diagnostics.mode,
@@ -128,7 +144,7 @@ export async function runPipeline(
     scenarios: results,
     totals: totalsOf(results),
   };
-  return { report, map, glossary, intents, systemViews, scenarios: artifacts };
+  return { report, map, glossary, intents, systemViews, scenarios: artifacts, implementationMap };
 }
 
 function intentsSummaryOf(intents: IntentCatalog): RunReport["intents"] {

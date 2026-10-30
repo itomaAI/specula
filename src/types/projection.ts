@@ -1,7 +1,9 @@
 // M5（SpecProjector）の入出力の型（M5 の設計 5）。
 
-import type { Glossary } from "./glossary.js";
+import type { AmbiguityReport, FormalSpecification } from "./formal.js";
+import type { Glossary, GlossaryLocation } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
+import type { DomainLedgerCatalog } from "./ledger.js";
 import type { ScenarioTarget } from "./scenario.js";
 
 /** シナリオ 1 つのビューの形式。 */
@@ -65,6 +67,51 @@ export interface SpecificationView {
     /** カタログが古いか（M5 の設計 3.3）。カタログが無ければ null。 */
     ledgerIsStale: boolean | null;
   };
+}
+
+/** 実装との対応表の、シナリオ 1 つ分の入力（SpecProjector の設計 5・8.5）。 */
+export interface ImplementationMapInput {
+  /** シナリオの表示の id（"S-01"）。 */
+  displayId: string;
+  scenario: ScenarioTarget;
+  /** FormalTranspiler で止まったシナリオは null。 */
+  spec: FormalSpecification | null;
+  /** 曖昧さで止まったときだけある。 */
+  ambiguity: AmbiguityReport | null;
+  /** 論点カタログ。LedgerSynthesizer まで進まなかったシナリオは null。論点の表示の id と識別子の対応に使う（設計 8.7）。 */
+  ledger: DomainLedgerCatalog | null;
+}
+
+export type ImplementationMapEntryKind =
+  | "BOUNDED_CONTEXT"
+  | "COMMAND"
+  | "EVENT"
+  | "POLICY"
+  | "SCENARIO"
+  | "AMBIGUITY"
+  | "STATE_VARIABLE"
+  | "LEDGER_ISSUE";
+
+export interface ImplementationMapEntry {
+  /** "c1"・"n1"・"S-01"・"S-01-A-001"・"S-01-V-01"・"S-01-L-001" */
+  displayId: string;
+  kind: ImplementationMapEntryKind;
+  /** 地図の要素の id、シナリオの id、状態変数の識別子、論点の識別子など。曖昧さは最初のユニットの識別子。 */
+  internalId: string;
+  /** 辞書の項目の id。結び付けられなければ null（設計 8.5）。 */
+  glossaryEntryId: string | null;
+  implementation: {
+    names: string[];
+    locations: GlossaryLocation[];
+  };
+}
+
+/** 実装との対応表（implementation_map.json。設計 8.5）。表示の役割に関係なく、同じ入力からは同じ表を作る。 */
+export interface ImplementationMap {
+  /** 設計 8.5 の並び。 */
+  entries: ImplementationMapEntry[];
+  /** 元にした辞書の basis をそのまま写す。 */
+  basis: { mapHash: string; documentsHash: string };
 }
 
 /**

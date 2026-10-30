@@ -160,6 +160,7 @@ interface FormalSpecification {
   stateVariables: Array<{
     id: string;                                    // "v1"
     unitId: string;                                // ContextExtractor の STATE の識別子
+    name: string;                                  // 実装上の名前（STATE の name。SpecProjector の実装との対応表が使う。LLM の入力には入れない）
     domain: "BOOL" | "ENUM" | "INT";
     values: string[];                              // ENUM の値の識別子（BOOL・INT は空）
     valueLiterals: Record<string, string>;         // ENUM の値の識別子 → リテラルの原文（SpecProjector の表示用）
@@ -210,6 +211,7 @@ type TranspilerResult =
 ```
 - 既存の型からの変更: `isSound` を外した（検証していない段で健全かどうかは言えない）。`signatures`・`predicates`・`assertions` を、FormalSolver と LedgerSynthesizer が使う `stateVariables`・`propositions`・`operations` に置き換えた。`sourceCode` を `source` にした。
 - `steps` と `dataMutations` は、SpecProjector が操作の中身を表示するために持つ。SpecProjector が Alloy のソースを読み直さずに済むよう、PathTranslator が訳した結果をそのまま構造で残す。`steps` は Alloy のソースの述語と同じ内容を持つので、どちらも同じ訳し方（3.1・3.2）から作る。真偽値と列挙の状態変数とリテラルの比較（`===`・`==`・`!==`・`!=`）は、ドメインの値ごとに JavaScript の意味で評価し、成り立つ値の `IS` の `OR` とする（`!==` も同じ。`NOT` と `IS` の組と同じ意味で、値ごとの評価に 1 本化した）。列挙で初期値が決まらない値 `v<n>_unknown` については、その値のとき比較が成り立つかを命題にし、`AND(IS v<n>_unknown, 命題)` を `OR` に足す（推測しない）。整数では `CMP` の `eq`・`neq` とし、整数と整数でない値の比較は命題にする。
+- `stateVariables` の `name` は 2026-10-30 に足した。SpecProjector の実装との対応表（SpecProjector の設計 5・8.5）が状態変数の実装上の名前を出すためである。名前は StateBuilder が状態変数を作るときに STATE のユニットから写す。SpecProjector が ContextExtractor の出力を読まずに済むので、モジュールどうしの依存を増やさない。質問の文の入力と LedgerSynthesizer の語彙には入れない（4.2 の「実装の名前を問いに書かない」を守るため）。表示名を付ける入力（`m2.label-vocabulary`）は、表示名を決めるのに実装の名前が要るので、これまでどおり STATE のユニットの name を渡している（この変更で入力は変わらない）。
 
 ---
 

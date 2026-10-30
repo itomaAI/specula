@@ -195,13 +195,14 @@ interface ImplementationMapInput {
   scenario: ScenarioTarget;
   spec: FormalSpecification | null;       // FormalTranspiler で止まったシナリオは null
   ambiguity: AmbiguityReport | null;      // 曖昧さで止まったときだけある
+  ledger: DomainLedgerCatalog | null;     // 論点カタログ。LedgerSynthesizer まで進まなかったシナリオは null（8.7・8.8）
 }
 
 interface ImplementationMap {
   entries: Array<{
-    displayId: string;                    // "S-01"・"S-01-A-001"・俯瞰図のノードの "n1" など
-    kind: "SCENARIO" | "AMBIGUITY" | "BOUNDED_CONTEXT" | "COMMAND" | "EVENT" | "POLICY" | "STATE_VARIABLE";
-    internalId: string;                   // シナリオの id、地図の要素の id、状態変数の識別子など
+    displayId: string;                    // "c1"・"n1"・"S-01"・"S-01-A-001"・"S-01-V-01"・"S-01-L-001"
+    kind: "BOUNDED_CONTEXT" | "COMMAND" | "EVENT" | "POLICY" | "SCENARIO" | "AMBIGUITY" | "STATE_VARIABLE" | "LEDGER_ISSUE";
+    internalId: string;                   // 地図の要素の id、シナリオの id、状態変数の識別子、論点の識別子など。曖昧さは最初のユニットの識別子（8.8）
     glossaryEntryId: string | null;       // 辞書の項目の id。実装の名前が辞書と一致しなければ null（8.5）
     implementation: {
       names: string[];
@@ -338,11 +339,12 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
 
 ### 8.5 実装との対応表（`implementation_map.json`）
 - `projectImplementationMap` が作る。表示の役割に関係なく、同じ入力からは同じ表を作る。
-- 項目の並び: まず俯瞰図の Bounded Context（`c1`…）、続いて俯瞰図のノード（`n1`…。4.4 の並び）、そのあとシナリオごとに表示の id の順で、シナリオ（`S-01`）→ 曖昧さ（`S-01-A-001`…）→ 状態変数（`S-01-V-01`…、`spec.stateVariables` の並び）とする。
+- 項目の並び: まず俯瞰図の Bounded Context（`c1`…）、続いて俯瞰図のノード（`n1`…。4.4 の並び）、そのあとシナリオごとに表示の id の順で、シナリオ（`S-01`）→ 曖昧さ（`S-01-A-001`…）→ 状態変数（`S-01-V-01`…、`spec.stateVariables` の並び）→ 論点（`S-01-L-001`…、論点カタログの `issues` の並び。8.7）とする。
 - 地図の要素とシナリオ: 辞書の項目をそのまま引き、`glossaryEntryId` に項目の id、`implementation` に項目の `implementation` を写す。シナリオは起点のコマンドまたはポリシーの項目を引く。
 - 曖昧さ: `implementation` は `location` から作る（`names` は空、`locations` は 1 件）。辞書の項目とは結び付けない（`glossaryEntryId` は `null`）。
 - 状態変数: 正本の構造に残る出どころ（`spec.sourceMap` で状態変数の識別子から引けるユニット）から所在を作る。実装の名前が辞書の `implementation.names` と完全に一致したときだけ、`glossaryEntryId` にその項目の id を入れる。一致しなければ `null` にし、辞書には足さない（全体設計 2.2。2026-10-30 中瀬古様了承、C0AF4DJJK8A 1793354518.934329）。
-  - 状態変数の実装の名前を `FormalSpecification` のどの欄から取るかは、実装のときに `src/types` を読んで決め、この節に書き足す。いまの設計書の型（FormalTranspiler の設計 4 節）には、状態変数の実装の名前の欄が明示されていない。
+  - 状態変数の実装の名前は `StateVariable.name`（M1 の `ExtractionUnit.name` を M2 が写したもの。FormalTranspiler の設計 4.3）から取る。2026-10-30 に、この欄を足して決めた（8.8）。
+- 論点: `internalId` は論点の識別子（`LEDGER-…`）。`implementation` は、論点に関わる操作ごとの出口のユニットの所在から作る（`names` は空）。辞書の項目とは結び付けない（`glossaryEntryId` は `null`）。
 - 状態変数の表示の id（`S-01-V-01`）は対応表のキーとしてだけ使い、PdM 向けのビューには出さない。
 
 ### 8.6 既存の設計からの変更
@@ -363,3 +365,18 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
 - **意図の候補が未生成のとき**: 「未生成（LLM に届かなかった）」「未生成（LLM の出力が検査を通らなかった）」と書く（7.2 と同じく、詳細は出さない）。利用者が書いた目的（`userIntent`）があれば、「利用者が書いた目的」として別の行に書く。
 - **シナリオの表示の id の桁**: 2 桁（`S-01`）を最小にし、シナリオが 100 件以上のときは、すべての id を件数の桁数にそろえる（`S-001`…）。文字列として並べたときに順が崩れないようにするためである。振るのはオーケストレーターで、切り出しの順に振る（全体設計 2.1・2.2）。
 - **表示の役割の誤り**: 役割が `PdM`・`Eng` のどちらでもなければ `UNSUPPORTED_FORMAT` にする（7.7）。オーケストレーターは入口で既定の `PdM` を入れる。俯瞰図の射影はシナリオごとの段の外で呼ぶので、役割の誤りは実行全体を止める。
+
+### 8.8 実装との対応表を実装したときに決めたこと（2026-10-30）
+- **状態変数の実装の名前**: `StateVariable` に `name`（M1 の `ExtractionUnit.name`。実装上の変数名）を足し、FormalTranspiler が状態変数を作るときに写すことにした（FormalTranspiler の設計 4.3）。入力に M1 の結果（`RawContextModel`）を足して `unitId` から名前を引く案もあったが、本モジュールが M1 の出力の型に依存することになるので採らなかった。`name` は内部の記録で、PdM 向けのビューには出さない。M4 の LLM の入力にも入らない（M4 の語彙は項目を名指しで写すため）。
+- **入力に論点カタログを足した**: 論点の表示の id（`S-01-L-001`）と論点の識別子の対応を表に入れるため（8.7）、`ImplementationMapInput` に `ledger` を足し、項目の種類に `LEDGER_ISSUE` を足した（5 節）。
+- **番号の桁**: 状態変数の番号（`V-01`）は 2 桁を最小にし、100 件以上なら件数の桁数にそろえる（シナリオの表示の id と同じ規則。8.7）。曖昧さ（`A-001`）と論点（`L-001`）は、曖昧さの一覧と仕様書の表示に合わせて 3 桁に固定する。
+- **俯瞰図のノードの並び**: `n1`… はイベント → コマンド → ポリシーの順に振る。俯瞰図の描画と同じ振り方にし、同じ要素が表と俯瞰図で同じ番号になるようにした。
+- **曖昧さの内部の識別子**: 曖昧さ（`AmbiguityIssue`）は識別子を持たないので、`internalId` には最初のユニットの識別子（所在と同じユニット）を入れる。
+- **状態変数と辞書の結び付け**: 辞書の項目のうち、`implementation.names` に状態変数の `name` をそのまま含むものがちょうど 1 つのときだけ、`glossaryEntryId` にその id を入れる。0 件と 2 件以上のときは `null` にする。同じ名前の変数が別のファイルにあると、別の項目と取り違えるためである。
+- **状態変数の所在**: `spec.sourceMap` で状態変数の識別子から引けるユニット（無ければ `StateVariable.unitId`）の識別子 `<ファイル>:<行>:<列>:<種類>` を右から分けて、ファイルと行を取る。ファイルのパスに `:` が入っていても分けられるようにするためである。同じファイルと行の所在は重ねない。
+- **論点の所在**: 論点に関わる操作ごとに、出口のユニット（`spec.sourceMap[operation.outcome]`）の所在だけを並べる。操作の経路の全ユニット（`spec.sourceMap[operation.id]`）は数が多く、表で引く目的に合わないためである。
+- **入力の契約**: 次のときに `ProjectionContractError` にする（7.7 の理由を使う）。
+  - `glossary.basis.mapHash` が全体マップと違う、または辞書に地図の要素や起点の項目が無い（種類が違う場合を含む）: `GLOSSARY_STALE`
+  - `spec`・`ambiguity`・`ledger` の `scenarioId` が `scenario.id` と違う、または `ledger` があるのに `spec` が無い: `SCENARIO_MISMATCH`
+  - 論点が `spec` に無い操作を指す: `UNKNOWN_OPERATION`
+- **オーケストレーター**: 対応表は、俯瞰図と同じくシナリオごとの段の外で 1 回だけ作り、`PipelineResult.implementationMap` に入れる。最後まで進んだシナリオには `spec` と `ledger` を、曖昧さで止まったシナリオには `ambiguity` を渡し、ほかの段で止まったシナリオはシナリオの項目だけになる。契約のエラーは実行全体を止める。ファイルへの書き出し（`implementation_map.json`。CLI と起動アプリ）は、まだ行っていない。

@@ -7,7 +7,7 @@ import type { AmbiguityKind, AmbiguityReport, FormalSpecification } from "./form
 import type { Glossary } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
-import type { SpecificationView, ViewRole } from "./projection.js";
+import type { ImplementationMap, SpecificationView, ViewRole } from "./projection.js";
 import type { EventStormingMap, ExtractionDiagnostics, ScenarioSelection } from "./scenario.js";
 import type { SolverOptions, SolverReport, UnverifiedReason } from "./solver.js";
 
@@ -136,4 +136,9 @@ export interface PipelineResult {
   intents: IntentCatalog;
   systemViews: { mermaid: SpecificationView; json: SpecificationView };
   scenarios: ScenarioArtifacts[];
+  /**
+   * 実装との対応表（implementation_map.json。SpecProjector の設計 8.5）。表示の役割に関係なく作る。
+   * 状態変数と論点は、最後まで進んだシナリオ（COMPLETED）の分だけ入る。
+   */
+  implementationMap: ImplementationMap;
 }
