@@ -157,13 +157,18 @@ function readEdge(value: unknown, where: string, level: "CONTEXT_MAP" | "CONTEXT
   return { from, to, kind: edgeKind, text: EDGE_TEXT[edgeKind], policy: null, broken };
 }
 
+/** 「〈地図〉の N 番目の〈もの〉」。地図の名前が英数字で終わるとき（「地図 1」）は、「の」の前に空白を入れる。 */
+function nth(where: string, position: number, what: string): string {
+  return `${where}${/[0-9A-Za-z]$/.test(where) ? " " : ""}の ${position + 1} 番目の${what}`;
+}
+
 function readGraph(value: unknown, where: string, level: "CONTEXT_MAP" | "CONTEXT_DETAIL"): { nodes: RawNode[]; edges: RawEdge[] } {
   const nodes = isRecord(value) ? value["nodes"] : undefined;
   const edges = isRecord(value) ? value["edges"] : undefined;
   if (!Array.isArray(nodes) || !Array.isArray(edges)) fail(where, "nodes・edges");
   return {
-    nodes: nodes.map((node, index) => readNode(node, `${where}の ${index + 1} 番目のノード`)),
-    edges: edges.map((edge, index) => readEdge(edge, `${where}の ${index + 1} 番目のつながり`, level)),
+    nodes: nodes.map((node, index) => readNode(node, nth(where, index, "ノード"))),
+    edges: edges.map((edge, index) => readEdge(edge, nth(where, index, "つながり"), level)),
   };
 }
 
@@ -176,7 +181,7 @@ function graphOf(nodes: readonly RawNode[], edges: readonly RawEdge[], where: st
   const edgeViews: MapEdgeView[] = edges.map((edge, position) => {
     const from = index.get(edge.from);
     const to = index.get(edge.to);
-    if (from === undefined || to === undefined) fail(`${where}の ${position + 1} 番目のつながり`, "地図に無いノードを指している");
+    if (from === undefined || to === undefined) fail(nth(where, position, "つながり"), "地図に無いノードを指している");
     return { from, to, kind: edge.kind, text: edge.text, policy: edge.policy, broken: edge.broken };
   });
   const nodeViews: MapNodeView[] = nodes.map((node) => nodeView(node, viewRole, popupOf));
