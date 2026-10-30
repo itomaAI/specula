@@ -216,10 +216,23 @@ type TranspilerResult =
 | 種類 | 起きる条件 | 人に確かめること |
 | :-- | :-- | :-- |
 | `UNDETERMINED_VALUE` | 状態変数への書き込みの式が、2.1 の表のどの形にも当たらない | その変数がとりうる値（業務上の区分） |
-| `EXTERNAL_EFFECT` | 経路にある `EXTERNAL_CALL`・`RECURSION` の引数か受け手（`receiver`。`a.push(x)` の `a`）に、状態変数、それを持つオブジェクト、`this`、関数のいずれかがある | その呼び出しが状態を変えるかどうか |
+| `EXTERNAL_EFFECT` | 経路にある `EXTERNAL_CALL`・`RECURSION` の引数か受け手（`receiver`。`a.push(x)` の `a`）に、状態変数、それを持つオブジェクト、`this`、関数のいずれかがある。ただし、呼び先が状態を変えない組み込みのメソッドのときは、表の下の規則で判定する | その呼び出しが状態を変えるかどうか |
 | `CONFLICTING_SLICES` | 条件の組（ユニットと側）が同じなのに、出口が違うスライスが 2 つ以上ある | M1 が区別できなかった条件（実装を読み直す） |
 
 - 外部の呼び出しの戻り値は、命題（2.3）として扱うので曖昧性にしない。状態を渡していない外部の呼び出しは、状態を変えないものとして扱う。経路で追跡しているのは、関数の外の変数・クラスのフィールド・引数のプロパティだけであり、渡されていないものに外部のコードは触れられないためである。
+- 呼び先が状態を変えない組み込みのメソッドのときは、次の規則で判定する（2026-10-30 に決めた。specula 自身にかけたとき、ローカルの配列への `value.map((x) => …)` のような呼び出しが、関数を渡しているという理由だけで当たっていたため）。
+  - 受け手は、参照だけを見る。状態変数、それを持つオブジェクト、`this` のどれかがあれば当たりとする。受け手の中の関数（`a.map((x) => …).join(",")` の `(x) => …`）は、それを受け取った呼び出し（`a.map(…)`）のユニットが判定するので、ここでは見ない。
+  - 引数にその場で書いた関数（アロー関数・関数式）があれば、その本体を見る。本体が状態変数か `this` を参照するとき、または本体の中に、状態を変えない組み込みのメソッドではない呼び出しがあるときは、当たりとする。M1 はコールバックの中に入らないため、本体の中の呼び出しは経路に出てこない。そこで慎重側に倒す。その場で書いた関数ではない引数は、これまでどおり見る（引数の式の奥にある関数は、本体を見ずに当たりとする）。
+  - 受け手に状態変数か `this` があれば、名前が一覧にあっても当たりのままとする。独自のクラスが同じ名前のメソッドを持つことがあるためである。
+- 状態を変えない組み込みのメソッドの一覧（`src/core/m2/pure_calls.ts`）:
+  - 配列: `map`・`filter`・`reduce`・`reduceRight`・`slice`・`concat`・`join`・`some`・`every`・`find`・`findIndex`・`findLast`・`findLastIndex`・`indexOf`・`lastIndexOf`・`includes`・`flat`・`flatMap`・`at`・`entries`・`keys`・`values`・`forEach`・`toSorted`・`toReversed`・`toSpliced`・`with`
+  - 文字列: `trim`・`trimStart`・`trimEnd`・`toLowerCase`・`toUpperCase`・`split`・`replace`・`replaceAll`・`startsWith`・`endsWith`・`padStart`・`padEnd`・`charAt`・`charCodeAt`・`codePointAt`・`substring`・`localeCompare`・`normalize`・`repeat`・`match`・`matchAll`・`search`・`toString`
+  - `Map`・`Set`: `get`・`has`
+  - 静的なメソッド: `Object.keys`・`Object.values`・`Object.entries`・`Array.isArray`・`Array.from`・`JSON.stringify`・`JSON.parse`・`Math` のすべて・`Number.isInteger`・`Number.isFinite`・`Number.isNaN`
+  - 大域の関数: `String`・`Number`・`Boolean`・`parseInt`・`parseFloat`
+  - 一覧に入れないもの: `sort`・`reverse`・`push`・`splice`・`set`・`add`・`delete`・`Object.assign`・`Object.freeze` など、受け手か引数を変えるもの。
+- 呼び先は名前だけで照合する。メソッドは `callee` の原文の最後のプロパティの名前で、静的なメソッドと大域の関数は `callee` の原文全体で照合する。
+- 限界: 型を見ないので、一覧と同じ名前を持つ独自のメソッドを、受け手が状態に関係しないときは状態を変えないものとして扱う。名前で渡した関数（`arr.map(toItem)`）の本体は、これまでどおり見ない（関数の名前そのものが状態変数でなければ当たらない）。
 - 次は M1 の契約違反であり、曖昧性ではなく例外（`TranspileContractError`）にする: スライスが 0 個（`NO_SLICES`）、`STATE_WRITE` に代入の式が無い（`WRITE_WITHOUT_EXPRESSION`）、`unitIds` に存在しないユニットがある（`UNKNOWN_UNIT`）、`details` の形が合わない（`MALFORMED_DETAILS`。`STATE_WRITE` の `target` が `STATE` でない、`guardTerms` が無い・読めない・`BRANCH_CONDITION` でないユニットを指す、など）。オーケストレーターはこれを「M2 で止まった」と理由付きで報告に残す。
 - 論点の並び: ユニットの並び（M1 が並べ済み）→ 種類 → 原文。`CONFLICTING_SLICES` の `unitIds` は出口のユニットで、`detail` は「スライスの識別子（条件の組）」とする。
 

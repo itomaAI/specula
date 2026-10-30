@@ -301,6 +301,45 @@ test("曖昧性: UNDETERMINED_VALUE と EXTERNAL_EFFECT（引数と受け手）�
   assert.deepEqual(asked.report.issues[1]?.question, { status: "GENERATED", text: "質問 2", recordKey: "rk-m2.ambiguity-question" });
 });
 
+const PURE_CALL_SOURCE = [
+  'let state = "a";',
+  "export function go(xs: string[]) {",
+  '  state = "b";',
+  "  xs.map((x) => x.trim());",
+  "  xs.map((x) => String(x).trim());",
+  '  xs.map((x) => x.trim()).join(",");',
+  "  xs.map(toItem);",
+  "  Object.keys(xs);",
+  "  xs.map((x) => x + state);",
+  "  xs.forEach((x) => save(x));",
+  "  xs.map((x) => new Date(x));",
+  '  state.split(",");',
+  "  xs.filter(function (x) { return this.ok; });",
+  "  return 1;",
+  "}",
+];
+
+test("曖昧性: 状態を変えない組み込みのメソッドは、渡した関数の本体と受け手の参照で判定する", async () => {
+  const result = await transpileFormal(await facts(PURE_CALL_SOURCE, "go"), {});
+  assert.equal(result.kind, "AMBIGUITY");
+  if (result.kind !== "AMBIGUITY") return;
+  const { report } = result;
+  assert.equal(report.counts.UNDETERMINED_VALUE, 0);
+  assert.equal(report.counts.CONFLICTING_SLICES, 0);
+  // 当たらないもの: ローカルの配列へのアロー関数つきの map、組み込みだけを呼ぶ本体、受け手の中の関数（join）、名前で渡した関数、Object.keys
+  // 当たるもの: 本体が状態を参照する、本体が組み込みでない関数や new を呼ぶ、受け手が状態、本体が this を参照する
+  assert.deepEqual(
+    report.issues.map((issue) => [issue.kind, issue.detail]),
+    [
+      ["EXTERNAL_EFFECT", "xs.map((x) => x + state)"],
+      ["EXTERNAL_EFFECT", "xs.forEach((x) => save(x))"],
+      ["EXTERNAL_EFFECT", "xs.map((x) => new Date(x))"],
+      ["EXTERNAL_EFFECT", 'state.split(",")'],
+      ["EXTERNAL_EFFECT", "xs.filter(function (x) { return this.ok; })"],
+    ],
+  );
+});
+
 test("曖昧性: 条件の組が同じで出口が違うスライスは CONFLICTING_SLICES", async () => {
   const model = await facts(BOOL_SOURCE, "openIt");
   const [first, second] = model.slices;
