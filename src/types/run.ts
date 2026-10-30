@@ -153,12 +153,37 @@ export type ScenarioArtifacts =
     }
   | { scenarioId: string; displayId: string; kind: "STOPPED" };
 
+/** 俯瞰図の JSON 1 枚（SpecProjector の SYSTEM_JSON の content を読んだもの。SpecProjector の設計 4.4・8.9）。 */
+export interface SystemMapJson {
+  nodes: Record<string, unknown>[];
+  edges: Record<string, unknown>[];
+}
+
+/** system_map.json の中身。俯瞰図の JSON を束ねたもの（全体設計 4.1）。 */
+export interface SystemMapBundle {
+  viewRole: ViewRole;
+  /** 元にした辞書の basis をそのまま写す（実行の報告・意図の候補・実装との対応表と同じ）。 */
+  basis: Glossary["basis"];
+  /** 地図 1（CONTEXT_MAP）。 */
+  contextMap: SystemMapJson;
+  /** Bounded Context ごとの地図 2（CONTEXT_DETAIL）。全体マップの Bounded Context の順。 */
+  details: {
+    /** Bounded Context の表示の id（"c1" …）。 */
+    context: string;
+    /** 足す要素なし。 */
+    core: SystemMapJson;
+    /** includeSupporting: true（アクター・リードモデル・アグリゲートを足したもの）。 */
+    supporting: SystemMapJson;
+  }[];
+}
+
 export interface PipelineResult {
   report: RunReport;
   map: EventStormingMap;
   glossary: Glossary;
   intents: IntentCatalog;
-  systemViews: { mermaid: SpecificationView; json: SpecificationView };
+  /** mermaid は level を省いた 1 枚の図（system_map.mmd）、json は束ねた俯瞰図（system_map.json）。 */
+  systemViews: { mermaid: SpecificationView; json: SystemMapBundle };
   scenarios: ScenarioArtifacts[];
   /**
    * 実装との対応表（implementation_map.json。SpecProjector の設計 8.5）。表示の役割に関係なく作る。

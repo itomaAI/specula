@@ -23,7 +23,8 @@ export async function writeOutputs(fs: FileSystemPort, outDir: string, result: P
 
   await put(at("run_report.json"), json(result.report));
   await put(at("system_map.mmd"), result.systemViews.mermaid.content);
-  await put(at("system_map.json"), result.systemViews.json.content);
+  // 地図 1 と Bounded Context ごとの地図 2 を束ねた俯瞰図（全体設計 4.1）。役割で中身が変わる。
+  await put(at("system_map.json"), json(result.systemViews.json));
   // 辞書と意図の候補は内部の記録、対応表は表示の id から実装を引く表。どれも実装の名前を含み、表示の役割で中身を変えない（全体設計 2.2・4.1）。
   await put(at("glossary.json"), json(result.glossary));
   await put(at("intents.json"), json(result.intents));

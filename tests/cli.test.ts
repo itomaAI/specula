@@ -116,6 +116,19 @@ test("リポジトリにかけると終了コード 0 で、報告・全体マ�
     assert.equal(entry.internalId, scenario.scenarioId);
     const glossary = JSON.parse(await readFile(join(out, "glossary.json"), "utf8"));
     assert.deepEqual(map.basis, { mapHash: glossary.basis.mapHash, documentsHash: glossary.basis.documentsHash });
+
+    // 俯瞰図は地図 1 と Bounded Context ごとの地図 2 を束ねた 1 つの JSON（全体設計 4.1）。
+    const systemMap = JSON.parse(await readFile(join(out, "system_map.json"), "utf8"));
+    assert.equal(systemMap.viewRole, "PdM");
+    assert.deepEqual(systemMap.basis, glossary.basis);
+    assert.ok(Array.isArray(systemMap.contextMap.nodes));
+    assert.deepEqual(
+      systemMap.details.map((detail: { context: string }) => detail.context),
+      systemMap.contextMap.nodes.map((node: { id: string }) => node.id),
+    );
+    for (const detail of systemMap.details) {
+      assert.ok(Array.isArray(detail.core.nodes) && Array.isArray(detail.supporting.nodes));
+    }
   });
 });
 

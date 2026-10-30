@@ -271,8 +271,11 @@ FormalTranspiler が `AmbiguityReport` を返したシナリオは、そこで�
   - LLM のクライアントは、`ClaudeCodeCliAdapter` ができるまで渡さない。`RecordingLanguageModel` にクライアント無しで包んで渡すので、記録が無い項目は `NOT_GENERATED` になる。`--records` が無ければ記録の置き場所は `<出力先>/llm_records`。
   - `--view-role` が無ければ `PdM`。
   - 終了コード: 実行が最後まで回れば 0（論点や曖昧さがあっても 0）、環境の故障は 1、引数の誤りは 2。
-- **出力の置き方**: `<出力先>/run_report.json`、全体の俯瞰図 `system_map.mmd`・`system_map.json`、辞書 `glossary.json`、意図の候補 `intents.json`、実装との対応表 `implementation_map.json`、シナリオごとの `scenarios/<シナリオの内部の識別子>/`。シナリオのディレクトリには、SpecProjector まで進んだものは `spec.json`・`spec.als`・`solver_report.json`・`ledger.json`・`spec.md`・`matrix.md`・`flow.mmd` を、FormalTranspiler で止まったものは `ambiguity.json` と曖昧さの一覧 `ambiguity.md` を置く。シナリオの識別子のうち、英数字・`-`・`_`・`.` 以外の文字は `_` に置き換える。
+- **出力の置き方**: `<出力先>/run_report.json`、全体の俯瞰図 `system_map.mmd`（1 枚の図）と、地図 1・地図 2 を束ねた `system_map.json`、辞書 `glossary.json`、意図の候補 `intents.json`、実装との対応表 `implementation_map.json`、シナリオごとの `scenarios/<シナリオの内部の識別子>/`。シナリオのディレクトリには、SpecProjector まで進んだものは `spec.json`・`spec.als`・`solver_report.json`・`ledger.json`・`spec.md`・`matrix.md`・`flow.mmd` を、FormalTranspiler で止まったものは `ambiguity.json` と曖昧さの一覧 `ambiguity.md` を置く。シナリオの識別子のうち、英数字・`-`・`_`・`.` 以外の文字は `_` に置き換える。
   - ディレクトリの名前は、表示の id ではなく内部の識別子にする。表示の id は切り出しの順で決まるので、コードが変わると同じシナリオでも番号がずれ、2 回目以降の実行で前回の出力と突き合わせられなくなるためである。表示の id から内部の識別子は、`implementation_map.json` と `run_report.json` で引ける。
+  - `system_map.json` は、SpecProjector の俯瞰図の JSON（SpecProjector 基本設計 8.9）を 1 つに束ねる。形は `{ viewRole, basis, contextMap, details: [{ context, core, supporting }] }` である。`contextMap` は地図 1（`CONTEXT_MAP`）、`details` は Bounded Context ごとの地図 2（`CONTEXT_DETAIL`）で、`core` は足す要素なし、`supporting` は `includeSupporting: true` の版である。`context` は Bounded Context の表示の id（`c1` …）で、`details` は全体マップの Bounded Context の順に並ぶ。`basis` は辞書の `basis` を写す（実行の報告・意図の候補・実装との対応表と同じ）。SpecProjector の俯瞰図の JSON は元にした全体マップと資料のハッシュを持たないので、オーケストレーターが束ねるときに付ける。
+    - ファイルを分けずに束ねる理由: 画面は 1 つのファイルを読めば地図 1 と地図 2 を切り替えられる。鍵は表示の id でよい。俯瞰図へのリンクは 1 回の実行の中で閉じ（SpecViewer 仕様 2.3）、表示の id から内部の識別子は `implementation_map.json` で引けるためである。シナリオのように内部の識別子でディレクトリを作ると、Bounded Context の識別子をファイル名に出すことになる。
+    - `system_map.mmd` は、level を省いた今の 1 枚の図のままにする。出力先を人や LLM が開いたときに全体を見るための図で、画面は `system_map.json` から描く。
   - `glossary.json`・`intents.json`・`spec.als`・`ambiguity.json` は内部の記録であり、実装の名前を含む。役割で中身を変えない。役割で変わるのは、利用者向けの出力（`.md` と `.mmd`、`system_map.json`）だけである。
 
 ### 4.2 言語・ビルドパイプライン方針 (TypeScript ➔ JavaScript ESM)
