@@ -200,9 +200,43 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 
 ---
 
-## 6. 実装のときに決めること
-- ビューモデルの型と、`RunOutputs` の読み方（ファイルが欠けているときの扱い）。
-- 画面の描き方（Mermaid の描画、Markdown の描画）。
+## 6. 実装のときに決めたこと
+2026-10-31 に決めた。画面ごとのビューモデルの型は、その画面を実装するときにこの節へ足す。
+
+### 6.1 出力先の読み方（`RunOutputs`）
+- 読むのは `src/lib/read_outputs.ts` の `readRunOutputs(fs: FileSystemPort, outDir: string): Promise<RunOutputs>` とする。ファイルを読むので `src/viewer/` には置かず、書く側の `src/lib/write_outputs.ts` と対にする。
+- 読むファイルは 2 節の表のものだけである。`system_map.mmd`、シナリオごとの `spec.json`・`solver_report.json`・`ambiguity.md` は画面で使わないので読まない。
+- シナリオのディレクトリは、`run_report.json` の `scenarios` から `scenarios/<safeName(scenarioId)>/` として引く。`FileSystemPort.list` は順序を保証しないので、ディレクトリの一覧からは引かない。読むファイルはシナリオの `kind` で決める（`COMPLETED`: `spec.md`・`matrix.md`・`flow.mmd`・`spec.als`・`ledger.json`、`AMBIGUOUS`: `ambiguity.json`、`STOPPED`: なし）。`run_report.json` が無いか読めないときは、シナリオのファイルを読まない。
+- ファイルごとの結果は、次の 3 通りのどれかで持つ。読めなかったことを `null` 1 つにまとめないのは、無いのか壊れているのかで表示する理由が違うためである。
+  - `{ kind: "OK", value }`: JSON はパースした値、Markdown・Mermaid・Alloy は文字列。
+  - `{ kind: "MISSING" }`: ファイルが無い。
+  - `{ kind: "INVALID", reason }`: JSON としてパースできない。
+- `readRunOutputs` は形の検査をしない（JSON のパースだけ）。形と組み合わせの検査は `checkRunOutputs` で行う。
+
+### 6.2 事前条件の検査（`checkRunOutputs`）
+- 返すのは `{ ok: boolean; problems: RunOutputsProblem[] }` とする。`ok` が `false` のとき、起動アプリは画面を作らずに `problems` を表示する（1.2）。
+- 画面を作れないもの（`ok` を `false` にするもの）:
+  - `run_report.json` が無いか、読めない。
+  - 読めた JSON のファイルが壊れている（`INVALID`）。
+  - `basis` を持たない（`basis` を足す前の古い出力）。
+  - `run_report.json`・`glossary.json`・`intents.json`・`implementation_map.json`・`system_map.json` のうち、あるものどうしの `basis`（`mapHash`・`documentsHash`）が一致しない（仕様 3.1）。
+  - `run_report.json` のシナリオの `kind` から決まるシナリオのファイルが無い（同じ実行の書き出しなら必ずあるため）。
+- 画面を作れるもの（`problems` に入れない）: 仕様 2.1 で任意とされている `glossary.json`・`intents.json`・`implementation_map.json`・`system_map.json` が無いこと。どの画面で何を出すかは `buildRunView` が決める（例: 辞書が無ければ要素の名前を「辞書が無い」と表示する。全体地図は俯瞰図が無ければ理由を出す）。
+- 表示の役割と `system_map.json` の `viewRole` の関係は、6.4 が決まるまで検査しない。
+
+### 6.3 ビューモデルの型の方針
+- 型は `src/viewer/types.ts` に置き、`src/types/` だけを参照する。
+- 本文の文と確定の状態は組で持ち、描く側は印を付けるだけにする（5 節）。描く側で状態を判定しない（1.1）。
+- 画面どうしのリンクの鍵（内部の識別子）は、ビューモデルの中のリンクの表だけに置き、描く文字列には入れない（4 節）。
+
+### 6.4 画面の描き方
+- **依存を足さない**: Itera OS が配布する外部ライブラリ（`MetaOS.vendor`）は MathJax・Monaco・pdf.js・pdf-lib で、Mermaid と Markdown の描画のライブラリは無い。そのため、出力を描く処理を自分で書く。範囲は SpecProjector が出すものに限る。
+  - **Markdown**（`spec.md`・`matrix.md`）: SpecProjector が出す記法（`render_document.ts`・`render_matrix.ts` の見出し・段落・箇条書き・番号付きの箇条書き・表・引用・コードブロック）だけを、ブロックの木に分ける純粋な関数を `src/viewer/` に置く。
+    - 行の中の書式（強調・インラインのコードなど）は解釈せず、文字のまま出す。SpecProjector は行の中の書式を出さず、LLM の文は改行を空白にするだけで Markdown の記号を逃がしていない（`escape.ts` の `mdLine`）ため、解釈すると LLM の文の記号が書式に化ける。
+    - 表のセルの `\|` は `|` に戻す（`mdCell`）。コードブロックの囲みは 3 つ以上のバッククォートで、長さはソースによって変わる（`fenceFor`）。
+  - **地図と流れ図**: 地図は `system_map.json` から、流れ図は `flow.mmd`（SpecProjector の流れ図が出す範囲の flowchart）から、ノードとつながりのグラフを作り、層に並べる純粋な配置の関数を `src/viewer/` に置く。描く側は配置の結果を SVG にするだけにする。
+- **LLM の文は `textContent` で描く**: 用語・意図・論点の文・質問の文は LLM が作り、LLM は解析対象のコードと資料を読んでいる。そのため、`innerHTML` に入れず、文字列として描く。
+- **表示の役割の切り替え**: 今の出力は、利用者向けのビュー（仕様書・操作の一覧表・流れ図・曖昧さの一覧・俯瞰図）を 1 つの役割で書く。仕様 1.1 の「Global Menu で役割を切り替える」を満たすには、出力の役割に固定するか、両方の役割のビューを書き出すかを決める必要がある。中瀬古様の答えを待っている（2026-10-31）。
 
 ## 7. 残っている課題
 - **横断の不備の一覧をファイルとしても出すか**: 今の出力はシナリオごとのファイルだけである。LLM に読ませる用途があるので、ファイルとして出すなら、作るのはオーケストレーターか SpecProjector になる（仕様 1.2 の「画面だけが持つ情報を作らない」）。
