@@ -299,7 +299,8 @@ test("M5: Eng のときは題に所在を併記し、付録を載せる（設計
   assert.ok(matrix.content.startsWith("# 操作の一覧表: S-01 注文の締め（`src/order.ts#closeOrder` L3）\n"));
   // 本文の文は役割で変えない
   const pdm = await projectSpecification(SPEC, null, CONTEXT, DOCUMENT);
-  const strip = (text: string): string => bodyOf(text).split("\n").slice(1).join("\n");
+  // 題の行を除き、末尾の空行をそろえる（Eng は付録の見出しの前に空行が 1 つ入る）
+  const strip = (text: string): string => bodyOf(text).split("\n").slice(1).join("\n").replace(/\n+$/, "\n");
   assert.equal(strip(view.content), strip(pdm.content));
 });
 
