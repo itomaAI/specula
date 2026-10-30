@@ -134,5 +134,8 @@ export type {
   StoppedStage,
 } from "./types/run.js";
 export { runPipeline } from "./core/orchestrator.js";
+// 入口（コマンドラインと Itera OS の起動アプリ）が使う共通の関数。
+export { withRoot } from "./lib/rooted_file_system.js";
+export { writeOutputs, safeName } from "./lib/write_outputs.js";
 
 export const VERSION = "0.1.0";
