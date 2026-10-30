@@ -22,6 +22,7 @@ import type {
   ScenarioListView,
   ScenarioRowView,
 } from "./types.js";
+import { buildFlowView } from "./graph.js";
 import { parseMarkdown } from "./markdown.js";
 
 const KIND_TEXT: Readonly<Record<ScenarioKind, string>> = {
@@ -211,7 +212,8 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
       const document = valueOf(files.document);
       const matrix = valueOf(files.matrix);
       const source = valueOf(files.source);
-      if (spec === null || ledger === null || document === null || matrix === null || source === null) {
+      const flow = valueOf(files.flow);
+      if (spec === null || ledger === null || document === null || matrix === null || source === null || flow === null) {
         throw new Error(`${row.displayId} のファイルが読めていない。先に checkRunOutputs を通してください。`);
       }
       return {
@@ -224,6 +226,8 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
           matrix: parseMarkdown(matrix),
           // SpecProjector の付録と同じく、`-- @source:` の行を除く（設計 6.6）。
           source: viewRole === "Eng" ? stripSourceComments(source).replace(/\n+$/, "") : null,
+          // 流れ図は flow.mmd を読み、全体地図と同じ配置の関数で層に並べる（設計 6.9）。
+          flow: buildFlowView(flow),
         },
         notice: null,
       };

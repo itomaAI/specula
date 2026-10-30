@@ -169,7 +169,7 @@ export interface ScenarioDetailView {
   issueCount: number | null;
   /** 仕様になったシナリオだけ。論点の id は表示の id（"S-01-L-001"）。 */
   issueGroups: IssueGroupView[] | null;
-  /** 仕様になったシナリオだけ。タブの中身（設計 3.2・6.6）。流れ図は全体地図と同じ配置の関数で別に作る。 */
+  /** 仕様になったシナリオだけ。タブの中身（設計 3.2・6.6・6.9）。流れ図は全体地図と同じ配置の関数で層に並べる。 */
   tabs: ScenarioTabsView | null;
   /** 曖昧さで止まった・途中で止まったシナリオで、タブの代わりに出す文。仕様になったシナリオは null。 */
   notice: string | null;
@@ -185,7 +185,61 @@ export interface ScenarioTabsView {
   matrix: MarkdownBlock[];
   /** 形式仕様のソース（spec.als から `-- @source:` の行を除いたもの）。Eng のときだけ。 */
   source: string | null;
+  /** 操作の流れ図（flow.mmd を層に並べたもの。設計 6.9）。 */
+  flow: FlowView;
 }
+
+// ---- 流れ図と地図のグラフ（設計 3.2・3.4・6.4・6.9） ----
+// ノードは並びの位置（0 から）で指す。flow.mmd のノードの識別子（形式仕様の操作の識別子を含む）は持たない。
+
+/** つながり。from・to はノードの並びの位置。 */
+export interface GraphEdge {
+  from: number;
+  to: number;
+}
+
+/** 層に並べた配置（layoutLayers。決定論的）。配列はノードの並び・つながりの並びと同じ長さ。 */
+export interface GraphLayout {
+  /** ノードごとの層（0 が最も上）。 */
+  layerOf: number[];
+  /** ノードごとの、層の中の並びの位置（0 が最も左）。 */
+  orderOf: number[];
+  /** 層ごとの、左から順のノードの並びの位置。 */
+  layers: number[][];
+  /** つながりごとに、閉路を切るために下から上へ向かうものとしたか。自分へのつながりは false。 */
+  reversed: boolean[];
+}
+
+/** 流れ図のノードの種類（render_flow.ts の識別子の振り方から決まる）。 */
+export type FlowNodeKind = "START" | "OPERATION" | "STEP" | "RESULT";
+
+export interface FlowNode {
+  kind: FlowNodeKind;
+  /** ノードの文（mermaidLabel の置き換えを戻したもの）。 */
+  label: string;
+}
+
+/** flow.mmd を読んだ結果（parseFlow）。 */
+export type FlowGraphRead =
+  | {
+      kind: "OK";
+      /** 「%%」の注意の行（論点カタログが古いときなど）。 */
+      notes: string[];
+      nodes: FlowNode[];
+      edges: GraphEdge[];
+    }
+  | { kind: "UNREADABLE"; reason: string };
+
+/** シナリオの詳細の流れ図のタブ（buildFlowView）。 */
+export type FlowView =
+  | {
+      kind: "OK";
+      notes: string[];
+      nodes: FlowNode[];
+      edges: GraphEdge[];
+      layout: GraphLayout;
+    }
+  | { kind: "UNREADABLE"; reason: string };
 
 // ---- 仕様不備一覧（設計 3.3・6.7） ----
 // 論点は SpecProjector の IssueView（issueGroupsOf）をそのまま使う。曖昧さの文は SpecProjector の曖昧さの一覧と同じ。
