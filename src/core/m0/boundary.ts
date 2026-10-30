@@ -1,5 +1,5 @@
 // Stage 1: ContextBoundaryAnalyzer（M0 の設計 3.1）。
-// ディレクトリの形だけから Bounded Context の候補を出す。意図の候補（LLM）は naming.ts が付ける。
+// ディレクトリの形だけから Bounded Context の候補を出す。意図の候補は IntentSynthesizer が作る（LLM はここでは使わない）。
 //
 // 決めたこと（初回）:
 // - packages/・apps/・features/・modules/・domains/ の直下のディレクトリを、それぞれ 1 つのコンテキストの根とする

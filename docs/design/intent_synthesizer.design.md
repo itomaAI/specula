@@ -68,3 +68,15 @@ interface IntentCatalog {
 ```
 - `intentStatus` は、初回の実行ではすべて `CANDIDATE`。`CONFIRMED` にするのは、2 回目以降の実行で前回の合意結果を受け取る処理であり、初回の範囲外である。
 - 2026-10-30 の時点で、意図を読む後段のモジュールは無い（`ScenarioExtractor` が出していたときも、読むものは無かった）。表示に使うかどうかは、全体基本設計書の表示の節で決める。`ContextExtractor`・`FormalTranspiler`・`FormalSolver`・`LedgerSynthesizer` は意図を使わない。
+
+---
+
+## 4. 初回の実装で決めたこと（2026-10-30）
+
+- **資料のハッシュも確かめる**: 1.2 の `glossary.basis.mapHash` に加えて、`glossary.basis.documentsHash` が受け取った資料のハッシュと一致することも確かめ、違えば `IntentContractError`（`GLOSSARY_STALE`）を投げる。抜粋は、辞書が選んだ節の識別子で `repo.documents` から切り出すので、資料が違うと黙って別の本文を渡してしまうためである。ハッシュの計算は `GlossaryBuilder` と同じ関数（`documentsHashOf`）を使う。
+- **出力の検査**: 前後の空白を除いて、空でない・1 行・200 字以内。`ScenarioExtractor` の `m0.context-intent` で使っていたものと同じで、文の数（句点の数）は数えない。
+- **Bounded Context の「含まれるファイル」**: 全体マップでそのコンテキストに属するコマンドとイベントのハンドラのファイル（辞書順）。全体マップはコンテキストごとのファイルの一覧を持たないため、`GlossaryBuilder` の用語の入力と同じ関数（`contextFilesOf`）を使う。
+- **呼ぶ順**: Bounded Context を識別子の辞書順に、続いてシナリオを識別子の辞書順に、1 件ずつ呼ぶ。
+- **シナリオの入力**: 起点の種類、起点の所在（ファイルと関数名。ポリシーが起点のときはリスナーの登録の場所）、期待イベントの所在とシグナル（種類・呼んでいる関数の名前・`label`）、アクターの名前、画面のルート（無ければ `null`）、抜粋。利用者が書いた目的（`userIntent`）は入力に入れず、出力の別の欄にそのまま写す。
+- **辞書に項目が無いとき**: ハッシュが一致していれば、地図の要素の項目と、辞書が選んだ節は必ずある。無ければ実装の誤りなので、契約のエラーではない例外で止める。
+- **後段への受け渡し**: オーケストレーターは 1 回の実行で 1 回だけ呼び、`PipelineResult.intents` と `RunReport.intents`（全体設計 2.1）に入れる。SpecProjector に渡すこと、入口が `intents.json` を書くことは、後の変更で行う。

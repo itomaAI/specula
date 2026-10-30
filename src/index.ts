@@ -65,6 +65,11 @@ export type {
 } from "./types/glossary.js";
 export { buildGlossary } from "./core/glossary_builder.js";
 
+// IntentSynthesizer（意図の候補）
+export type { ContextIntent, IntentCatalog, IntentStatus, ScenarioIntent } from "./types/intent.js";
+export { IntentContractError } from "./types/intent.js";
+export { INTENT_PROMPT_VERSION, synthesizeIntents } from "./core/intent_synthesizer.js";
+
 // M1（ContextExtractor）
 export type {
   ExtractionCoverage,

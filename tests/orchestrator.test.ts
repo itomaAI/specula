@@ -149,6 +149,38 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   assert.equal(result.systemViews.json.mediaType, "application/json");
 });
 
+test("意図の候補を 1 回だけ作り、すべての Bounded Context とシナリオに 1 つずつ載せ、報告に要約を書く", async () => {
+  const unreachable = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
+  assert.deepEqual(unreachable.report.intents, { contextCount: 1, scenarioCount: 3, notGenerated: { UNREACHABLE: 4, INVALID_OUTPUT: 0 } });
+
+  const tasks: string[] = [];
+  const intentLlm: LanguageModelPort = {
+    async generate(request, check) {
+      tasks.push(request.task);
+      if (!request.task.startsWith("intent.")) return { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" };
+      const text = "公開されている操作を呼び出す。";
+      const result = check(text);
+      return result.ok
+        ? { status: "GENERATED", text, recordKey: `${request.task}:${JSON.stringify(request.input)}` }
+        : { status: "NOT_GENERATED", reason: "INVALID_OUTPUT", detail: result.detail };
+    },
+  };
+  const result = await runPipeline(REPO, { fs: sourceFs(), llm: intentLlm, solver: null });
+  assert.deepEqual(result.report.intents, { contextCount: 1, scenarioCount: 3, notGenerated: { UNREACHABLE: 0, INVALID_OUTPUT: 0 } });
+  assert.deepEqual(result.intents.contexts.map((item) => item.contextId), ["DEFAULT_CONTEXT"]);
+  assert.deepEqual(
+    result.intents.scenarios.map((item) => item.scenarioId),
+    result.report.scenarios.map((scenario) => scenario.scenarioId).sort(),
+  );
+  for (const item of [...result.intents.contexts, ...result.intents.scenarios]) {
+    assert.equal(item.intentStatus, "CANDIDATE");
+    assert.equal(item.intent.status, "GENERATED");
+  }
+  assert.deepEqual(result.intents.basis, result.glossary.basis);
+  assert.equal(tasks.filter((task) => task === "intent.context").length, 1);
+  assert.equal(tasks.filter((task) => task === "intent.scenario").length, 3);
+});
+
 test("同じ入力から同じ報告とビューができる", async () => {
   const first = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   const second = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });

@@ -13,6 +13,7 @@ import type { VerificationOutcome } from "../types/ledger.js";
 import { LedgerContractError } from "../types/ledger.js";
 import { ProjectionContractError } from "../types/projection.js";
 import type { Glossary } from "../types/glossary.js";
+import type { IntentCatalog } from "../types/intent.js";
 import type { RepositoryArtifacts, ScenarioTarget } from "../types/scenario.js";
 import type {
   PipelineDeps,
@@ -25,6 +26,7 @@ import type {
 } from "../types/run.js";
 import { discoverSystemContext, sliceScenarios } from "./scenario_extractor.js";
 import { buildGlossary } from "./glossary_builder.js";
+import { synthesizeIntents } from "./intent_synthesizer.js";
 import { extractContext } from "./context_extractor.js";
 import { transpileFormal } from "./formal_transpiler.js";
 import { verifySpecification } from "./formal_solver.js";
@@ -71,6 +73,7 @@ export async function runPipeline(
   // 1 回の実行に 1 回だけ動く段。契約のエラーは止めずに投げ直す（全体設計 2.1）。
   const glossary = await buildGlossary(map, repo, { llm: deps.llm });
   const sliced = sliceScenarios(map, options.selection);
+  const intents = await synthesizeIntents(map, sliced, glossary, repo, { llm: deps.llm });
   const systemViews = {
     mermaid: await projectSystemMap(map, glossary, { format: "SYSTEM_MERMAID" }),
     json: await projectSystemMap(map, glossary, { format: "SYSTEM_JSON" }),
@@ -100,11 +103,20 @@ export async function runPipeline(
       eventCount: map.events.length,
     },
     glossary: glossarySummaryOf(glossary),
+    intents: intentsSummaryOf(intents),
     slice: { scenarioCount: sliced.scenarios.length, rejected: sliced.rejected.map((item) => ({ ...item })) },
     scenarios: results,
     totals: totalsOf(results),
   };
-  return { report, map, glossary, systemViews, scenarios: artifacts };
+  return { report, map, glossary, intents, systemViews, scenarios: artifacts };
+}
+
+function intentsSummaryOf(intents: IntentCatalog): RunReport["intents"] {
+  const notGenerated = { UNREACHABLE: 0, INVALID_OUTPUT: 0 };
+  for (const item of [...intents.contexts, ...intents.scenarios]) {
+    if (item.intent.status === "NOT_GENERATED") notGenerated[item.intent.reason] += 1;
+  }
+  return { contextCount: intents.contexts.length, scenarioCount: intents.scenarios.length, notGenerated };
 }
 
 function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
