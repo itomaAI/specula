@@ -170,6 +170,12 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.equal(table.header[0], "表示名");
     assert.equal(table.rows.length, spec.operations.length);
     assert.equal(detail.tabs?.source, null);
+    // 流れ図: 起点が 1 つと、操作ごとに操作・条件と書き込み・結果のノード（render_flow.ts）
+    const flow = detail.tabs?.flow;
+    assert.ok(flow?.kind === "OK");
+    assert.equal(flow.nodes.length, 1 + spec.operations.reduce((sum, operation) => sum + operation.steps.length + 2, 0));
+    assert.equal(flow.nodes[0]?.kind, "START");
+    assert.equal(flow.layout.layers[0]?.length, 1);
     const engDetail = buildScenarioDetails(outputs, "Eng").find((d) => d.displayId === completed.displayId)!;
     const engSource = engDetail.tabs?.source;
     assert.ok(typeof engSource === "string" && engSource.length > 0);

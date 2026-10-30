@@ -171,11 +171,17 @@ export { readRunOutputs } from "./lib/read_outputs.js";
 export type {
   AmbiguityItemView,
   FileRead,
+  FlowGraphRead,
+  FlowNode,
+  FlowNodeKind,
+  FlowView,
   GlossaryContextSectionView,
   GlossaryEntryView,
   GlossaryGapsView,
   GlossarySourceView,
   GlossaryView,
+  GraphEdge,
+  GraphLayout,
   IssueListView,
   RunOutputs,
   RunOutputsCheck,
@@ -196,5 +202,6 @@ export { buildIssueList } from "./viewer/issues.js";
 export { buildGlossaryView } from "./viewer/glossary.js";
 export type { MarkdownBlock } from "./viewer/markdown.js";
 export { parseMarkdown, tableCells } from "./viewer/markdown.js";
+export { buildFlowView, layoutLayers, parseFlow, unescapeMermaidLabel } from "./viewer/graph.js";
 
 export const VERSION = "0.1.0";
