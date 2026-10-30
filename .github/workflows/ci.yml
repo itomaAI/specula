@@ -67,4 +67,5 @@ jobs:
           path: |
             dist/specula.itera.js
             itera/specula.html
+            itera/spec_viewer.html
           if-no-files-found: error
