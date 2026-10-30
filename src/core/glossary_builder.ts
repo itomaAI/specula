@@ -29,11 +29,14 @@ export async function buildGlossary(
     if (entry.scope === "RECORDED") {
       return { id: entry.id, kind: entry.kind, scope: entry.scope, implementation: entry.implementation, sources: [] };
     }
+    const term = terms.get(entry.id);
+    // 提示する項目は、すべて Step 4 で用語を頼んでいる。無ければ Step 2 と Step 4 の食い違い（実装の誤り）なので止める。
+    if (term === undefined) throw new Error(`GlossaryBuilder: 提示する項目 ${entry.id} に用語の結果が無い`);
     return {
       id: entry.id,
       kind: entry.kind,
       scope: entry.scope,
-      term: terms.get(entry.id) ?? { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "用語を頼む対象に入っていない" },
+      term,
       implementation: entry.implementation,
       sources: (selected.get(entry.id) ?? []).map((section) => section.section),
     };
