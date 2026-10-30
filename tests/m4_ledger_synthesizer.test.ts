@@ -40,8 +40,8 @@ const SPEC: FormalSpecification = {
   scenarioId: "SCN-1",
   source: "module order\n// テスト用の形式仕様（中身は M4 では読まない）\n",
   stateVariables: [
-    { id: "v1", unitId: "U-1", domain: "ENUM", values: ["v1_1", "v1_2"], valueLiterals: { v1_1: '"open"', v1_2: '"closed"' }, initial: "v1_1" },
-    { id: "v2", unitId: "U-2", domain: "INT", values: [], valueLiterals: {}, initial: "0" },
+    { id: "v1", unitId: "U-1", name: "status", domain: "ENUM", values: ["v1_1", "v1_2"], valueLiterals: { v1_1: '"open"', v1_2: '"closed"' }, initial: "v1_1" },
+    { id: "v2", unitId: "U-2", name: "retryCount", domain: "INT", values: [], valueLiterals: {}, initial: "0" },
   ],
   propositions: [{ id: "c1", unitId: "U-3", expression: "request.force" }],
   operations: [

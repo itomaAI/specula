@@ -97,6 +97,7 @@ test("真偽値: Bool の変数・初期値・条件・書き込み・フレー�
   const s = spec(await transpileFormal(await facts(BOOL_SOURCE, "openIt"), {}, null));
   assert.equal(s.stateVariables.length, 1);
   const v = s.stateVariables[0];
+  assert.equal(v?.name, "open", "実装上の名前は M1 の STATE の name を写す");
   assert.equal(v?.domain, "BOOL");
   assert.equal(v?.initial, "False");
   assert.deepEqual(v?.values, []);

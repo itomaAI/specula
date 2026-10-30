@@ -238,7 +238,7 @@ export function buildStates(checked: CheckedFacts): StateModel {
     }
 
     const built: BuiltState = {
-      variable: { id, unitId: unit.id, domain, values: [], valueLiterals: {}, initial: null },
+      variable: { id, unitId: unit.id, name: unit.name, domain, values: [], valueLiterals: {}, initial: null },
       unit,
       scope,
       owner,
