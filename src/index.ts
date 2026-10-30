@@ -1,5 +1,7 @@
 // Specula の入口。Node.js と Itera（build:itera の bundle）の両方から読む。
 // M0〜M5 の公開コマンドは、各モジュールを書き直すときに足す。
+// 補助の関数（記録のキー・受け取りの解釈・正準化 JSON・SHA-256・ルートの付け替え・リポジトリの読み込み）は公開しない。
+// 使うときは元のファイルから読む。
 
 export type { JsonValue, LlmRequest, LlmText } from "./types/index.js";
 
@@ -21,9 +23,9 @@ export type {
 export { NodeFsAdapter } from "./adapters/NodeFsAdapter.js";
 export { IteraVfsAdapter } from "./adapters/IteraVfsAdapter.js";
 export type { IteraFs } from "./adapters/IteraVfsAdapter.js";
-export { RecordingLanguageModel, recordKeyOf } from "./adapters/RecordingLanguageModel.js";
+export { RecordingLanguageModel } from "./adapters/RecordingLanguageModel.js";
 export type { LlmRecord } from "./adapters/RecordingLanguageModel.js";
-export { CliAlloyAdapter, interpretReceipt, toRawInstance } from "./adapters/CliAlloyAdapter.js";
+export { CliAlloyAdapter } from "./adapters/CliAlloyAdapter.js";
 export type { CliAlloyOptions } from "./adapters/CliAlloyAdapter.js";
 export { LOCAL_BRIDGE_NOT_READY, LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
 
@@ -59,7 +61,6 @@ export type {
 } from "./types/context.js";
 export { InletNotFoundError, SyntaxExtractionError } from "./types/context.js";
 export { extractContext } from "./core/context_extractor.js";
-export { withRoot } from "./lib/rooted_file_system.js";
 
 // M2（FormalTranspiler）
 export type {
@@ -128,9 +129,5 @@ export type {
   StoppedStage,
 } from "./types/run.js";
 export { runPipeline } from "./core/orchestrator.js";
-export { readRepository } from "./adapters/NodeRepositoryReader.js";
-
-export { canonicalJson } from "./lib/canonical_json.js";
-export { sha256Hex } from "./lib/sha256.js";
 
 export const VERSION = "0.1.0";
