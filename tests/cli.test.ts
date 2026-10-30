@@ -119,6 +119,19 @@ test("リポジトリにかけると終了コード 0 で、報告・全体マ�
   });
 });
 
+test("同じリポジトリに 2 回かけると、同じ報告になる", async () => {
+  await withTempRepo(async (root) => {
+    const first = capture();
+    const second = capture();
+    assert.equal(await main([join(root, "repo"), "--out", join(root, "out1")], first.io), 0);
+    assert.equal(await main([join(root, "repo"), "--out", join(root, "out2")], second.io), 0);
+    assert.equal(
+      await readFile(join(root, "out2", "run_report.json"), "utf8"),
+      await readFile(join(root, "out1", "run_report.json"), "utf8"),
+    );
+  });
+});
+
 test("--view-role が無ければ PdM で付録を載せず、Eng なら仕様書に形式仕様のソースの付録を載せる", async () => {
   await withTempRepo(async (root) => {
     assert.equal(await main([join(root, "repo"), "--out", join(root, "pdm")], capture().io), 0);
