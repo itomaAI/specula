@@ -19,7 +19,7 @@
 buildRunView(
   outputs: RunOutputs,            // 出力先から読んだファイルの中身（2 節）
   viewRole: "PdM" | "Eng",
-): RunView;                       // 4 つの画面とシナリオの詳細のビューモデル、画面どうしのリンクの表
+): RunView;                       // 4 つの画面とシナリオの詳細のビューモデル（リンクは表示の id で張る。6.11）
 
 checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前条件
 ```
@@ -317,6 +317,12 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **Bounded Context が 1 つ**のときは、`startWithDetail` を `true` にする（描く側は地図 2 から開く。3.4）。
 - **表示の役割**: 実装の名前と所在は、画面の役割が `Eng` で、JSON に `implementation` があるときだけ持つ。JSON は出力を作ったときの役割で書かれているので（6.4）、画面の役割が `PdM` なら JSON にあっても持たない。
 - **壊れた印**: ノードとつながりの `broken` が `null` でなければ、印を描くための `broken: true` を持つ。初回は常に `false` である（3.4）。
+
+### 6.11 画面すべてを束ねる（`buildRunView`）
+- **公開する関数**: `buildRunView(outputs, viewRole)`（`src/viewer/run_view.ts`）。`buildScenarioList`・`buildScenarioDetails`・`buildIssueList`・`buildGlossaryView`・`buildMapView` を同じ入力と役割で呼び、`RunView`（`viewRole`・`scenarioList`・`scenarioDetails`・`issues`・`glossary`・`map`）にまとめる。束ねるだけで、判定や文を足さない。
+- **事前条件**: 最初に `checkRunOutputs` を呼び、破れがあれば理由（`reason` とファイル）を並べた例外を投げる。画面ごとの関数も通っていない入力で例外を投げるが、どの画面の例外か分かりにくいため、入口で先に止める。起動アプリは `buildRunView` の前に `checkRunOutputs` を呼び、破れがあれば画面を作らずに `problems` を出す（1.2）。
+- **リンクの表を持たない**: 1.2 では「画面どうしのリンクの表」を返すとしていたが、リンクの鍵を表示の id にしたので（6.7）、各ビューモデルが持つ表示の id でリンクを張れる。シナリオ一覧の行と詳細は `displayId`、論点は `S-01-L-001`、地図と用語辞典は `c1`・`n1` で対応する。同じ対応を別の表に写すと、2 か所の値がずれうるため、表は作らない。
+- **表示の役割**: `viewRole` は起動アプリの引数をそのまま持つ。出力を書いたときの役割（`system_map.json` の `viewRole`）との関係は、6.4 の答えを待っている。
 
 ## 7. 残っている課題
 - **横断の不備の一覧をファイルとしても出すか**: 今の出力はシナリオごとのファイルだけである。LLM に読ませる用途があるので、ファイルとして出すなら、作るのはオーケストレーターか SpecProjector になる（仕様 1.2 の「画面だけが持つ情報を作らない」）。

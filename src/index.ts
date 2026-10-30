@@ -195,6 +195,7 @@ export type {
   RunOutputsCheck,
   RunOutputsProblem,
   RunSummaryView,
+  RunView,
   ScenarioAmbiguitiesView,
   ScenarioDetailView,
   ScenarioIssuesView,
@@ -209,6 +210,7 @@ export { buildScenarioDetails, buildScenarioList } from "./viewer/scenarios.js";
 export { buildIssueList } from "./viewer/issues.js";
 export { buildGlossaryView } from "./viewer/glossary.js";
 export { buildMapView } from "./viewer/map.js";
+export { buildRunView } from "./viewer/run_view.js";
 export type { MarkdownBlock } from "./viewer/markdown.js";
 export { parseMarkdown, tableCells } from "./viewer/markdown.js";
 export { buildFlowView, layoutLayers, parseFlow, unescapeMermaidLabel } from "./viewer/graph.js";
