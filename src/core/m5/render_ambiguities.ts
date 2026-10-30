@@ -20,7 +20,9 @@ const KINDS: ReadonlyArray<{ kind: AmbiguityKind; text: string }> = [
   { kind: "CONFLICTING_SLICES", text: "同じ条件で別の経路に進む" },
 ];
 
-const KIND_TEXT = Object.fromEntries(KINDS.map(({ kind, text }) => [kind, text])) as Record<AmbiguityKind, string>;
+// 画面（SpecViewer）も同じ文を出す（SpecViewer 基本設計 6.5）。
+export const AMBIGUITY_KIND_TEXT = Object.fromEntries(KINDS.map(({ kind, text }) => [kind, text])) as Record<AmbiguityKind, string>;
+const KIND_TEXT = AMBIGUITY_KIND_TEXT;
 
 export function renderAmbiguities(
   report: AmbiguityReport,

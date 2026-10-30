@@ -4,7 +4,7 @@
 // FileSystemPort.read は無いファイルで例外を投げるので、exists で確かめてから読む。それ以外の読み込みの失敗は例外のまま返す（環境の故障のため）。
 
 import type { FileSystemPort } from "../ports/FileSystemPort.js";
-import type { AmbiguityReport } from "../types/formal.js";
+import type { AmbiguityReport, FormalSpecification } from "../types/formal.js";
 import type { Glossary } from "../types/glossary.js";
 import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog } from "../types/ledger.js";
@@ -50,6 +50,7 @@ export async function readRunOutputs(fs: FileSystemPort, outDir: string): Promis
       scenarios.push({
         ...base,
         kind: "COMPLETED",
+        spec: await readJson<FormalSpecification>(fs, `${dir}/spec.json`),
         document: await readText(fs, `${dir}/spec.md`),
         matrix: await readText(fs, `${dir}/matrix.md`),
         flow: await readText(fs, `${dir}/flow.mmd`),
