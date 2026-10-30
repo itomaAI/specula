@@ -44,7 +44,6 @@ const NO_MAP = "（名前を引けない: 実装との対応表が無い）";
 const NO_GLOSSARY = "（名前を引けない: 辞書が無い）";
 const NOT_GENERATED = "（名前は未生成）";
 const NO_INTENT = "意図の候補が無い";
-const SCENARIO_SCOPE = "このシナリオだけを検査した。ほかのシナリオとの矛盾は見ていない。";
 
 function valueOf<T>(read: FileRead<T>): T | null {
   return read.kind === "OK" ? read.value : null;
@@ -218,7 +217,6 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
       return {
         ...base,
         verification: verificationView(spec, ledger),
-        scopeText: SCENARIO_SCOPE,
         issueCount: ledger.issues.length,
         issueGroups: issueGroupsOf(spec, ledger, issueDisplayIds(ledger, row.displayId)),
         tabs: {
@@ -237,6 +235,6 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
         : viewRole === "Eng"
           ? `このシナリオは途中で止まったため、仕様にならなかった（${row.stage} で止まった: ${row.error}）。`
           : "このシナリオは途中で止まったため、仕様にならなかった。";
-    return { ...base, verification: null, scopeText: null, issueCount: null, issueGroups: null, tabs: null, notice };
+    return { ...base, verification: null, issueCount: null, issueGroups: null, tabs: null, notice };
   });
 }

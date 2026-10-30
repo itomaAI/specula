@@ -162,10 +162,8 @@ export interface ScenarioDetailView {
   route: string | null;
   /** 期待イベントの表示名（印付き）。 */
   expectedEvent: string;
-  /** 仕様になったシナリオだけ。SpecProjector の仕様書と同じ文。 */
+  /** 仕様になったシナリオだけ。SpecProjector の仕様書と同じ文。検査の範囲の文（設計 3.2）も lines に入っている。 */
   verification: VerificationView | null;
-  /** 仕様になったシナリオだけ。検査の範囲の固定の文（設計 3.2）。 */
-  scopeText: string | null;
   /** 仕様になったシナリオだけ。 */
   issueCount: number | null;
   /** 仕様になったシナリオだけ。論点の id は表示の id（"S-01-L-001"）。 */

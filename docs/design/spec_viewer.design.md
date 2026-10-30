@@ -89,7 +89,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | 起点の種類 | `run_report.json` のシナリオの行の `inletType` | `COMMAND` は「操作」、`POLICY` は「反応」と書く |
 | アクター・画面のルート・期待イベント | `run_report.json` のシナリオの行の `actor`・`route`・`expectedEvent` | 画面を持たないシナリオでは `route` が `null` なので、画面のルートを出さない |
 | 検証の状態 | `ledger.json` の検証の状態 | 論点より前に置く |
-| 検査の範囲 | 固定の文 | 「このシナリオだけを検査した。ほかのシナリオとの矛盾は見ていない」 |
+| 検査の範囲 | 検証の状態の文（`verificationView` の `lines`） | SpecProjector の仕様書と同じ「検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。」を、検証の状態の行の一つとして出す。画面で別の文を持たない（PR #32 で別に持たせたところ、同じ内容が 2 回出たので外した） |
 | 論点の件数 | `ledger.json` | 仕様不備一覧へのリンク |
 
 **タブ**（仕様になったシナリオだけ）
