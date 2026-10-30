@@ -24,6 +24,10 @@ export async function writeOutputs(fs: FileSystemPort, outDir: string, result: P
   await put(at("run_report.json"), json(result.report));
   await put(at("system_map.mmd"), result.systemViews.mermaid.content);
   await put(at("system_map.json"), result.systemViews.json.content);
+  // 辞書と意図の候補は内部の記録、対応表は表示の id から実装を引く表。どれも実装の名前を含み、表示の役割で中身を変えない（全体設計 2.2・4.1）。
+  await put(at("glossary.json"), json(result.glossary));
+  await put(at("intents.json"), json(result.intents));
+  await put(at("implementation_map.json"), json(result.implementationMap));
   for (const scenario of result.scenarios) {
     const dir = at("scenarios", safeName(scenario.scenarioId));
     if (scenario.kind === "COMPLETED") {
@@ -36,6 +40,7 @@ export async function writeOutputs(fs: FileSystemPort, outDir: string, result: P
       await put(`${dir}/flow.mmd`, scenario.flow.content);
     } else if (scenario.kind === "AMBIGUOUS") {
       await put(`${dir}/ambiguity.json`, json(scenario.ambiguity));
+      await put(`${dir}/ambiguity.md`, scenario.view.content);
     }
   }
   return written;
