@@ -1,6 +1,6 @@
 # ScenarioExtractor 基本設計書
 
-本設計書は、シナリオ同定モジュールの仕様書（`00_scenario_extractor.spec.md`）に規定されたイベントストーミング全体マップ構築および個別シナリオ切り出しを、全体基本設計書（`system_solution.design.md`）の規約に準拠して**どのように技術的・構造的に実現するか（How）**を定義する。
+本設計書は、シナリオ同定モジュールの仕様書（`scenario_extractor.spec.md`）に規定されたイベントストーミング全体マップ構築および個別シナリオ切り出しを、全体基本設計書（`system_solution.design.md`）の規約に準拠して**どのように技術的・構造的に実現するか（How）**を定義する。
 
 ---
 
@@ -171,7 +171,7 @@ interface RepositoryArtifacts {
 - `SCHEMA`: `.sql`・`.prisma`・`.graphql`・`.gql` のファイル。
 - 除くもの: `node_modules/`・`.git/`・`tsconfig.json` の `outDir` の下・`tests/`・`__tests__/` の下。`CHANGELOG`・`LICENSE` は資料に入れない。
 - 上限: 1 ファイル 64 KB（超えたら先頭の 64 KB だけを渡し、`truncated` を true にする）、合計 2 MB（パスの辞書順に入れ、超えたところで止める。止めたことは `diagnostics` に残す）。
-- 資料が 1 つも無いときは `documents` を空にする。空でも M0 はこれまでどおり動く。
+- 資料が 1 つも無いときは `documents` を空にする。空でも ScenarioExtractor はこれまでどおり動く。
 
 ### 4.1 全体マップ形式 (`EventStormingMap`)
 ```typescript
@@ -221,7 +221,7 @@ interface ScenarioTarget {
   inletTrigger: {
     id: string;                    // コマンドまたはポリシーの識別子
     name: LlmText;                 // コマンドまたはポリシーの名前
-    handler: SourceLocation;       // 起点の所在（M1 はここから追跡を始める）
+    handler: SourceLocation;       // 起点の所在（ContextExtractor はここから追跡を始める）
   };
   actor: {
     id: string;

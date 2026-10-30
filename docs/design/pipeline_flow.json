@@ -8,7 +8,7 @@
       "name": "SourceArtifacts",
       "category": "ソースコード",
       "in": "解析対象のリポジトリ",
-      "out": "M1: ContextExtractor",
+      "out": "ContextExtractor",
       "x": 380,
       "y": 30,
       "width": 190,
@@ -17,7 +17,7 @@
         "分類": "データ型 (Data Type)",
         "内容": "シナリオの起点から呼び出しをたどるためのソースファイル群"
       },
-      "markdown": "### データ型: `SourceArtifacts`\n\n解析対象のソースコード。M1 は起点のハンドラから呼び出しをたどって読む。"
+      "markdown": "### データ型: `SourceArtifacts`\n\n解析対象のソースコード。ContextExtractor は起点のハンドラから呼び出しをたどって読む。"
     },
     {
       "id": "T_VIS",
@@ -25,7 +25,7 @@
       "name": "画面キャプチャ（任意）",
       "category": "画面の情報",
       "in": "解析対象のシステムの画面",
-      "out": "M1: ContextExtractor",
+      "out": "ContextExtractor",
       "x": 600,
       "y": 30,
       "width": 190,
@@ -34,12 +34,12 @@
         "分類": "データ型 (Data Type)",
         "内容": "シナリオに画面（readModel）があるときだけ使う。画面の無いシステムでは無い"
       },
-      "markdown": "### データ型: 画面キャプチャ（任意）\n\nシナリオに画面があるときだけ、M1 が UI の事実を対応付けるために使う。"
+      "markdown": "### データ型: 画面キャプチャ（任意）\n\nシナリオに画面があるときだけ、ContextExtractor が UI の事実を対応付けるために使う。"
     },
     {
       "id": "M_SCN",
       "kind": "module",
-      "name": "M0: ScenarioExtractor",
+      "name": "ScenarioExtractor",
       "category": "全体マップの作成とシナリオの切り出し",
       "in": "リポジトリの構造 / package.json / スキーマ / 画面のルート",
       "out": "EventStormingMap + SliceResult",
@@ -52,15 +52,15 @@
         "公開関数": "discoverSystemContext と sliceScenarios",
         "LLM の担当": "イベント・コマンドの命名と意図の候補（記録して再利用。届かなければ未生成）"
       },
-      "markdown": "### モジュール: `ScenarioExtractor (M0)`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）を作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。"
+      "markdown": "### モジュール: `ScenarioExtractor`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）を作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。"
     },
     {
       "id": "T_TGT",
       "kind": "type",
       "name": "ScenarioTarget",
       "category": "個別シナリオ",
-      "in": "M0: ScenarioExtractor",
-      "out": "M1: ContextExtractor",
+      "in": "ScenarioExtractor",
+      "out": "ContextExtractor",
       "x": 260,
       "y": 160,
       "width": 190,
@@ -74,7 +74,7 @@
     {
       "id": "M_EXT",
       "kind": "module",
-      "name": "M1: ContextExtractor",
+      "name": "ContextExtractor",
       "category": "起点からの事実の抽出",
       "in": "ScenarioTarget + SourceArtifacts（+ 画面キャプチャ）",
       "out": "RawContextModel",
@@ -87,15 +87,15 @@
         "責務": "起点のハンドラから呼び出しをたどり、状態・書き込み・分岐・出口を抽出する。スライスは出口ごとに 1 つ",
         "LLM の担当": "なし"
       },
-      "markdown": "### モジュール: `ContextExtractor (M1)`\n\n- 起点から呼び出しをたどる。追跡できない呼び出しは記録して止まる。\n- 非同期の境界で切る。"
+      "markdown": "### モジュール: `ContextExtractor`\n\n- 起点から呼び出しをたどる。追跡できない呼び出しは記録して止まる。\n- 非同期の境界で切る。"
     },
     {
       "id": "T_RAW",
       "kind": "type",
       "name": "RawContextModel",
       "category": "抽出した事実",
-      "in": "M1: ContextExtractor",
-      "out": "M2: FormalTranspiler",
+      "in": "ContextExtractor",
+      "out": "FormalTranspiler",
       "x": 720,
       "y": 160,
       "width": 200,
@@ -109,7 +109,7 @@
     {
       "id": "M_TRANS",
       "kind": "module",
-      "name": "M2: FormalTranspiler",
+      "name": "FormalTranspiler",
       "category": "形式仕様正本の作成",
       "in": "RawContextModel",
       "out": "FormalSpecification または AmbiguityReport",
@@ -122,14 +122,14 @@
         "責務": "状態変数と操作の結果から状態を作り、スライスごとに操作の述語を作る。決められない箇所はすべて集めて AmbiguityReport にする",
         "LLM の担当": "表示名（ソースには入れない）と、曖昧性の質問の文"
       },
-      "markdown": "### モジュール: `FormalTranspiler (M2)`\n\n- Alloy 6 のソースを機械的な識別子で書く。\n- 曖昧性が 1 件でもあれば、そのシナリオは M3 に進まない。"
+      "markdown": "### モジュール: `FormalTranspiler`\n\n- Alloy 6 のソースを機械的な識別子で書く。\n- 曖昧性が 1 件でもあれば、そのシナリオは FormalSolver に進まない。"
     },
     {
       "id": "T_AMB",
       "kind": "type",
       "name": "AmbiguityReport",
       "category": "決められなかった箇所",
-      "in": "M2: FormalTranspiler",
+      "in": "FormalTranspiler",
       "out": "実行の報告（件数と中身）",
       "x": 950,
       "y": 300,
@@ -146,8 +146,8 @@
       "kind": "type",
       "name": "FormalSpecification",
       "category": "形式仕様正本",
-      "in": "M2: FormalTranspiler",
-      "out": "M3・M4・M5",
+      "in": "FormalTranspiler",
+      "out": "FormalSolver・LedgerSynthesizer・SpecProjector",
       "x": 720,
       "y": 300,
       "width": 200,
@@ -162,7 +162,7 @@
     {
       "id": "M_SOLV",
       "kind": "module",
-      "name": "M3: FormalSolver",
+      "name": "FormalSolver",
       "category": "指定スコープの中での検査",
       "in": "FormalSpecification",
       "out": "SolverReport",
@@ -175,15 +175,15 @@
         "責務": "Alloy 6 で、未定義遷移・操作の重なり・到達できない操作・デッドロックを検査する。不変条件の検査は初回は対象外",
         "届かないとき": "報告を未検証とし、理由と実行しなかった検査を付ける"
       },
-      "markdown": "### モジュール: `FormalSolver (M3)`\n\nSolverPort 経由で Alloy 6 を呼ぶ。ソルバに届かなければ未検証と報告する。"
+      "markdown": "### モジュール: `FormalSolver`\n\nSolverPort 経由で Alloy 6 を呼ぶ。ソルバに届かなければ未検証と報告する。"
     },
     {
       "id": "T_CEX",
       "kind": "type",
       "name": "SolverReport",
       "category": "検査の元の記録",
-      "in": "M3: FormalSolver",
-      "out": "M4: LedgerSynthesizer",
+      "in": "FormalSolver",
+      "out": "LedgerSynthesizer",
       "x": 260,
       "y": 300,
       "width": 200,
@@ -199,8 +199,8 @@
       "kind": "type",
       "name": "EventStormingMap",
       "category": "システム全体のマップ",
-      "in": "M0: ScenarioExtractor",
-      "out": "M5: SpecProjector（全体の俯瞰図）",
+      "in": "ScenarioExtractor",
+      "out": "SpecProjector（全体の俯瞰図）",
       "x": 30,
       "y": 300,
       "width": 200,
@@ -209,12 +209,12 @@
         "分類": "データ型 (Data Type)",
         "内容": "Bounded Context・コマンド・ドメインイベント・ポリシー・readModel・アクター"
       },
-      "markdown": "### データ型: `EventStormingMap`\n\nM0 が作る全体マップ。M5 が全体の俯瞰図を作るときにも使う。"
+      "markdown": "### データ型: `EventStormingMap`\n\nM0 が作る全体マップ。SpecProjector が全体の俯瞰図を作るときにも使う。"
     },
     {
       "id": "M_LEDG",
       "kind": "module",
-      "name": "M4: LedgerSynthesizer",
+      "name": "LedgerSynthesizer",
       "category": "反例から論点へ",
       "in": "SolverReport + FormalSpecification",
       "out": "DomainLedgerCatalog",
@@ -227,15 +227,15 @@
         "責務": "同じ状態を指す反例を 1 つの論点にまとめ、反例の種類ごとに決まった選択肢を付ける。検証の状態を先頭に写す",
         "LLM の担当": "論点の文（主張・観測事実・判断質問）"
       },
-      "markdown": "### モジュール: `LedgerSynthesizer (M4)`\n\n論点は初回はすべて未決。0 件でも仕様を確定する推奨は出さない。"
+      "markdown": "### モジュール: `LedgerSynthesizer`\n\n論点は初回はすべて未決。0 件でも仕様を確定する推奨は出さない。"
     },
     {
       "id": "T_LEDG",
       "kind": "type",
       "name": "DomainLedgerCatalog",
       "category": "論点カタログ",
-      "in": "M4: LedgerSynthesizer",
-      "out": "M5: SpecProjector",
+      "in": "LedgerSynthesizer",
+      "out": "SpecProjector",
       "x": 490,
       "y": 440,
       "width": 200,
@@ -249,7 +249,7 @@
     {
       "id": "M_PROJ",
       "kind": "module",
-      "name": "M5: SpecProjector",
+      "name": "SpecProjector",
       "category": "人が読むビューの作成",
       "in": "FormalSpecification + DomainLedgerCatalog（全体の俯瞰図は EventStormingMap）",
       "out": "SpecificationView",
@@ -262,14 +262,14 @@
         "責務": "仕様書・操作の一覧表・操作の流れ図・全体の俯瞰図を、1 つの中間表現から決定論的に作る",
         "LLM の担当": "なし"
       },
-      "markdown": "### モジュール: `SpecProjector (M5)`\n\n論点は未決、未検証は未検証、未生成は未生成と表示する。"
+      "markdown": "### モジュール: `SpecProjector`\n\n論点は未決、未検証は未検証、未生成は未生成と表示する。"
     },
     {
       "id": "T_VIEWS",
       "kind": "type",
       "name": "SpecificationView",
       "category": "ビュー",
-      "in": "M5: SpecProjector",
+      "in": "SpecProjector",
       "out": "PdM / 意思決定者",
       "x": 720,
       "y": 580,

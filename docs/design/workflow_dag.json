@@ -1,6 +1,6 @@
 {
   "title": "仕様策定ツール 業務フローとモジュール連携 (Workflow & Engine Mapping)",
-  "caption": "人間の2大業務（策定・レビュー）を支えるエンジンモジュール群の対応マッピング。2 回目以降のループを含む業務の全体像であり、初回の実行の範囲（M0〜M5 を 1 回通す）は pipeline_flow.json に示す",
+  "caption": "人間の2大業務（策定・レビュー）を支えるエンジンモジュール群の対応マッピング。2 回目以降のループを含む業務の全体像であり、初回の実行の範囲（6 つのモジュールを 1 回通す）は pipeline_flow.json に示す",
   "nodes": [
     {
       "id": "A_CURRENT_SPEC",
@@ -24,7 +24,7 @@
       "kind": "module",
       "name": "【業務1】仕様策定業務",
       "label": "👤 業務1: 仕様策定",
-      "category": "人間 ＋ [M5/M1/M2]",
+      "category": "人間 ＋ [SpecProjector・ContextExtractor・FormalTranspiler]",
       "in": "正本 (main) ＋ 要件",
       "out": "新ドラフト (+1)",
       "x": 290,
@@ -61,7 +61,7 @@
       "kind": "module",
       "name": "【業務2】並行レビュー業務",
       "label": "👥 業務2: 並行レビュー",
-      "category": "人間 ＋ [M3/M4/M5]",
+      "category": "人間 ＋ [FormalSolver・LedgerSynthesizer・SpecProjector]",
       "in": "新ドラフト (+1) ＋ 正本",
       "out": "確定仕様書 (spec.md)",
       "x": 810,

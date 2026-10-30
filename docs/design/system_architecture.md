@@ -39,7 +39,7 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 
 ## 3. システムデータフローと Loom ライフサイクル (Data Flow & Workflows)
 
-システムは 6 つの独立モジュール（M0〜M5）で構成され、Loom の 3 つの基本操作によって統制される。初回の実行で行うのは「置く」と、検証・論点の整理・射影までである。人間の合意を受けて行う「畳む」と「移す」は 2 回目以降の実行で行う（全体仕様 1.5）。現在の設計と実装の範囲は初回の実行である。
+システムは 6 つの独立モジュール（ScenarioExtractor・ContextExtractor・FormalTranspiler・FormalSolver・LedgerSynthesizer・SpecProjector）で構成され、Loom の 3 つの基本操作によって統制される。初回の実行で行うのは「置く」と、検証・論点の整理・射影までである。人間の合意を受けて行う「畳む」と「移す」は 2 回目以降の実行で行う（全体仕様 1.5）。現在の設計と実装の範囲は初回の実行である。
 
 ### 3.1 6 モジュールパイプライン構成
 
@@ -47,23 +47,23 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 【フェーズ A: 初回の実行（現在の範囲）】
   [リポジトリ全体 (コード/Docs/画面)]
                  │
-                 ▼ (M0: ScenarioExtractor) 【置く: プロジェクト / タスク】
+                 ▼ (ScenarioExtractor)     【置く: プロジェクト / タスク】
   [EventStormingMap (全体マップ)] ＆ [ScenarioTarget[] (個別シナリオ群)]
                  │
-                 ▼ (M1: ContextExtractor) 【抽出: 厳密因果スライス】
+                 ▼ (ContextExtractor)     【抽出: 厳密因果スライス】
   [RawContextModel (シナリオ垂直事実モデル)]
                  │
-                 ▼ (M2: FormalTranspiler) 【昇華: 形式モデル変換】
+                 ▼ (FormalTranspiler)     【昇華: 形式モデル変換】
   ┌────────────────────────────────────────────────────────┐
   │ ★【唯一の永続化正本】 形式仕様コード (`FormalSpec`)   │
   │   （状態を決められないシナリオは AmbiguityReport で止まる）│
   └──────────────┬───────────────────┬─────────────────────┘
-                 │ (M3: FormalSolver)│ (M5: SpecProjector)
+                 │ (FormalSolver)    │ (SpecProjector)
                  ▼ 【上限つきの検査】▼ 【射影】
   [SolverReport (反例トレース        [SpecificationView]
    または未検証と理由)]               ・仕様書 (Markdown)
                  │                   ・操作の一覧表 / 操作の流れ図 (Mermaid)
-                 ▼ (M4: LedgerSynthesizer) ・全体の俯瞰図（全体マップから）
+                 ▼ (LedgerSynthesizer)     ・全体の俯瞰図（全体マップから）
   [DomainLedgerCatalog (意思決定論点。初回はすべて未決)]
                  │
                  ▼
@@ -75,9 +75,9 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 ### 3.2 Loom 3大操作によるライフサイクル統制
 
 1. **置く（分解 / Decompose）**（初回から行う）:
-   - `M0 ScenarioExtractor` がシステム全体から Bounded Context（プロジェクト）を同定し、個別シナリオ（タスク）をアトミックに切り出す。
-   - `M1 ContextExtractor` が各個別シナリオの境界（Inlet ➔ Outlet）のみをピンポイントで抽出し、`M2 FormalTranspiler` が形式仕様コードへコンパイルする。
-   - `M3 FormalSolver` が反例を探索し、`M4 LedgerSynthesizer` が反例を論点に整理する。この整理は反例を論点にまとめる処理であり、「畳む」には当たらない。
+   - `ScenarioExtractor` がシステム全体から Bounded Context（プロジェクト）を同定し、個別シナリオ（タスク）をアトミックに切り出す。
+   - `ContextExtractor` が各個別シナリオの境界（Inlet ➔ Outlet）のみをピンポイントで抽出し、`FormalTranspiler` が形式仕様コードへコンパイルする。
+   - `FormalSolver` が反例を探索し、`LedgerSynthesizer` が反例を論点に整理する。この整理は反例を論点にまとめる処理であり、「畳む」には当たらない。
 2. **畳む（集約 / Fold）**（2 回目以降）:
    - 人間が合意した意思決定結果（Domain Ledger の決定）を、親コンテキストの「文脈（全体イベントストリーム・仕様正本）」へと畳む。
 3. **移す（伝播 / Transfer）**（2 回目以降）:
