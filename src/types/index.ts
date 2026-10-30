@@ -12,7 +12,7 @@ export type JsonValue =
 
 /** LLM に頼む 1 件の処理。 */
 export interface LlmRequest {
-  /** 処理の種類（例: "m0.name-event"）。 */
+  /** 処理の種類（例: "glossary.term-event"）。 */
   task: string;
   /** プロンプトの版。プロンプトを変えたら上げる。 */
   promptVersion: string;
