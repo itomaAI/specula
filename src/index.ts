@@ -117,6 +117,19 @@ export type {
 export { ProjectionContractError } from "./types/projection.js";
 export { projectSpecification, projectSystemMap } from "./core/spec_projector.js";
 
+// オーケストレーター（全体設計 2.1）。src/cli.ts は node: を静的に読むので、ここからは export しない。
+export type {
+  PipelineDeps,
+  PipelineOptions,
+  PipelineResult,
+  RunReport,
+  ScenarioArtifacts,
+  ScenarioRunResult,
+  StoppedStage,
+} from "./types/run.js";
+export { runPipeline } from "./core/orchestrator.js";
+export { readRepository } from "./adapters/NodeRepositoryReader.js";
+
 export { canonicalJson } from "./lib/canonical_json.js";
 export { sha256Hex } from "./lib/sha256.js";
 

@@ -137,6 +137,24 @@ M3 は `SolverPort` 経由で Alloy 6 を呼ぶ。ソルバに届かないとき
 
 M2 が `AmbiguityReport` を返したシナリオは、そこで止まる（M3 以降に進まない）。オーケストレーターは、シナリオごとに「M5 まで進んだ」か「どの段で何の理由で止まったか」を実行の報告に残し、`AmbiguityReport` の件数と中身を集計する。
 
+### 2.1 実行の報告（RunReport）
+
+オーケストレーター（`runPipeline`）は、1 回の実行の結果を `RunReport` にまとめて返す。型は `src/types/run.ts` に置く。
+
+- **全体マップの要約（`system`）**: 抽出のモード、読んだファイルの数、構文の解析に失敗したファイルの数、コンテキスト・コマンド・イベントの数。
+- **切り出しの結果（`slice`）**: シナリオの数と、起点が全体マップに無かったため退けた利用者定義のシナリオ（M0 の `rejected`）。
+- **シナリオごとの結果（`scenarios`）**: シナリオの並びは M0 の切り出しの順とする。各シナリオは次の 3 通りのどれかになる。
+  - `COMPLETED`: M5 まで進んだ。検証の結果（`FOUND`・`NONE_FOUND_WITHIN_SCOPE`・`UNVERIFIED`）、未検証の理由の種類、反例の数、論点の数を持つ。
+  - `AMBIGUOUS`: M2 が `AmbiguityReport` を返したので止まった。曖昧さの種類ごとの件数を持つ（中身はシナリオの成果物として別に返す）。
+  - `STOPPED`: 入力の契約が破れていたので止まった。止まった段（`M1`〜`M5`）、エラーの名前、理由、詳しい内容を持つ。
+- **合計（`totals`）**: 3 通りの件数、曖昧さの種類ごとの合計、検証の結果ごとの件数。
+- **時刻は入れない**: 同じ入力から同じ報告ができるようにするため。実行した時刻は入口（`src/cli.ts`、Itera の起動アプリ）が扱う。
+- **LLM の生成・未生成の件数は、まだ数えない**: LLM の項目は各段の出力に分かれており、数え方を決めていないため。
+
+**止める例外と、投げ直す例外**: オーケストレーターが「その段で止まった」として報告に残し、次のシナリオへ進むのは、各段の入力の契約のエラーだけとする。対象は `InletNotFoundError`・`SyntaxExtractionError`（M1）、`TranspileContractError`（M2）、`SolverContractError`（M3）、`LedgerContractError`（M4）、`ProjectionContractError`（M5）である。それ以外の例外（`FileSystemPort` の故障など、環境の故障）は投げ直し、実行全体を止める。環境が壊れているときに、残りのシナリオを「止まった」と記録しても意味がないためである。
+
+**ファイルに書かない**: オーケストレーターはコアに属するので、成果物と報告を値で返すだけにする。ファイルへの書き込みは入口が行う。
+
 ---
 
 ## 3. Loom ライフサイクルの全体実装
@@ -178,6 +196,12 @@ M2 が `AmbiguityReport` を返したシナリオは、そこで止まる（M3 �
 - 検証エンジンは Alloy 6 の 1 系統に限り、環境ごとに別のエンジンを使わない。Alloy の版と SAT ソルバは、Alloy 6 の推奨の版と既定のソルバとし、実際に使った版とソルバを `SolverReport` に記録する。
 - **未確定の事項**: `LocalBridgeAlloyAdapter` がローカルブリッジのどの口を呼ぶか、`IteraLlmAdapter` がどの API を呼ぶかは、まだ確かめていない。決まったら本節に書き足す。決まるまでは、両アダプターは届かないものとして扱い、M3 は `UNVERIFIED`、LLM の項目は `NOT_GENERATED` になる。
 - **入口**: Node.js 用のコマンドライン（`src/cli.ts`）と、Itera OS 用の起動アプリを置く。どちらも、アダプターを組み立ててオーケストレーターに渡すだけで、解析の処理は持たない。
+- **コマンドラインの使い方**: `node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>]`。
+  - `--alloy-jar` が無ければ `SolverPort` を渡さない（M3 は `UNVERIFIED`）。
+  - LLM のクライアントは、`ClaudeCodeCliAdapter` ができるまで渡さない。`RecordingLanguageModel` にクライアント無しで包んで渡すので、記録が無い項目は `NOT_GENERATED` になる。`--records` が無ければ記録の置き場所は `<出力先>/llm_records`。
+  - リポジトリは `NodeRepositoryReader` が読み、テキストのコードと設定のファイル（`.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.mjs` `.cjs` `.json`）を `RepositoryArtifacts` にする。`node_modules`・`.git`・`dist` の下は読まない。どのファイルを解析するかは M0 が決める。
+  - 終了コード: 実行が最後まで回れば 0（論点や曖昧さがあっても 0）、環境の故障は 1、引数の誤りは 2。
+- **出力の置き方**: `<出力先>/run_report.json`、全体の俯瞰図 `system_map.mmd`・`system_map.json`、シナリオごとの `scenarios/<シナリオの id>/`。シナリオのディレクトリには、M5 まで進んだものは `spec.json`・`spec.als`・`solver_report.json`・`ledger.json`・`spec.md`・`matrix.md`・`flow.mmd` を、M2 で止まったものは `ambiguity.json` を置く。シナリオの id のうち、英数字・`-`・`_`・`.` 以外の文字は `_` に置き換える。
 
 ### 4.2 言語・ビルドパイプライン方針 (TypeScript ➔ JavaScript ESM)
 - **開発・実装言語**: **TypeScript (`.ts`)**。型の検査は `strict` で行い、`any` を使わない。
