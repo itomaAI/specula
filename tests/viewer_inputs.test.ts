@@ -90,7 +90,7 @@ test("書いた出力をすべて読み戻せて、事前条件を満たす", as
     );
     for (const scenario of outputs.scenarios) {
       if (scenario.kind === "COMPLETED") {
-        for (const read of [scenario.document, scenario.matrix, scenario.flow, scenario.source, scenario.ledger]) {
+        for (const read of [scenario.spec, scenario.document, scenario.matrix, scenario.flow, scenario.source, scenario.ledger]) {
           assert.equal(read.kind, "OK");
         }
       } else if (scenario.kind === "AMBIGUOUS") {
@@ -175,6 +175,7 @@ test("壊れた JSON と、無いシナリオのファイルは、シナリオ�
     await writeFile(join(out, "scenarios", safeName(completed.scenarioId), "ledger.json"), "{ not json", "utf8");
     await rm(join(out, "scenarios", safeName(ambiguous.scenarioId), "ambiguity.json"));
     await rm(join(out, "scenarios", safeName(completed.scenarioId), "flow.mmd"));
+    await rm(join(out, "scenarios", safeName(completed.scenarioId), "spec.json"));
 
     const outputs = await readRunOutputs(fs, out);
     const completedRead = outputs.scenarios.find((s) => s.scenarioId === completed.scenarioId);
@@ -186,6 +187,7 @@ test("壊れた JSON と、無いシナリオのファイルは、シナリオ�
     const expected = scenarios.flatMap((s) =>
       s.scenarioId === completed.scenarioId
         ? [
+            ["SCENARIO_FILE_MISSING", "spec.json", s.displayId],
             ["SCENARIO_FILE_MISSING", "flow.mmd", s.displayId],
             ["INVALID_JSON", "ledger.json", s.displayId],
           ]

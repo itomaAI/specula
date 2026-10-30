@@ -8,7 +8,7 @@
 
 ### 1.1 全体設計制約の適用
 - **2 つに分ける**: 出力のファイルから画面の中間表現（ビューモデル）を作る部分と、ビューモデルを画面に描く部分に分ける。
-  - **ビューモデルを作る部分**: `specula/src/viewer/`（Pure ESM, Target: ES2022+）。ファイルの読み書きも画面の操作もしない（Zero-I/O Core）。出力のファイルの中身（パース済みの JSON と、Markdown・Mermaid の文字列）と表示の役割を受け取り、画面ごとのビューモデルを返す。`src/types/` だけを参照する。
+  - **ビューモデルを作る部分**: `specula/src/viewer/`（Pure ESM, Target: ES2022+）。ファイルの読み書きも画面の操作もしない（Zero-I/O Core）。出力のファイルの中身（パース済みの JSON と、Markdown・Mermaid の文字列）と表示の役割を受け取り、画面ごとのビューモデルを返す。参照するのは `src/types/` と、SpecProjector の表示の純粋な関数（`src/core/m5/` の `labels.ts`・`view_model.ts` のうち、I/O を持たない文の組み立て）だけとする。SpecProjector と同じ項目を同じ文で出すため（仕様 3.3）、文を組み立てる処理を写し直さない（6.5）。
   - **画面に描く部分**: 起動アプリ（Itera OS の app）。出力先のファイルを `FileSystemPort` で読み、ビューモデルを作る部分を呼び、結果を描く。表示の判定（役割による出し分け、未決・未検証・候補の判定）を描く側に書かない。
 - **分ける理由**: 役割による出し分けと状態の判定を、テストのできる純粋な関数に閉じ込めるためである。描く側に判定を書くと、画面ごとに表示が食い違い、仕様 3.3 の「同じ項目は同じ表示」をテストで確かめられない。
 - **LLM を使わない**: ビューモデルは決定論的に作る（全体設計 1.2）。
@@ -36,6 +36,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | `glossary.json` | 用語辞典、ほかの画面の用語のポップアップ |
 | `intents.json` | シナリオ一覧・シナリオの詳細・全体地図 |
 | シナリオごとの `spec.md`・`matrix.md`・`flow.mmd`・`spec.als` | シナリオの詳細 |
+| シナリオごとの `spec.json` | シナリオの詳細・仕様不備一覧（表示名・検査の名前・実行列の値を SpecProjector と同じ文にするため。6.5） |
 | シナリオごとの `ledger.json` | シナリオの詳細・仕様不備一覧 |
 | シナリオごとの `ambiguity.json` | シナリオの詳細・仕様不備一覧 |
 | `implementation_map.json` | 画面どうしのリンク、役割 `Eng` の実装の名前と所在 |
@@ -205,8 +206,9 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 
 ### 6.1 出力先の読み方（`RunOutputs`）
 - 読むのは `src/lib/read_outputs.ts` の `readRunOutputs(fs: FileSystemPort, outDir: string): Promise<RunOutputs>` とする。ファイルを読むので `src/viewer/` には置かず、書く側の `src/lib/write_outputs.ts` と対にする。
-- 読むファイルは 2 節の表のものだけである。`system_map.mmd`、シナリオごとの `spec.json`・`solver_report.json`・`ambiguity.md` は画面で使わないので読まない。
-- シナリオのディレクトリは、`run_report.json` の `scenarios` から `scenarios/<safeName(scenarioId)>/` として引く。`FileSystemPort.list` は順序を保証しないので、ディレクトリの一覧からは引かない。読むファイルはシナリオの `kind` で決める（`COMPLETED`: `spec.md`・`matrix.md`・`flow.mmd`・`spec.als`・`ledger.json`、`AMBIGUOUS`: `ambiguity.json`、`STOPPED`: なし）。`run_report.json` が無いか読めないときは、シナリオのファイルを読まない。
+- 読むファイルは 2 節の表のものだけである。`system_map.mmd`、シナリオごとの `solver_report.json`・`ambiguity.md` は画面で使わないので読まない。
+  - 2026-10-31（PR #31）の時点では「`spec.json` も使わないので読まない」としていたが、誤りだった。論点の関わる操作・実行列の値・実行しなかった検査の名前は、SpecProjector が `spec.json`（`FormalSpecification`）の表示名から文にしている（`view_model.ts` の `verificationView`・`issueView`）。同じ文を出すには `spec.json` が要るので、読むファイルに足した（6.5）。
+- シナリオのディレクトリは、`run_report.json` の `scenarios` から `scenarios/<safeName(scenarioId)>/` として引く。`FileSystemPort.list` は順序を保証しないので、ディレクトリの一覧からは引かない。読むファイルはシナリオの `kind` で決める（`COMPLETED`: `spec.json`・`spec.md`・`matrix.md`・`flow.mmd`・`spec.als`・`ledger.json`、`AMBIGUOUS`: `ambiguity.json`、`STOPPED`: なし）。`run_report.json` が無いか読めないときは、シナリオのファイルを読まない。
 - ファイルごとの結果は、次の 3 通りのどれかで持つ。読めなかったことを `null` 1 つにまとめないのは、無いのか壊れているのかで表示する理由が違うためである。
   - `{ kind: "OK", value }`: JSON はパースした値、Markdown・Mermaid・Alloy は文字列。
   - `{ kind: "MISSING" }`: ファイルが無い。
@@ -225,8 +227,8 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - 表示の役割と `system_map.json` の `viewRole` の関係は、6.4 が決まるまで検査しない。
 
 ### 6.3 ビューモデルの型の方針
-- 型は `src/viewer/types.ts` に置き、`src/types/` だけを参照する。
-- 本文の文と確定の状態は組で持ち、描く側は印を付けるだけにする（5 節）。描く側で状態を判定しない（1.1）。
+- 型は `src/viewer/types.ts` に置き、`src/types/` と、SpecProjector の表示の型（`src/core/m5/view_model.ts` の `VerificationView`・`IssueView`）だけを参照する。SpecProjector と同じ項目は同じ型で持ち、写し直さない（1.1）。
+- 確定の状態の印は、SpecProjector と同じく文の後ろに足した文字列で持つ（`statusMark`。6.5）。描く側は文をそのまま出し、状態を判定しない（1.1）。2026-10-31 の PR #31 の時点では「本文の文と確定の状態は組で持ち、描く側が印を付ける」としていたが、SpecProjector の文（`IssueView` など）を使うと印は文に入っているので、こちらに合わせた。
 - 画面どうしのリンクの鍵（内部の識別子）は、ビューモデルの中のリンクの表だけに置き、描く文字列には入れない（4 節）。
 
 ### 6.4 画面の描き方
@@ -237,6 +239,22 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
   - **地図と流れ図**: 地図は `system_map.json` から、流れ図は `flow.mmd`（SpecProjector の流れ図が出す範囲の flowchart）から、ノードとつながりのグラフを作り、層に並べる純粋な配置の関数を `src/viewer/` に置く。描く側は配置の結果を SVG にするだけにする。
 - **LLM の文は `textContent` で描く**: 用語・意図・論点の文・質問の文は LLM が作り、LLM は解析対象のコードと資料を読んでいる。そのため、`innerHTML` に入れず、文字列として描く。
 - **表示の役割の切り替え**: 今の出力は、利用者向けのビュー（仕様書・操作の一覧表・流れ図・曖昧さの一覧・俯瞰図）を 1 つの役割で書く。仕様 1.1 の「Global Menu で役割を切り替える」を満たすには、出力の役割に固定するか、両方の役割のビューを書き出すかを決める必要がある。中瀬古様の答えを待っている（2026-10-31）。
+
+### 6.5 シナリオ一覧とシナリオの詳細
+- **SpecProjector の文を使う**: 検証の状態は SpecProjector の `verificationView`（1 行目と箇条書きの文）で、論点は `issueGroupsOf`（見出しごとの組。論点の 3 つの文と確定の状態の印、関わる操作、実行列、選択肢、従属する反例の数）で作る。LLM の文は `llmText`、確定の状態の印は `statusMark`、未検証の理由は `UNVERIFIED_REASON_TEXT`、曖昧さの種類は `AMBIGUITY_KIND_TEXT`（`render_ambiguities.ts`）を使う。
+  - そのために `view_model.ts` から `verificationView`・`UNVERIFIED_REASON_TEXT` を export し、`buildViewModel` の中にあった論点の番号の振り方と見出しの組み分けを `issueDisplayIds`・`issueGroupsOf` に切り出して export した（`buildViewModel` はこれを呼ぶ。振る舞いは変えていない）。どれも引数から文を作るだけで I/O を持たない。
+- **`buildViewModel` は使わない**: `buildViewModel` は `ProjectionContext.scenario`（`ScenarioTarget`）を受け取るが、出力には `ScenarioTarget` が無い。実行の報告の行から `ScenarioTarget` を作り直すと、出力に無い値（起点の識別子など）を推測で埋めることになるため、使わない。
+- **論点の表示の id**: `buildViewModel` と同じく、`ledger.json` の `issues` の並びで `S-01-L-001` … を振る（SpecProjector 基本設計 8.7）。
+- **シナリオの名前の引き方**: SpecProjector は起点の識別子で辞書を引くが（`titleOf`）、実行の報告の行には起点の識別子が無い。画面は `implementation_map.json` の `SCENARIO` の行（`displayId` が一致するもの）の `glossaryEntryId` で `glossary.json` の項目を引く。項目の種類が行の `inletType` と同じで、用語が生成されているときだけ名前にする。題の形は `titleOf` と同じ「`S-01 〈表示名〉〈確定の状態の印〉`」とする。
+  - 名前を出せないときは、理由を分けて書く。`implementation_map.json` が無い:「（名前を引けない: 実装との対応表が無い）」。`glossary.json` が無い:「（名前を引けない: 辞書が無い）」。項目が無い・種類が違う・用語が未生成:「（名前は未生成）」（SpecProjector と同じ）。対応表や辞書が無いことを「未生成」と書くと、事実と違うためである。
+- **意図の候補**: `intents.json` の `scenarios` を `scenarioId` で引き、`llmText` の文に `statusMark(intentStatus)` を足す（SpecProjector の仕様書と同じ）。`intents.json` が無いか、そのシナリオの候補が無ければ「意図の候補が無い」と書く。
+- **Bounded Context と期待イベント**: 実行の報告の行の `boundedContext`・`expectedEvent` は全体マップの識別子なので、そのまま出さない。辞書の項目（種類が `BOUNDED_CONTEXT`・`EVENT` で id が一致するもの）の表示名に確定の状態の印を足して出す。引けないときはシナリオの名前と同じ規則で理由を書く。
+- **起点の種類・アクター・画面のルート**: 起点の種類は `COMMAND` を「操作」、`POLICY` を「反応」と書く。アクターは `actor.name` を出す。画面のルートは `null` なら出さない。
+  - アクターの名前は認可のコードから拾った役割の名前で、辞書の用語が無い。PdM に出してよいかは確かめている（2026-10-31）。
+- **シナリオの表の文**: 検証の列は、仕様になったシナリオだけ「論点が見つかった」「指定の範囲で、行った検査では見つからなかった」「未検証（理由）」と書く。件数の列は「論点 N 件」、曖昧さで止まったシナリオは `PdM` で「エンジニアの確認待ち: N 件」、`Eng` で「曖昧さ N 件」。途中で止まったシナリオは件数を出さない。
+- **タブの代わりに出す文**: 曖昧さで止まったシナリオは 3.2 の文。途中で止まったシナリオは「このシナリオは途中で止まったため、仕様にならなかった。」とし、`Eng` では止まった段とエラーの名前を足す。
+- **起点の所在（Eng のみ）**: 対応表の `SCENARIO` の行の `implementation.locations` を、文字列にせずそのまま持つ。`PdM` では持たない（`null`）。
+- **公開する関数**: `buildScenarioList(outputs, viewRole)` と `buildScenarioDetails(outputs, viewRole)`（`src/viewer/scenarios.ts`）。どちらも `checkRunOutputs` を通った入力を受け取り、通っていない入力では例外を投げる。1.2 の `buildRunView` は、4 つの画面がそろった段階でこれらを束ねる。
 
 ## 7. 残っている課題
 - **横断の不備の一覧をファイルとしても出すか**: 今の出力はシナリオごとのファイルだけである。LLM に読ませる用途があるので、ファイルとして出すなら、作るのはオーケストレーターか SpecProjector になる（仕様 1.2 の「画面だけが持つ情報を作らない」）。

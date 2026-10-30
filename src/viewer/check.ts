@@ -68,6 +68,7 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
     const files: Array<[string, FileRead<unknown>]> =
       scenario.kind === "COMPLETED"
         ? [
+            ["spec.json", scenario.spec],
             ["spec.md", scenario.document],
             ["matrix.md", scenario.matrix],
             ["flow.mmd", scenario.flow],

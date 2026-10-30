@@ -168,7 +168,19 @@ export { writeOutputs, safeName } from "./lib/write_outputs.js";
 export { readRunOutputs } from "./lib/read_outputs.js";
 
 // SpecViewer（画面）。ビューモデルを作る部分（src/viewer/）。描く側は起動アプリ（SpecViewer 基本設計 1.1）。
-export type { FileRead, RunOutputs, RunOutputsCheck, RunOutputsProblem, ScenarioOutputs } from "./viewer/types.js";
+export type {
+  FileRead,
+  RunOutputs,
+  RunOutputsCheck,
+  RunOutputsProblem,
+  RunSummaryView,
+  ScenarioDetailView,
+  ScenarioKind,
+  ScenarioListView,
+  ScenarioOutputs,
+  ScenarioRowView,
+} from "./viewer/types.js";
 export { checkRunOutputs } from "./viewer/check.js";
+export { buildScenarioDetails, buildScenarioList } from "./viewer/scenarios.js";
 
 export const VERSION = "0.1.0";

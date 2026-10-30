@@ -123,7 +123,8 @@ export const ISSUE_HEADINGS: ReadonlyArray<{ kind: FindingKind; heading: string 
 
 const DOMAIN_TEXT = { BOOL: "真偽値", ENUM: "列挙", INT: "整数" } as const;
 
-const UNVERIFIED_REASON_TEXT: Readonly<Record<UnverifiedReason, string>> = {
+// 画面（SpecViewer）のシナリオ一覧も同じ文を出す（SpecViewer 基本設計 6.5）。
+export const UNVERIFIED_REASON_TEXT: Readonly<Record<UnverifiedReason, string>> = {
   NO_SOLVER: "検査のエンジンが用意されていない",
   UNREACHABLE: "検査のエンジンに届かなかった",
   TIMEOUT: "検査が制限時間を超えた",
@@ -144,7 +145,8 @@ export function llmText(text: LlmText): string {
   return `未生成（${NOT_GENERATED_TEXT[text.reason]}）`;
 }
 
-function verificationView(spec: FormalSpecification, ledger: DomainLedgerCatalog): VerificationView {
+// 画面（SpecViewer）も同じ文を出すために使う（SpecViewer 基本設計 6.5）。
+export function verificationView(spec: FormalSpecification, ledger: DomainLedgerCatalog): VerificationView {
   const v = ledger.verification;
   const scopeLine = `検査の範囲: スコープ ${v.scope.scope}、整数のビット幅 ${v.scope.bitwidth}、ステップ数の上限 ${v.scope.maxSteps}`;
   let headline: string;
@@ -207,6 +209,31 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
 }
 
 /**
+ * 論点の表示の id（"S-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
+ * 論点の識別子 "LEDGER-<scenarioId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
+ * ビューには出さない。内部の識別子との対応は実装との対応表（設計 8.5）に持つ。
+ * 画面（SpecViewer）も同じ番号を振る（SpecViewer 基本設計 6.5）。
+ */
+export function issueDisplayIds(ledger: DomainLedgerCatalog | null, displayId: string): Map<string, string> {
+  return new Map((ledger?.issues ?? []).map((issue, index) => [issue.id, `${displayId}-L-${String(index + 1).padStart(3, "0")}`] as const));
+}
+
+/** 論点を本体の反例の種類で見出しに分ける（設計 3.5）。論点の id は表示の id にする。画面（SpecViewer）も使う。 */
+export function issueGroupsOf(
+  spec: FormalSpecification,
+  ledger: DomainLedgerCatalog,
+  displayIds: ReadonlyMap<string, string>,
+): IssueGroupView[] {
+  return ISSUE_HEADINGS.map(({ kind, heading }) => ({
+    kind,
+    heading,
+    issues: ledger.issues
+      .filter((issue) => issue.kind === kind)
+      .map((issue) => ({ ...issueView(spec, issue), id: displayIds.get(issue.id)! })),
+  })).filter((group) => group.issues.length > 0);
+}
+
+/**
  * 題（設計 4.1）。起点のコマンドまたはポリシーの項目を辞書で引く（設計 8.2）。
  * 項目が無いか、種類が起点の種類と違うか、用語が未生成なら「名前は未生成」とする。
  * 併記は Eng のときだけ、項目の implementation.locations から作る（設計 8.3）。
@@ -243,13 +270,8 @@ export function buildViewModel(
   context: ProjectionContext,
   request: ProjectionRequest,
 ): ViewModel {
-  // 論点の表示の id（"S-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
-  // 論点の識別子 "LEDGER-<scenarioId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
-  // ビューには出さない。内部の識別子との対応は実装との対応表（設計 8.5）に持つ。
-  const issueDisplayIds = new Map(
-    (ledger?.issues ?? []).map((issue, index) => [issue.id, `${request.displayId}-L-${String(index + 1).padStart(3, "0")}`] as const),
-  );
-  const displayIssueId = (id: string): string => issueDisplayIds.get(id)!;
+  const displayIds = issueDisplayIds(ledger, request.displayId);
+  const displayIssueId = (id: string): string => displayIds.get(id)!;
 
   const issueIdsByOperation = new Map<string, string[]>();
   for (const issue of ledger?.issues ?? []) {
@@ -261,16 +283,7 @@ export function buildViewModel(
     }
   }
 
-  const issueGroups =
-    ledger === null
-      ? null
-      : ISSUE_HEADINGS.map(({ kind, heading }) => ({
-          kind,
-          heading,
-          issues: ledger.issues
-            .filter((issue) => issue.kind === kind)
-            .map((issue) => ({ ...issueView(spec, issue), id: displayIssueId(issue.id) })),
-        })).filter((group) => group.issues.length > 0);
+  const issueGroups = ledger === null ? null : issueGroupsOf(spec, ledger, displayIds);
 
   return {
     displayId: request.displayId,
