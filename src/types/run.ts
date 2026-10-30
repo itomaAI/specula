@@ -1,0 +1,102 @@
+// オーケストレーター（runPipeline）の入出力の型（全体設計 2.1）。
+
+import type { SolverPort } from "../ports/SolverPort.js";
+import type { FileSystemPort } from "../ports/FileSystemPort.js";
+import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
+import type { AmbiguityKind, AmbiguityReport, FormalSpecification } from "./formal.js";
+import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
+import type { SpecificationView } from "./projection.js";
+import type { EventStormingMap, ExtractionDiagnostics, ScenarioSelection } from "./scenario.js";
+import type { SolverOptions, SolverReport, UnverifiedReason } from "./solver.js";
+
+export interface PipelineDeps {
+  /** M1 がソースを読む口。リポジトリのルートを根にしたもの（withRoot）を渡す。 */
+  fs: FileSystemPort;
+  /** LLM が無いときも、クライアント無しの RecordingLanguageModel を渡す。 */
+  llm: LanguageModelPort;
+  /** 無ければ M3 は UNVERIFIED（NO_SOLVER）。 */
+  solver: SolverPort | null;
+}
+
+export interface PipelineOptions {
+  selection?: ScenarioSelection;
+  solver?: SolverOptions;
+}
+
+/** 契約のエラーで止まった段。 */
+export type StoppedStage = "M1" | "M2" | "M3" | "M4" | "M5";
+
+export type ScenarioRunResult =
+  | {
+      scenarioId: string;
+      boundedContext: string;
+      kind: "COMPLETED";
+      outcome: VerificationOutcome;
+      /** 未検証の理由の種類。検査済みなら null。 */
+      unverifiedReason: UnverifiedReason | null;
+      findingCount: number;
+      issueCount: number;
+    }
+  | {
+      scenarioId: string;
+      boundedContext: string;
+      kind: "AMBIGUOUS";
+      counts: Record<AmbiguityKind, number>;
+    }
+  | {
+      scenarioId: string;
+      boundedContext: string;
+      kind: "STOPPED";
+      stage: StoppedStage;
+      /** エラーの名前（"InletNotFoundError" など）。 */
+      error: string;
+      /** エラーの reason。reason を持たないエラー（SyntaxExtractionError）は null。 */
+      reason: string | null;
+      detail: string;
+    };
+
+export interface RunReport {
+  system: {
+    mode: ExtractionDiagnostics["mode"];
+    parsedFileCount: number;
+    parseFailureCount: number;
+    boundedContextCount: number;
+    commandCount: number;
+    eventCount: number;
+  };
+  slice: {
+    scenarioCount: number;
+    rejected: Array<{ inlet: string; reason: string }>;
+  };
+  /** M0 の切り出しの順。 */
+  scenarios: ScenarioRunResult[];
+  totals: {
+    completed: number;
+    ambiguous: number;
+    stopped: number;
+    ambiguity: Record<AmbiguityKind, number>;
+    verification: Record<VerificationOutcome, number>;
+  };
+}
+
+/** シナリオ 1 つの成果物。報告の scenarios と同じ順・同じ id。 */
+export type ScenarioArtifacts =
+  | {
+      scenarioId: string;
+      kind: "COMPLETED";
+      spec: FormalSpecification;
+      solverReport: SolverReport;
+      ledger: DomainLedgerCatalog;
+      document: SpecificationView;
+      matrix: SpecificationView;
+      flow: SpecificationView;
+    }
+  | { scenarioId: string; kind: "AMBIGUOUS"; ambiguity: AmbiguityReport }
+  | { scenarioId: string; kind: "STOPPED" };
+
+export interface PipelineResult {
+  report: RunReport;
+  map: EventStormingMap;
+  systemViews: { mermaid: SpecificationView; json: SpecificationView };
+  scenarios: ScenarioArtifacts[];
+}
