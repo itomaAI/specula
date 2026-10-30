@@ -39,7 +39,7 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 
 ## 3. システムデータフローと Loom ライフサイクル (Data Flow & Workflows)
 
-システムは独立したモジュール（ScenarioExtractor・GlossaryBuilder・IntentSynthesizer・ContextExtractor・FormalTranspiler・FormalSolver・LedgerSynthesizer・SpecProjector）で構成され、Loom の 3 つの基本操作によって統制される。モジュールは番号を持たず、それぞれ独立した道具として呼び出せる。下の図の順は、パイプラインがモジュールを呼ぶ順である。初回の実行で行うのは「置く」と、検証・論点の整理・射影までである。人間の合意を受けて行う「畳む」と「移す」は 2 回目以降の実行で行う（全体仕様 1.5）。現在の設計と実装の範囲は初回の実行である。
+システムは独立したモジュール（ScenarioExtractor・GlossaryBuilder・IntentSynthesizer・ContextExtractor・FormalTranspiler・FormalSolver・LedgerSynthesizer・SpecProjector）で構成され、Loom の 3 つの基本操作によって統制される。パイプラインが出力先に書いたファイルは、画面モジュール（SpecViewer。`spec_viewer.spec.md`）が読んで閲覧の画面にする。SpecViewer はパイプラインの段ではなく、出力を読むだけで書き込まない。モジュールは番号を持たず、それぞれ独立した道具として呼び出せる。下の図の順は、パイプラインがモジュールを呼ぶ順である。初回の実行で行うのは「置く」と、検証・論点の整理・射影までである。人間の合意を受けて行う「畳む」と「移す」は 2 回目以降の実行で行う（全体仕様 1.5）。現在の設計と実装の範囲は初回の実行である。
 
 ### 3.1 パイプラインの構成
 
