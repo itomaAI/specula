@@ -236,7 +236,7 @@ interface RawContextModel {
 | `EXTERNAL_CALL`・`RECURSION` | `callee`・`args`・`receiver`（`CALL` と同じ）、`reason`: たどらなかった理由（2.1 の表。`RECURSION` は `"RECURSION"`） |
 | `DATA_MUTATION`・`ASYNC_CUT` | `callee`・`args`・`receiver`（`CALL` と同じ） |
 
-- 既存の型からの変更: `intent` を外した（`ScenarioTarget` が持つ）。`entryPoint` を `inlet` にした（起点の所在を持つ）。`UseCaseSlice` の `precondition`・`outcome`（文字列）を、条件の一覧と出口に分けた。`isAsyncCutEnforced` は `ASYNC_CUT` のユニットで表すので外した。
+- 既存の型からの変更: `intent` を外した（当時は `ScenarioTarget` が持った。2026-10-30 からは `IntentSynthesizer` の出力が持つ）。`entryPoint` を `inlet` にした（起点の所在を持つ）。`UseCaseSlice` の `precondition`・`outcome`（文字列）を、条件の一覧と出口に分けた。`isAsyncCutEnforced` は `ASYNC_CUT` のユニットで表すので外した。
 - 初回の実装での変更: 種類に `CALL` を足した（`unitIds` の「呼び出し」に当たる種類が一覧に無かったため）。`unresolved` の各項目に `unitId` を足した。`coverage` を足した（2.6）。スライスの識別子の形を変えた（3.5）。
 
 ---

@@ -10,19 +10,25 @@
 - **配置場所**: `specula/src/core/scenario_extractor.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**:
   - 本モジュールはファイルシステム（`fs`）やネットワーク呼び出しを直接行わない。
-  - 解析対象のリポジトリメタ情報（ファイル一覧、パッケージ定義、ソーステキスト、ドキュメントテキスト等）は呼び出し元からインメモリデータ構造（または Port）経由で注入されて動作する純粋な計算・解析エンジンとする。
-  - LLM はポート（`LanguageModelPort`）経由でだけ呼ぶ（全体基本設計書の「LLM の担当範囲」と「LLM 出力の記録」）。
+  - 解析対象のリポジトリメタ情報（ファイル一覧、パッケージ定義、ソーステキスト等）は呼び出し元からインメモリデータ構造（または Port）経由で注入されて動作する純粋な計算・解析エンジンとする。
+  - LLM を使わない。`LanguageModelPort` を受け取らない。名前（用語）は `GlossaryBuilder`、意図の候補は `IntentSynthesizer` が作る（全体基本設計書の「LLM の担当範囲」）。
 - **完全決定論的再現性**:
-  - 同一の入力データ群に対して、出力される全体マップおよび個別シナリオは完全に決定論的（ソート済み・一意）であること。LLM が作る項目は記録を再利用して一致させる。
-  - 識別子（`id`）は、LLM が作る名前からは作らない。ハンドラの所在など、コードから機械的に決まる値から作る。
+  - 同一の入力データ群に対して、出力される全体マップおよび個別シナリオは完全に決定論的（ソート済み・一意）であること。LLM を使わないので、記録の再利用に頼らずに一致する。
+  - 識別子（`id`）は、ハンドラの所在など、コードから機械的に決まる値から作る。
+- **構造の判断は言葉の意味に頼らない**（仕様書 3.3）:
+  - 要素の有無、要素どうしのつながり、Bounded Context への割り当て、識別子は、AST から読める関係（呼び出し・書き込み・発行・購読）とファイルの配置だけで決める。
+  - 関数名や文字列の意味を解釈して、要素をまとめたり分けたりしない。4.3 の「イベントの分け方」で使う文字列の引数や、「ポリシー」でのイベント名の一致は、文字列が同じかどうかを比べるだけで、意味は解釈しない。
+  - 仕様の資料（`RepositoryArtifacts.documents`）を読まない。
 
 ### 1.2 公開する関数
 仕様書 2.2 の 2 つの操作に対応して、関数を 2 つ公開する。
 
 ```typescript
-discoverSystemContext(repo: RepositoryArtifacts, deps: { llm: LanguageModelPort }): Promise<EventStormingMap>;
-sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection, deps?: { llm: LanguageModelPort }): Promise<SliceResult>;
+discoverSystemContext(repo: RepositoryArtifacts): EventStormingMap;
+sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection): SliceResult;
 ```
+
+LLM を呼ばなくなったので、どちらも同期の関数にする（2026-10-30 に `deps.llm` を外し、`Promise` を返すのをやめた。呼び出し元の変更は実装の PR で行う）。
 
 ---
 
@@ -36,21 +42,19 @@ sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection, deps?: { ll
 モジュール内部は以下の 4 つの独立したサブパイプラインで構成する。Stage 1〜3 が `discoverSystemContext`、Stage 4 が `sliceScenarios` である。
 
 ```
-[リポジトリ見取り図データ (Files, Docs, Package, Schemas)]
+[リポジトリ見取り図データ (Files, Package, Schemas)]
                            │
                            ▼
 ┌────────────────────────────────────────────────────────┐
 │ Stage 1: ContextBoundaryAnalyzer (境界同定)             │
 │  - ディレクトリ/モジュール/スキーマの境界スキャン        │
 │  - Bounded Context の分割または単一コンテキストへの集約 │
-│  - コンテキストの意図の候補（LLM。記録を再利用）        │
 └──────────────────────────┬─────────────────────────────┘
                            │ BoundedContext[]
                            ▼
 ┌────────────────────────────────────────────────────────┐
 │ Stage 2: EventStreamDiscoverer (事実骨格抽出)          │
 │  - 状態変化シグナルの検出（AST）                        │
-│  - ドメインイベントの命名（LLM。記録を再利用）          │
 └──────────────────────────┬─────────────────────────────┘
                            │ DomainEvent[]
                            ▼
@@ -65,7 +69,7 @@ sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection, deps?: { ll
 ┌────────────────────────────────────────────────────────┐
 │ Stage 4: ScenarioSlicerResolver (具象シナリオ生成)     │
 │  - コマンド / ポリシーを起点とする因果スライスカット   │
-│  - 画面ファイルパス、画像参照、意図の候補のバインド    │
+│  - 画面ファイルパス、画像参照のバインド                │
 │  - 利用者が定義したシナリオの照合と正規化              │
 │  ➔ 【出力 2: ScenarioTarget[]】                        │
 └────────────────────────────────────────────────────────┘
@@ -85,9 +89,7 @@ sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection, deps?: { ll
      - DB スキーマ定義が複数ファイルまたはスキーマ名で分離されている場合、エンティティの凝集度に基づいてコンテキストを特定。
   2. **密結合度判定とフォールバック規則**:
      - ディレクトリ分割が存在しない、あるいは全画面がフラットに共通ストア・単一テーブル群を参照している場合、**「境界同定不能」と判定し、システム全体を単一コンテキスト（`DEFAULT_CONTEXT`）にフォールバック**する。
-  3. **意図の候補（LLM）**:
-     - 各コンテキストの意図（存在理由・責務）の候補を LLM に書かせ、記録して再利用する。`intentStatus` は初回の実行ではすべて `CANDIDATE`。LLM に届かないときは `NOT_GENERATED` として記録する。
-- **出力**: `BoundedContextDefinition[]`（識別子、名称、対象ルートパス群、意図の候補）。識別子はルートパスから作る（`DEFAULT_CONTEXT` は固定の識別子）。
+- **出力**: `BoundedContextDefinition[]`（識別子、名称、対象ルートパス群）。識別子はルートパスから作る（`DEFAULT_CONTEXT` は固定の識別子）。名称は根のディレクトリから機械的に決まる値（単一コンテキストは `DEFAULT_CONTEXT`）であり、実装の名前である。利用者向けの表示には `GlossaryBuilder` の用語を使う。
 
 ### 3.2 Stage 2: EventStreamDiscoverer (事実骨格抽出)
 - **入力**: 各 Bounded Context 内のコードファイル群、API/ルーター定義、DBマイグレーション/ミューテーションコード。
@@ -97,22 +99,18 @@ sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection, deps?: { ll
      - イベント発行コード（`emit`, `dispatch`, `publish` 等）を検出。
      - **画面も DB も持たないシステム（ライブラリ、コマンドラインツール）**: パッケージの入口（`package.json` の `exports`・`main`・`bin`、またはそれが再公開するモジュール）から公開されている関数を検出し、その関数の呼び出しの完了を状態変化シグナルとする。
      - シグナルごとに、それを含む関数の名前とファイルの位置を記録する。これが後でコマンドのハンドラになる。
-  2. **ドメインイベントの命名（LLM）**:
-     - 操作完了時の事実を「過去分詞（Domain Event）」の名前にする（例: `UserRegistered`, `PasswordChanged`, `PaymentCompleted`）。
-     - 命名は LLM に任せ、入力（ハンドラ名、シグナルの種類、周辺のコード）をキーに記録して再利用する。関数名の末尾を正規表現で削るような機械的な変換はしない。
-     - LLM に届かないときは、イベントの名前を `NOT_GENERATED` として記録する。イベントの識別子（`id`）は、ハンドラの所在から機械的に作るので、名前が未生成でも後段の処理は進む。
-  3. **時系列トポロジー整列**:
+  2. **時系列トポロジー整列**:
      - 呼び出しの前提条件や依存関係から、イベント間の先行・後続関係を求める。関係は各イベントの `after`（先に起きるイベントの識別子の一覧）として持つ。配列そのものは識別子の辞書順に並べるので、時系列は `after` から読む。
      - 関係をコードから決められないイベントには `after` を空にする。推測で順序を付けない。
-- **出力**: `DomainEvent[]`。
+- **出力**: `DomainEvent[]`。イベントの名前（過去分詞の用語。例: `UserRegistered`）は持たない。`GlossaryBuilder` が、シグナルとハンドラの所在を手がかりに付ける。
 
 ### 3.3 Stage 3: EventStormingAssembler (関係性統合)
 - **入力**: `DomainEvent[]`、画面ルーティングファイル（Next.js pages/app routes等）、ハンドラ関数。
 - **統合ロジック**:
   1. **コマンド (Command) のバインド**:
-     - イベントの直前に実行されるユーザー意思・HTTPリクエスト（例: `ChangePassword`, `SubmitOrder`）を抽出・紐付け。
+     - イベントの直前に実行されるユーザー意思・HTTPリクエストの処理を抽出・紐付け。
      - 各コマンドは、自分が発生させるイベントを 1 つ以上持つ。コマンドとイベントの対応は、Stage 2 で記録したハンドラの所在で決める（同じコンテキストの最初のイベントを当てるような決め打ちはしない）。
-     - コマンドの名前も LLM が付け、イベントと同じく記録して再利用する。識別子はハンドラの所在から作る。
+     - 識別子はハンドラの所在から作る。コマンドの名前（例: `ChangePassword`）は持たず、`GlossaryBuilder` が付ける。
   2. **アクター (Actor) の特定**:
      - 認証ミドルウェア、権限ロール（`role === 'admin'`, `auth.uid` 等）をスキャンし、コマンドの発行主体（`User`, `Admin`, `SystemWorker` 等）を決定。
      - 認可のコードが見つからないコマンドでは、入口を呼ぶ側（`Caller`）をアクターとする。画面を持たないシステムで公開関数を呼ぶ側も `Caller` である。`Caller` は、入口が存在することから導くアクターであり、決まった一覧から足すものではない。
@@ -132,13 +130,11 @@ sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection, deps?: { ll
      - マップ上の各 **`Command`** または **`Policy`** を単一のエントリーポイント（Inlet）として切り出す。
      - 1 つのシナリオの期待イベントは 1 つである。起点のコマンドがイベントを複数発生させるときは、イベントごとに別のシナリオにする。ポリシーが起点のときは、ポリシーが起動するコマンドの発生させるイベントを期待イベントとし、同じく 1 イベントにつき 1 シナリオとする。
      - 紐づく Actor、Read Model（画面パス）、起点の所在（ハンドラのファイルと関数名）、期待イベントを 1 つのタプルとして結合する。
-     - シナリオの識別子は `SCN-<起点の識別子>` とする。起点が複数のシナリオに分かれるときだけ、`SCN-<起点の識別子>-<イベントの識別子>` とする。
+     - シナリオの識別子は `SCN-<起点の識別子>` とする。起点が複数のシナリオに分かれるときだけ、`SCN-<起点の識別子>-<イベントの識別子>` とする。この識別子は実装の所在を含むので、利用者向けの表示には出さない（表示の id は全体基本設計書で定める）。
   2. **具象パスの解決 (Path Resolver)**:
      - 画面ルート（例: `/mypage`）から実際のソースコードファイルパス（例: `src/app/(dashboard)/mypage/page.tsx`）および画面画像パスを確定。
-  3. **意図の候補（LLM）**:
-     - 意図の文は LLM に任せ、記録して再利用する。`intentStatus` は初回の実行ではすべて `CANDIDATE`。LLM に届かないときは `NOT_GENERATED` として記録する。
-  4. **絞り込みと利用者定義のシナリオ**:
-     - 起点の指定は、起点の識別子か、ハンドラの所在（`ファイル#関数名`）で行う。LLM が付けた名前では照合しない（未生成のことがあり、版によって変わるため）。
+  3. **絞り込みと利用者定義のシナリオ**:
+     - 起点の指定は、起点の識別子か、ハンドラの所在（`ファイル#関数名`）で行う。辞書の用語では照合しない（用語は本モジュールの出力に無く、辞書の版によって変わるため）。
      - `selection.filter` があれば、それに合うシナリオだけを出力する。
      - `selection.userDefined` の各シナリオは、起点が全体マップにあることを確かめてから正規化し、`origin: 'USER_DEFINED'` で出力する。起点が全体マップに無いときは、そのシナリオを出力せず、`rejected` に理由を付けて返す。
      - 抽出したシナリオは `origin: 'EXTRACTED'`。同じ起点のシナリオが両方にあるときは、利用者が定義したものを残す。
@@ -148,49 +144,48 @@ sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection, deps?: { ll
 
 ## 4. データ構造と保持形式 (Data Persistence Model)
 
-LLM が作る文字列は、全体基本設計書で定める `LlmText`（生成済みの文と記録のキー、または未生成とその理由）で持つ。型の正は `src/types/scenario.ts` である。
+本モジュールの出力に、LLM が作る文字列（`LlmText`）は無い。型の正は `src/types/scenario.ts` である。
 
 ### 4.0 入力 (`RepositoryArtifacts`)
 ```typescript
 interface RepositoryArtifacts {
   files: Array<{ path: string; text: string }>; // コードと設定のファイル。path はリポジトリのルートからの相対パス（"/" 区切り）
-  documents: Array<{                            // 仕様の資料（2026-10-30 に足した。使い方は 3.5）
+  documents: Array<{                            // 仕様の資料。本モジュールは読まない。GlossaryBuilder の入力
     path: string;
     kind: "README" | "DOC" | "SCHEMA";
     text: string;
     truncated: boolean;                         // 上限を超えたので先頭だけを渡したとき true
   }>;
+  omittedDocuments: string[];                   // 合計の上限を超えたので入れなかった資料のパス（辞書順）
   screenshots?: string[];                       // 画面画像のパス
 }
 ```
 ファイルを読むのは呼び出し元（アダプターの側）であり、コアはファイルを読まない。どのファイルを渡すかも呼び出し元が決める。`package.json` と `tsconfig.json` は、`files` に入っていれば読む。
 
-`documents` に入れる資料は、Node.js 版と Itera OS 版のリーダー（`NodeRepositoryReader`・`IteraRepositoryReader`）が同じ規則で集める。
+`documents` は、パイプラインが同じ `RepositoryArtifacts` を `GlossaryBuilder` に渡すために、ここで定義する（本モジュールの処理には使わない）。入れる資料は、Node.js 版と Itera OS 版のリーダー（`NodeRepositoryReader`・`IteraRepositoryReader`）が同じ規則で集める。
 - `README`: 名前が `README`・`README.md`・`README.mdx`（大文字小文字を区別しない）のファイル。リポジトリの直下と、コンテキストの根（4.3 の「コンテキストの境界」）の直下にあるもの。
 - `DOC`: `docs/`・`doc/` の下の `.md`・`.mdx`。
 - `SCHEMA`: `.sql`・`.prisma`・`.graphql`・`.gql` のファイル。
 - 除くもの: `node_modules/`・`.git/`・`tsconfig.json` の `outDir` の下・`tests/`・`__tests__/` の下。`CHANGELOG`・`LICENSE` は資料に入れない。
-- 上限: 1 ファイル 64 KB（超えたら先頭の 64 KB だけを渡し、`truncated` を true にする）、合計 2 MB（パスの辞書順に入れ、超えたところで止める。止めたことは `diagnostics` に残す）。
-- 資料が 1 つも無いときは `documents` を空にする。空でも ScenarioExtractor はこれまでどおり動く。
+- 上限: 1 ファイル 64 KB（超えたら先頭の 64 KB だけを渡し、`truncated` を true にする）、合計 2 MB（パスの辞書順に入れ、超えたところで止める。入れなかった資料のパスは `omittedDocuments` に入れ、`GlossaryBuilder` が報告に出す）。
+- 資料が 1 つも無いときは `documents` を空にする。本モジュールの出力は `documents` の有無で変わらない。
 
 ### 4.1 全体マップ形式 (`EventStormingMap`)
 ```typescript
 interface EventStormingMap {
   boundedContexts: Array<{
     id: string;                    // ルートパスから作る（"CTX-<根>"）。単一コンテキストは "DEFAULT_CONTEXT"
-    name: string;
+    name: string;                  // 根のディレクトリから機械的に決まる実装の名前。利用者向けの表示には使わない
     rootPaths: string[];
     isDefaultFallback: boolean;
-    intent: LlmText;               // 意図の候補
-    intentStatus: "CANDIDATE" | "CONFIRMED";
   }>;
   events: Array<{
-    id: string; name: LlmText; contextId: string; aggregate?: string; handler: SourceLocation;
+    id: string; contextId: string; aggregate?: string; handler: SourceLocation;
     signal: { kind: "DB_MUTATION" | "EVENT_EMIT" | "PUBLIC_FUNCTION"; callee: string; label: string | null; line: number };
     after: string[];
   }>;
-  commands: Array<{ id: string; name: LlmText; contextId: string; actorId: string; readModelId?: string; eventIds: string[]; handler: SourceLocation }>;
-  policies: Array<{ id: string; triggerEventId: string; actionCommandId: string; name: LlmText; listener: SourceLocation }>;
+  commands: Array<{ id: string; contextId: string; actorId: string; readModelId?: string; eventIds: string[]; handler: SourceLocation }>;
+  policies: Array<{ id: string; triggerEventId: string; actionCommandId: string; listener: SourceLocation }>;
   readModels: Array<{ id: string; name: string; route: string; componentFile: string; screenshotPath?: string }>;
   actors: Array<{ id: string; name: string }>; // 認可のコードから見つけた役割と、必要なときだけ "Caller"
   diagnostics: {
@@ -205,7 +200,8 @@ interface EventStormingMap {
 interface SourceLocation { file: string; symbol: string; line: number }
 ```
 
-- `signal` は、イベントのもとになったシグナルの、コードから機械的に決まる値である。後段の LLM の入力に、LLM が付けた名前の代わりに使う（LLM の入力に LLM の結果を入れると、記録のキーが LLM の結果で変わるため）。
+- 2026-10-30 に、Bounded Context の `intent`・`intentStatus` と、イベント・コマンド・ポリシーの `name`（どれも `LlmText`）を外した。名前は `GlossaryBuilder` の辞書、意図の候補は `IntentSynthesizer` の出力に持つ。
+- `signal` は、イベントのもとになったシグナルの、コードから機械的に決まる値である。`GlossaryBuilder` が名前を付けるときの手がかりと、資料の節を選ぶときの手がかりに使う。
 - `diagnostics` は、抽出の経過を報告に出すために持つ。構文の解析に失敗したファイルはマップに入れず、ここに記録して先へ進む。
 
 ### 4.2 個別シナリオ保持形式 (`ScenarioTarget`)
@@ -214,13 +210,10 @@ interface ScenarioTarget {
   id: string;                      // "SCN-<起点の識別子>"（起点が複数のシナリオに分かれるときは "-<イベントの識別子>" を足す）
   boundedContext: string;          // Bounded Context の識別子（例: "DEFAULT_CONTEXT"）
   origin: "EXTRACTED" | "USER_DEFINED";
-  intent: LlmText;                 // LLM が出す意図の候補
-  intentStatus: "CANDIDATE" | "CONFIRMED"; // 人間（PdM）が確定するまでは CANDIDATE
-  userIntent?: string;             // 利用者定義のシナリオで利用者が書いた目的。intent（LLM の結果）とは別に持つ
+  userIntent?: string;             // 利用者定義のシナリオで利用者が書いた目的
   inletType: "COMMAND" | "POLICY"; // 同期か非同期か
   inletTrigger: {
     id: string;                    // コマンドまたはポリシーの識別子
-    name: LlmText;                 // コマンドまたはポリシーの名前
     handler: SourceLocation;       // 起点の所在（ContextExtractor はここから追跡を始める）
   };
   actor: {
@@ -247,7 +240,8 @@ interface SliceResult {
 }
 ```
 
-- 利用者が書いた目的（`userDefined[].intent`）は `userIntent` に入れる。`intent` は LLM の結果だけを表す型なので、利用者の文を入れない。`userIntent` があっても `intentStatus` は `CANDIDATE` のままである。
+- 2026-10-30 に、`intent`・`intentStatus` と `inletTrigger.name` を外した。シナリオの意図の候補とその確定の状態（`intentStatus`）は `IntentSynthesizer` の出力に持つ。後段で `inletTrigger.name` と `intent` を読んでいたものは無い（ContextExtractor は `inletTrigger.handler` だけを使う）。
+- 利用者が書いた目的（`userDefined[].intent`）は `userIntent` にそのまま入れる。LLM の結果ではないので、本モジュールの出力に残す。`IntentSynthesizer` は、これを意図の候補とは別に表示できるように受け渡す。
 - 利用者定義の `route` は、全体マップのリードモデルのルートと一致するときだけ、そのリードモデルを付ける。一致しなければ、そのシナリオを出さずに `rejected` に理由を付けて返す（推測で画面を作らない）。
 - `filter` は抽出したシナリオにだけ効く。利用者定義のシナリオは `filter` によらず出す。
 
@@ -272,7 +266,7 @@ interface SliceResult {
 | ポリシー | `on`・`once`・`addListener`・`addEventListener`・`subscribe` によるリスナーの登録で、名前がイベントの発行の最初の文字列と一致し、渡された関数がコマンドのハンドラであるもの |
 | ポリシーが起点のシナリオ | 起点の所在はリスナーの登録の場所とする（コマンドのハンドラにすると、コマンドが起点のシナリオと同じ中身になるため）。アクターとコンテキストは起動されるコマンドのものを使い、リードモデルは付けない |
 | アグリゲート | 初回は付けない |
-| LLM の処理 | `m0.context-intent`・`m0.name-event`・`m0.name-command`・`m0.name-policy`・`m0.scenario-intent` の 5 つ（`promptVersion` は "1"）。名前は PascalCase の 1 語、意図は改行の無い 200 字以内の 1 文であることを確かめ、合わなければ `INVALID_OUTPUT` とする。入力にはコードから機械的に決まる値（ハンドラの所在、シグナル、関数の頭の 12 行）だけを入れ、ほかの LLM の結果は入れない |
+| LLM の処理 | なし（2026-10-30 に外した）。それまでの 5 つの処理（`m0.context-intent`・`m0.name-event`・`m0.name-command`・`m0.name-policy`・`m0.scenario-intent`）のうち、名前の 3 つは `GlossaryBuilder`、意図の 2 つは `IntentSynthesizer` へ移す。処理の名前と記録のキーは移した先の設計書で定める |
 
 ---
 
