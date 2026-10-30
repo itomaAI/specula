@@ -23,6 +23,16 @@ export interface LlmRequest {
 }
 
 /**
+ * 確定の状態（SpecViewer の仕様 2.4）。LLM や機械が作った項目に共通で持たせる。
+ * - NOT_GENERATED: 作れなかった（LLM に届かなかったなど）
+ * - CANDIDATE: 作ったが、人が確かめていない
+ * - CONFIRMED: 人が確かめて確定にした
+ * - NEEDS_RECHECK: 確定したあとで、元にした資料やコードが変わった
+ * 確定の操作は現在の範囲に無いので、各モジュールが書くのは NOT_GENERATED と CANDIDATE だけである。
+ */
+export type ConfirmationStatus = "NOT_GENERATED" | "CANDIDATE" | "CONFIRMED" | "NEEDS_RECHECK";
+
+/**
  * LLM の結果。届かなかったことも値で表す（例外にしない）。
  * NOT_GENERATED の項目を、機械的に作った文や名前で埋めない。
  */

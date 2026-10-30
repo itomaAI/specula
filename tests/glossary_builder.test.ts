@@ -5,9 +5,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildGlossary } from "../src/core/glossary_builder.js";
-import { readSchema } from "../src/core/glossary/entries.js";
-import { inlineNamesOf } from "../src/core/glossary/gaps.js";
-import { containsWord } from "../src/core/glossary/match.js";
+import { contextsOf, readSchema } from "../src/core/glossary/entries.js";
+import { inlineNamesOf, recordGaps } from "../src/core/glossary/gaps.js";
+import { MEANING_CHARS, containsWord, meaningOf } from "../src/core/glossary/match.js";
+import type { GlossaryEntry } from "../src/types/glossary.js";
 import { splitSections } from "../src/core/glossary/sections.js";
 import { discoverSystemContext } from "../src/core/scenario_extractor.js";
 import type { LanguageModelPort, OutputCheck } from "../src/ports/LanguageModelPort.js";
@@ -200,8 +201,13 @@ test("ずれ: 資料に記述が無い要素、項目に対応しない資料の
   assert.deepEqual(glossary.gaps.undocumentedEntries, ["DEFAULT_CONTEXT"]);
   assert.deepEqual(glossary.gaps.unmatchedDocumentNames, [{ name: "archiveUser", sections: ["README.md#Users > Unknown"] }]);
   assert.deepEqual(glossary.gaps.sharedTerms, [
-    { term: "WelcomeMailSent", entryIds: ["EVT-src/mail.ts#sendWelcome", "EVT-src/users.ts#register"] },
+    {
+      term: "WelcomeMailSent",
+      contextId: "DEFAULT_CONTEXT",
+      entryIds: ["EVT-src/mail.ts#sendWelcome", "EVT-src/users.ts#register"],
+    },
   ]);
+  assert.deepEqual(glossary.gaps.contextHomonyms, [], "Bounded Context が 1 つだけなら常に空");
   assert.deepEqual(glossary.gaps.multiSourceEntries, [
     { entryId: "CMD-src/mail.ts#sendWelcome", documents: ["README.md", "docs/mail.md", "prisma/schema.prisma"] },
     { entryId: "EVT-src/mail.ts#sendWelcome", documents: ["README.md", "docs/mail.md", "prisma/schema.prisma"] },
@@ -271,4 +277,147 @@ test("照合とインラインコード: 語の境目は英字・数字・_・- 
   assert.equal(containsWord("pre-register", "register"), false);
   assert.equal(containsWord("on user.registered.", "user.registered"), true);
   assert.deepEqual(inlineNamesOf("see `a.b`, `run()` and `not a name`\n```\n`hidden`\n```\n`after`"), ["a.b", "run", "after"]);
+});
+
+// ---- 画面の仕様に合わせて足した欄（GlossaryBuilder の設計 5）----
+
+test("所属と確定の状態: 地図の要素は所属の Bounded Context と CANDIDATE を持ち、記録だけの項目は null", async () => {
+  const map = await mapOf();
+  const glossary = await buildGlossary(map, repoOf(DOCUMENTS), { llm: termLlm() });
+  for (const entry of glossary.entries) {
+    if (entry.scope === "RECORDED") {
+      assert.deepEqual([entry.contextId, entry.crossesTo, entry.termStatus, entry.excerpt], [null, null, null, null], entry.id);
+      continue;
+    }
+    assert.equal(entry.contextId, "DEFAULT_CONTEXT", entry.id);
+    assert.equal(entry.crossesTo, null, entry.id);
+    assert.equal(entry.termStatus, "CANDIDATE", entry.id);
+  }
+
+  const withoutLlm = await buildGlossary(map, repoOf(DOCUMENTS), {});
+  for (const entry of withoutLlm.entries.filter((e) => e.scope === "PRESENTED")) {
+    assert.equal(entry.termStatus, "NOT_GENERATED", entry.id);
+  }
+});
+
+test("意味の抜粋: 先頭の節の、見出しの直後の最初の段落。節の本文にある文字列そのもの。出どころが無ければ null", async () => {
+  const glossary = await buildGlossary(await mapOf(), repoOf(DOCUMENTS), { llm: termLlm() });
+  const excerptOf = (id: string): unknown => glossary.entries.find((e) => e.id === id)?.excerpt;
+
+  assert.deepEqual(excerptOf("CMD-src/users.ts#register"), {
+    text: "When a user registers (`register`), we send a welcome mail via `sendWelcome`.",
+    source: "README.md#Users",
+    truncated: false,
+    status: "CANDIDATE",
+  });
+  assert.deepEqual(excerptOf("POL-src/wire.ts#<module>@3"), {
+    text: "sendWelcome sends the welcome mail on user.registered.",
+    source: "docs/mail.md#Mail",
+    truncated: false,
+    status: "CANDIDATE",
+  });
+  assert.equal(excerptOf("DEFAULT_CONTEXT"), null);
+
+  // 抜粋は LLM を使わないので、LLM が無くても同じ。
+  const withoutLlm = await buildGlossary(await mapOf(), repoOf(DOCUMENTS), {});
+  assert.deepEqual(
+    withoutLlm.entries.map((e) => e.excerpt),
+    glossary.entries.map((e) => e.excerpt),
+  );
+  for (const entry of glossary.entries) {
+    if (entry.excerpt === null) continue;
+    const document = DOCUMENTS.find((d) => entry.excerpt?.source.startsWith(`${d.path}#`));
+    assert.ok(document?.text.includes(entry.excerpt.text), entry.id);
+  }
+});
+
+test("意味の抜粋の切り出し: 見出しの無い節は先頭の行を飛ばさない。400 字で切る。段落が無ければ null", () => {
+  const section = (id: string, text: string, truncated = false) => ({ section: id, document: "d.md", text, truncated });
+
+  assert.deepEqual(meaningOf(section("d.md#A", "# A\n\n\nfirst line\nsecond line\n\nnext paragraph")), {
+    text: "first line\nsecond line",
+    truncated: false,
+  });
+  assert.deepEqual(meaningOf(section("d.md#", "intro text\n\n# A")), { text: "intro text", truncated: false });
+  assert.deepEqual(meaningOf(section("api/schema.graphql#", "# comment\ntype Order {\n  id: ID!\n}\n")), {
+    text: "# comment\ntype Order {\n  id: ID!\n}",
+    truncated: false,
+  });
+  assert.equal(meaningOf(section("d.md#A", "# A\n\n")), null);
+
+  const long = meaningOf(section("d.md#A", `# A\n${"あ".repeat(MEANING_CHARS + 1)}`));
+  assert.equal(long?.truncated, true);
+  assert.equal(Array.from(long?.text ?? "").length, MEANING_CHARS);
+  // 段落が LLM の抜粋の末尾まで続き、その抜粋が切られていたら、段落も途中で切れている。
+  assert.deepEqual(meaningOf(section("d.md#A", "# A\nbody", true)), { text: "body", truncated: true });
+  assert.deepEqual(meaningOf(section("d.md#A", "# A\nbody\n\nmore", true)), { text: "body", truncated: false });
+});
+
+test("所属: ポリシーは反応するイベントの Bounded Context に属し、起動するコマンドが別の Bounded Context ならまたいでいる先にする", () => {
+  const at = (file: string, symbol: string) => ({ file, symbol, line: 1 });
+  const map: EventStormingMap = {
+    boundedContexts: [
+      { id: "CTX-a", name: "a", rootPaths: ["a"], isDefaultFallback: false },
+      { id: "CTX-b", name: "b", rootPaths: ["b"], isDefaultFallback: false },
+    ],
+    events: [
+      {
+        id: "EVT-a",
+        contextId: "CTX-a",
+        handler: at("a/x.ts", "x"),
+        signal: { kind: "EVENT_EMIT", callee: "emit", label: "x.done", line: 2 },
+        after: [],
+      },
+    ],
+    commands: [
+      { id: "CMD-a", contextId: "CTX-a", actorId: "Caller", eventIds: [], handler: at("a/y.ts", "y") },
+      { id: "CMD-b", contextId: "CTX-b", actorId: "Caller", eventIds: [], handler: at("b/z.ts", "z") },
+    ],
+    policies: [
+      { id: "POL-cross", triggerEventId: "EVT-a", actionCommandId: "CMD-b", listener: at("b/wire.ts", "<module>") },
+      { id: "POL-inside", triggerEventId: "EVT-a", actionCommandId: "CMD-a", listener: at("a/wire.ts", "<module>") },
+    ],
+    readModels: [],
+    actors: [],
+    diagnostics: { mode: "STATE_SIGNALS", entryFiles: [], parsedFileCount: 0, parseFailures: [], unattributedSignals: [] },
+  };
+  const contexts = contextsOf(map);
+  assert.deepEqual(contexts.get("CTX-b"), { contextId: "CTX-b", crossesTo: null });
+  assert.deepEqual(contexts.get("CMD-b"), { contextId: "CTX-b", crossesTo: null });
+  assert.deepEqual(contexts.get("EVT-a"), { contextId: "CTX-a", crossesTo: null });
+  assert.deepEqual(contexts.get("POL-cross"), { contextId: "CTX-a", crossesTo: "CTX-b" });
+  assert.deepEqual(contexts.get("POL-inside"), { contextId: "CTX-a", crossesTo: null });
+});
+
+test("同義の数え方: 同じ Bounded Context の中だけで数え、違う Bounded Context の同じ用語は別の区分に 1 回ずつ載せる", () => {
+  const entry = (id: string, term: string, contextId: string | null): GlossaryEntry => ({
+    id,
+    kind: "COMMAND",
+    scope: "PRESENTED",
+    term: { status: "GENERATED", term, label: term, recordKey: id },
+    implementation: { names: [], locations: [] },
+    sources: [],
+    contextId,
+    crossesTo: null,
+    termStatus: "CANDIDATE",
+    excerpt: null,
+  });
+  const gaps = recordGaps(
+    [
+      entry("A1", "Order", "CTX-a"),
+      entry("A2", "Order", "CTX-a"),
+      entry("B1", "Order", "CTX-b"),
+      entry("C1", "Ship", "CTX-a"),
+      entry("D1", "Ship", "CTX-b"),
+      entry("E1", "Pay", "CTX-a"),
+      entry("N1", "Order", null),
+    ],
+    [],
+    new Map(),
+  );
+  assert.deepEqual(gaps.sharedTerms, [{ term: "Order", contextId: "CTX-a", entryIds: ["A1", "A2"] }]);
+  assert.deepEqual(gaps.contextHomonyms, [
+    { term: "Order", entries: [{ entryId: "A1", contextId: "CTX-a" }, { entryId: "B1", contextId: "CTX-b" }] },
+    { term: "Ship", entries: [{ entryId: "C1", contextId: "CTX-a" }, { entryId: "D1", contextId: "CTX-b" }] },
+  ]);
 });

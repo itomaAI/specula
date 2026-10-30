@@ -80,8 +80,17 @@ export interface RunReport {
     notGenerated: { UNREACHABLE: number; INVALID_OUTPUT: number };
     /** 資料の数（読んだもの・先頭だけを読んだもの・読まなかったもの）。 */
     documents: { read: number; truncated: number; omitted: number };
-    /** ずれの種類ごとの件数（Glossary.gaps の 4 つ）。 */
-    gaps: { undocumentedEntries: number; unmatchedDocumentNames: number; sharedTerms: number; multiSourceEntries: number };
+    /**
+     * Glossary.gaps の区分ごとの件数。sharedTerms は Bounded Context ごとの組の数。
+     * contextHomonyms（Bounded Context ごとに意味が違う言葉）は DDD では正常なので、ずれとしては数えずに別に出す。
+     */
+    gaps: {
+      undocumentedEntries: number;
+      unmatchedDocumentNames: number;
+      sharedTerms: number;
+      contextHomonyms: number;
+      multiSourceEntries: number;
+    };
   };
   /** 意図の候補の要約（全体設計 2.1）。 */
   intents: {

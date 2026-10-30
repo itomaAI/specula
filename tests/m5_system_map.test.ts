@@ -52,11 +52,15 @@ async function glossaryOf(map: EventStormingMap, labels: Record<string, string>)
           : { status: "GENERATED", term: "Term", label, recordKey: `k:${id}` },
       implementation: { names: locations.map((location) => location.symbol!), locations },
       sources: [],
+      contextId: null,
+      crossesTo: null,
+      termStatus: label === undefined ? "NOT_GENERATED" : "CANDIDATE",
+      excerpt: null,
     };
   });
   return {
     entries,
-    gaps: { undocumentedEntries: [], unmatchedDocumentNames: [], sharedTerms: [], multiSourceEntries: [] },
+    gaps: { undocumentedEntries: [], unmatchedDocumentNames: [], sharedTerms: [], contextHomonyms: [], multiSourceEntries: [] },
     documents: { read: [], truncated: [], omitted: [] },
     basis: { mapHash: await mapHashOf(map), documentsHash: "0" },
   };

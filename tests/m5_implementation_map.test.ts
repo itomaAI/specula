@@ -31,7 +31,17 @@ const MAP: EventStormingMap = {
 const COMMAND_LOCATIONS: GlossaryLocation[] = [{ file: "src/order.ts", symbol: "closeOrder", line: 10 }];
 
 function recorded(id: string, kind: GlossaryEntry["kind"], names: string[]): GlossaryEntry {
-  return { id, kind, scope: "RECORDED", implementation: { names, locations: [] }, sources: [] };
+  return {
+    id,
+    kind,
+    scope: "RECORDED",
+    implementation: { names, locations: [] },
+    sources: [],
+    contextId: null,
+    crossesTo: null,
+    termStatus: null,
+    excerpt: null,
+  };
 }
 
 async function glossaryOf(map: EventStormingMap): Promise<Glossary> {
@@ -50,6 +60,10 @@ async function glossaryOf(map: EventStormingMap): Promise<Glossary> {
       term: { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" },
       implementation: { names: locations.map((location) => location.symbol as string), locations },
       sources: [],
+      contextId: null,
+      crossesTo: null,
+      termStatus: "NOT_GENERATED",
+      excerpt: null,
     };
   });
   // 状態変数との照合用: status はちょうど 1 項目、locked は 2 項目にある。retryCount はどこにも無い。
@@ -60,7 +74,7 @@ async function glossaryOf(map: EventStormingMap): Promise<Glossary> {
   );
   return {
     entries,
-    gaps: { undocumentedEntries: [], unmatchedDocumentNames: [], sharedTerms: [], multiSourceEntries: [] },
+    gaps: { undocumentedEntries: [], unmatchedDocumentNames: [], sharedTerms: [], contextHomonyms: [], multiSourceEntries: [] },
     documents: { read: [], truncated: [], omitted: [] },
     basis: { mapHash: await mapHashOf(map), documentsHash: "d".repeat(64) },
   };

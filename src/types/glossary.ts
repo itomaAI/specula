@@ -1,4 +1,6 @@
-// GlossaryBuilder（ユビキタス言語辞書）の出力の型（GlossaryBuilder の設計 4.1）。
+// GlossaryBuilder（ユビキタス言語辞書）の出力の型（GlossaryBuilder の設計 4.1・5.1）。
+
+import type { ConfirmationStatus } from "./index.js";
 
 /** 提示する項目（地図の要素）と、記録だけの項目（機械的に拾える実装の名前）の種類。 */
 export type EntryKind =
@@ -45,6 +47,31 @@ export interface GlossaryEntry {
   };
   /** 用語の手がかりにした節の識別子（選んだ順）。RECORDED では空。 */
   sources: string[];
+  /**
+   * 所属の Bounded Context（GlossaryBuilder の設計 5.1）。PRESENTED のときだけ値があり、RECORDED では null。
+   * Bounded Context の項目は自分自身。ポリシーは、反応するイベントの Bounded Context（全体マップのポリシーは所属を持たない）。
+   */
+  contextId: string | null;
+  /** またいでいる先の Bounded Context。起動するコマンドの Bounded Context が所属と違うポリシーだけが持つ。ほかは null。 */
+  crossesTo: string | null;
+  /** 用語の確定の状態。PRESENTED のときだけ値があり（NOT_GENERATED か CANDIDATE）、RECORDED では null。 */
+  termStatus: ConfirmationStatus | null;
+  /** 意味（資料の抜粋）。sources の先頭の節から機械的に切り出す。出どころが無いか、節に本文が無ければ null。 */
+  excerpt: GlossaryExcerpt | null;
+}
+
+/**
+ * 意味（資料の抜粋）。text は節の本文にある文字列そのもの（印や省略記号を足さない）。
+ * 切り出し方は GlossaryBuilder の設計 5.3。
+ */
+export interface GlossaryExcerpt {
+  text: string;
+  /** 抜粋を取った節の識別子（sources の先頭）。 */
+  source: string;
+  /** 上限で切ったとき true。 */
+  truncated: boolean;
+  /** 初回は常に CANDIDATE。 */
+  status: ConfirmationStatus;
 }
 
 export interface GlossaryGaps {
@@ -52,8 +79,13 @@ export interface GlossaryGaps {
   undocumentedEntries: string[];
   /** 資料のインラインコードのうち、どの項目の実装の名前とも一致しない識別子。 */
   unmatchedDocumentNames: Array<{ name: string; sections: string[] }>;
-  /** 同じ term が付いた提示する項目。 */
-  sharedTerms: Array<{ term: string; entryIds: string[] }>;
+  /** 同義の候補: 同じ Bounded Context の中で、同じ term が付いた提示する項目（設計 5.2）。 */
+  sharedTerms: Array<{ term: string; contextId: string; entryIds: string[] }>;
+  /**
+   * Bounded Context ごとに意味が違う言葉: 同じ term が 2 つ以上の Bounded Context に出るもの（設計 5.2）。
+   * entries は Bounded Context ごとに 1 項目（その Bounded Context の中で識別子の最も小さい項目）。ずれとしては数えない。
+   */
+  contextHomonyms: Array<{ term: string; entries: Array<{ entryId: string; contextId: string }> }>;
   /** 2 つ以上の資料から節が選ばれた提示する項目。 */
   multiSourceEntries: Array<{ entryId: string; documents: string[] }>;
 }
