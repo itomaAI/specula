@@ -31,6 +31,8 @@ export { LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
 export type { BridgeFetch, BridgeFetchResponse, LocalBridgeAlloyOptions } from "./adapters/LocalBridgeAlloyAdapter.js";
 export { IteraLlmAdapter, ITERA_AGENT_MODEL } from "./adapters/IteraLlmAdapter.js";
 export type { IteraLlmOptions, IteraLlmRequestFile, PostTask } from "./adapters/IteraLlmAdapter.js";
+export { readIteraRepository } from "./adapters/IteraRepositoryReader.js";
+export type { RepositorySource } from "./adapters/IteraRepositoryReader.js";
 
 // M0（ScenarioExtractor）
 export type {
