@@ -1,6 +1,6 @@
 # ContextExtractor 基本設計書
 
-本設計書は、実装事実抽出モジュールの仕様書（`01_context_extractor.spec.md`）に規定された多層システム事実抽出（UI・処理・バッチ・DBスキーマ）を、全体基本設計書（`system_solution.design.md`）の規約に準拠して**どのように技術的・構造的に実現するか（How）**を定義する。
+本設計書は、実装事実抽出モジュールの仕様書（`context_extractor.spec.md`）に規定された多層システム事実抽出（UI・処理・バッチ・DBスキーマ）を、全体基本設計書（`system_solution.design.md`）の規約に準拠して**どのように技術的・構造的に実現するか（How）**を定義する。
 
 ---
 
@@ -55,7 +55,7 @@ extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<Ra
 
 ## 2. 各部の詳細設計 (Detailed Design)
 
-構文解析はすべて `@babel/parser`（Plugins: `typescript`, `jsx`）で行う。外部バイナリやネイティブCLIを使わず、Node.js と Itera OS で同じに動く。AST の基本的な道具（子の列挙、識別子の名前、呼び出しの分類）は M0 のもの（`src/core/m0/ast.ts`・`signals.ts`）を使う。同じ規則を 2 か所に書かないためである。
+構文解析はすべて `@babel/parser`（Plugins: `typescript`, `jsx`）で行う。外部バイナリやネイティブCLIを使わず、Node.js と Itera OS で同じに動く。AST の基本的な道具（子の列挙、識別子の名前、呼び出しの分類）は ScenarioExtractor のもの（`src/core/m0/ast.ts`・`signals.ts`）を使う。同じ規則を 2 か所に書かないためである。
 
 ### 2.1 CallTracer（呼び出しの追跡）
 - **読み込み**: 追跡でたどり着いたファイルだけを `fs.read` で読み、パースした結果をその実行の中で使い回す。パースに失敗したら `SyntaxExtractionError`（ファイル・行・列・原因）を投げる。
@@ -67,7 +67,7 @@ extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<Ra
   - 見つからないときは `InletNotFoundError` を投げる。別の関数を起点にしない。
 - **たどる呼び出し**: 関数本体の呼び出し式のうち、呼び出し先を AST から関数の定義まで決められるものをたどり、`CALL` のユニットを作る。
   - 同じファイルで定義された関数。
-  - 相対パスの `import` で取り込んだ関数（再公開と名前空間の import を含む）。相対パスは M0 の解決と同じ候補の順（`.ts`・`.tsx`・`.js`・`.jsx` など）で `fs.exists` を確かめて決める。
+  - 相対パスの `import` で取り込んだ関数（再公開と名前空間の import を含む）。相対パスは ScenarioExtractor の解決と同じ候補の順（`.ts`・`.tsx`・`.js`・`.jsx` など）で `fs.exists` を確かめて決める。
 - **たどらない呼び出し**: 次は `EXTERNAL_CALL` として所在と理由（`details.reason`）を記録し、中へは入らない。追跡しなかった呼び出しは、すべてこのどれかになる。
 
 | 理由 | 対象 |
@@ -78,9 +78,9 @@ extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<Ra
 | `DYNAMIC` | 計算されたプロパティ名、動的 import |
 | `CONSTRUCTOR` | `new` の式 |
 
-- **入れ子の関数には入らない**: コールバックなどとして渡された関数の中はたどらない。その関数を受け取った呼び出しが `EXTERNAL_CALL` として残り、`args` に関数の原文が入るので、M2 はそれを手がかりに扱いを決められる。入れ子の関数の中の書き込みが、実行されるか分からないまま経路に入るのを避けるためである。
+- **入れ子の関数には入らない**: コールバックなどとして渡された関数の中はたどらない。その関数を受け取った呼び出しが `EXTERNAL_CALL` として残り、`args` に関数の原文が入るので、FormalTranspiler はそれを手がかりに扱いを決められる。入れ子の関数の中の書き込みが、実行されるか分からないまま経路に入るのを避けるためである。
 - **再帰と重複**: 関数は `<ファイル>#<関数名>` で識別する。いま追跡している関数の並び（呼び出しの積み重ね）に同じ関数があれば、その場で `RECURSION` として記録して止まる。追跡した関数は 1 度だけ解析し、その要約（3.3）を使い回す。
-- **非同期境界**: イベントの発行（`emit`・`dispatch`・`publish` など）を M0 と同じ規則（`classifyCall`）で見つけたら、`ASYNC_CUT` として記録し、受け手の処理へは入らない。初回の実装では `ASYNC_CUT` を出口にせず、経路の途中のユニットとして残す。メッセージキューや DB イベントトリガーの発火点の判定は、TriggerAnalyzer と合わせて後で足す。
+- **非同期境界**: イベントの発行（`emit`・`dispatch`・`publish` など）を ScenarioExtractor と同じ規則（`classifyCall`）で見つけたら、`ASYNC_CUT` として記録し、受け手の処理へは入らない。初回の実装では `ASYNC_CUT` を出口にせず、経路の途中のユニットとして残す。メッセージキューや DB イベントトリガーの発火点の判定は、TriggerAnalyzer と合わせて後で足す。
 
 ### 2.2 UIAnalyzer (フロントエンド構文・視覚解析)
 初回の実装では作っていない（2.6）。次の設計は、作るときの方針として残す。
@@ -102,7 +102,7 @@ CallTracer がたどった各関数に対して動く。画面を持たないシ
 - **分岐 (`BRANCH_CONDITION`)**: `if`・`switch` の各 `case`・ループ（`while`・`for`・`for…of`・`for…in`）・`try`/`catch`。条件の式は原文のまま持つ（意味づけしない）。式の中の短絡評価（`a && f()`）と三項演算子は、初回の実装では分岐として分けない。
 - **出口**: `return`（`RETURN`）と `throw`（`THROW`）。関数の終わりまで来た経路には、関数の閉じかっこの位置に暗黙の `RETURN`（`details.implicit: true`）を置く。呼び出し先の関数の `throw` で、呼び出し元が `catch` しないものは、起点の出口として扱う。
 - **API**: ルート定義（`app.get`, `app.post`, `httpsCallable`, Next.js route handlers）からHTTPメソッドとパスを `API_ENDPOINT` として抽出し、リクエストバリデーション（zod, Joi, 型定義）から入力パラメータを抽出する。初回の実装では作っていない（2.6）。
-- **データ変更 (`DATA_MUTATION`)**: ORM メソッド、Firestore SDK 操作など。M0 と同じ規則（`classifyCall`）で見つける。
+- **データ変更 (`DATA_MUTATION`)**: ORM メソッド、Firestore SDK 操作など。ScenarioExtractor と同じ規則（`classifyCall`）で見つける。
 
 ### 2.4 TriggerAnalyzer (非同期バッチ・イベントトリガー解析)
 初回の実装では作っていない（2.6）。
@@ -145,7 +145,7 @@ CallTracer がたどった各関数に対して動く。画面を持たないシ
 
 - **ループ**: 中身を 1 回通るものとして扱う。`for…of`・`for…in` の条件のユニットは、繰り返す対象の式を原文で持つ。`details.loop` に種類（`WHILE`・`FOR`・`FOR_OF`・`FOR_IN`）を書く。`do…while` は必ず中身に入るので、条件のユニットを作らない。`break`・`continue` はその枝の終わりとして扱う。
 - **`switch`**: `case` ごとに枝として扱う（式の形は 4 の表）。`details.switchCase` に `CASE` か `DEFAULT` を書く。次の `case` へ落ちる形は、初回の実装ではその `case` の中身だけを見る。`break` で抜けた経路と、`switch` の中の `continue` は、`switch` の後へ続くものとして扱う。
-- **`try…catch`**: `try` の中の `throw` と、`try` の中で呼んだ関数から伝わる `throw` は出口にしない（`catch` へ行く）。`try` の中の `throw` は `THROW` のユニット（`details.caught: true`）として残す。`catch` の枝の条件のユニットは、式を `"catch"` とし、`details.branch` を `"CATCH"` にする（M2 は構文木にできない式を命題として扱う）。`catch` に入る経路には、`try` の中で `throw` の前に通ったユニットを含める。`catch` の無い `try…finally` の中の `throw` は出口にする。`finally` はそのまま続けてたどる。
+- **`try…catch`**: `try` の中の `throw` と、`try` の中で呼んだ関数から伝わる `throw` は出口にしない（`catch` へ行く）。`try` の中の `throw` は `THROW` のユニット（`details.caught: true`）として残す。`catch` の枝の条件のユニットは、式を `"catch"` とし、`details.branch` を `"CATCH"` にする（FormalTranspiler は構文木にできない式を命題として扱う）。`catch` に入る経路には、`try` の中で `throw` の前に通ったユニットを含める。`catch` の無い `try…finally` の中の `throw` は出口にする。`finally` はそのまま続けてたどる。
 - **関数の終わり**: 関数の終わりまで来た経路は、暗黙の `RETURN` を出口にする（2.3）。
 - **入れ子の関数**: 中の `return`・`throw` は出口にしない。中へは入らない（2.1）。
 
@@ -159,7 +159,7 @@ CallTracer がたどった各関数に対して動く。画面を持たないシ
 - 呼ばれた関数の `catch` されない `throw` は、呼び出した側の出口になる。条件は、呼び出しまでの経路の条件に、呼ばれた関数の中の条件を足したものである。呼び出しが `catch` のある `try` の中にあるときは、出口にせずに `catch` へ行く経路にする。
 - それ以外の経路のユニットは、呼び出しの位置に経路の順で入れる（重複は除く）。入れるのは `CALL`・`STATE_WRITE`・`DATA_MUTATION`・`EXTERNAL_CALL`・`ASYNC_CUT`・`RECURSION` だけで、呼ばれた関数の中の条件と出口は入れない。経路の組み合わせでスライスを増やさないためである。その代わりに、書き込みの `details.guard` に、呼ばれた関数の中でその書き込みに至る条件を合成して付ける。
 - `details.guard` の合成: その関数の中で書き込みに至る条件（経路の条件と、いま中にいる枝の条件）をすべて集め、重複を除く。1 つならその式と側を、2 つ以上なら `(a) && !(b)` の形の式にして `guardHolds: true` にする。起点の関数でも、呼ばれた関数でも同じ規則にする。`if (a) { if (b) return; x = 1 }` の `!(b)` のように、枝を戻すときに経路の条件が落ちる形でも、書き込みの条件が消えないためである。このため、`guard` がスライスの条件と重なることがある。
-- `details.guardTerms` は、同じ条件を `BRANCH_CONDITION` のユニットの識別子と側の組で、経路の条件 → いま中にいる枝の条件の順に並べたもの。重複は識別子と側の組で除く（`guard` は式と側で除くので、同じ式の条件が 2 か所にあると、`guardTerms` のほうが項が多くなる）。M2 はこれを使い、命題と状態変数の識別子を条件のユニットからそろえる。
+- `details.guardTerms` は、同じ条件を `BRANCH_CONDITION` のユニットの識別子と側の組で、経路の条件 → いま中にいる枝の条件の順に並べたもの。重複は識別子と側の組で除く（`guard` は式と側で除くので、同じ式の条件が 2 か所にあると、`guardTerms` のほうが項が多くなる）。FormalTranspiler はこれを使い、命題と状態変数の識別子を条件のユニットからそろえる。
 
 ### 3.4 因果接続
 UI 側の API 呼び出しと処理側のエンドポイントパスを突合してリンクし、データ変更とスキーマのエンティティ定義を突合してリンクする。突合できないものは、リンクを作らずにそのまま残す。初回の実装では UI・API・スキーマの解析を作っていないので、因果接続も作っていない。
@@ -172,7 +172,7 @@ UI 側の API 呼び出しと処理側のエンドポイントパスを突合し
 
 ### 3.6 エラーハンドリング
 - 構文解析エラーが起きたら、推測や不完全なパース結果を返さず、ファイル・行・列・原因を含む `SyntaxExtractionError` を投げる（Fail-Fast）。
-- オーケストレーターはこれと `InletNotFoundError` を受け止め、そのシナリオを「M1 で止まった」と理由付きで実行の報告に残して、ほかのシナリオの処理を続ける。
+- オーケストレーターはこれと `InletNotFoundError` を受け止め、そのシナリオを「ContextExtractor で止まった」と理由付きで実行の報告に残して、ほかのシナリオの処理を続ける。
 
 ---
 
@@ -223,12 +223,12 @@ interface RawContextModel {
 ```
 
 - 層（`layer`）は種類から決める。`OPERATION`・`INTERFACE_TEXT` は `UI`、`DATA_MUTATION`・`SCHEMA_ENTITY` は `DATABASE`、`ASYNC_CUT` は `ASYNC_TRIGGER`、それ以外は `LOGIC` である。
-- `details` に置く項目（M2 が使うもの。式はすべて原文のまま）:
+- `details` に置く項目（FormalTranspiler が使うもの。式はすべて原文のまま）:
 
 | 種類 | 項目 |
 | :-- | :-- |
-| `STATE` | `initial`: 初期値の式（最上位の変数で初期値があるときだけ。ほかは `null`）、`scope`: 状態変数の区切り（`MODULE`: 最上位の `let`・`var`、`CLASS`: `this.x`、`PARAMETER`: 引数のプロパティ）、`owner`: 区切りの持ち主（`MODULE` は `null`、`CLASS` はクラス名（クラスの外の `this.x` は関数の名前）、`PARAMETER` は関数の名前）。`componentScope` は最初に書き込んだ関数の名前で、区切りとは一致しないため、M2 は名前の照合に `scope` と `owner` を使う |
-| `STATE_WRITE` | `target`: 書き込む `STATE` の識別子、`expression`: 代入の式（`x++` などは式全体）、`guard`: その関数の中で書き込みに至る条件を合成した式（3.3。無ければ `null`。人が読むためのもの）、`guardHolds`: その側、`guardTerms`: 同じ条件を構造で持つもの（`[{ "unitId": <BRANCH_CONDITION の識別子>, "holds": <側> }]` を JSON にした文字列。条件が無ければ `"[]"`）。M2 は `guardTerms` を使う。条件の式に `catch` や `for…of` の対象のような、式として読めないものが入るためである |
+| `STATE` | `initial`: 初期値の式（最上位の変数で初期値があるときだけ。ほかは `null`）、`scope`: 状態変数の区切り（`MODULE`: 最上位の `let`・`var`、`CLASS`: `this.x`、`PARAMETER`: 引数のプロパティ）、`owner`: 区切りの持ち主（`MODULE` は `null`、`CLASS` はクラス名（クラスの外の `this.x` は関数の名前）、`PARAMETER` は関数の名前）。`componentScope` は最初に書き込んだ関数の名前で、区切りとは一致しないため、FormalTranspiler は名前の照合に `scope` と `owner` を使う |
+| `STATE_WRITE` | `target`: 書き込む `STATE` の識別子、`expression`: 代入の式（`x++` などは式全体）、`guard`: その関数の中で書き込みに至る条件を合成した式（3.3。無ければ `null`。人が読むためのもの）、`guardHolds`: その側、`guardTerms`: 同じ条件を構造で持つもの（`[{ "unitId": <BRANCH_CONDITION の識別子>, "holds": <側> }]` を JSON にした文字列。条件が無ければ `"[]"`）。FormalTranspiler は `guardTerms` を使う。条件の式に `catch` や `for…of` の対象のような、式として読めないものが入るためである |
 | `BRANCH_CONDITION` | `expression`: 条件の式。`switch` は `case` ごとに 1 つのユニットとし、`<対象> === <case の値>` の形で持つ（`default` は、ほかの `case` のどれでもないこととして、各 `case` の式を `!==` にして `&&` でつないだ形。ほかの `case` が無ければ `true`）。加えて、ループなら `loop`（`WHILE`・`FOR`・`FOR_OF`・`FOR_IN`）、`switch` なら `switchCase`（`CASE`・`DEFAULT`）、`catch` なら `branch: "CATCH"`（式は `"catch"`） |
 | `RETURN` | `implicit`: 関数の終わりに置いた暗黙の `RETURN` なら `true`、`expression`: 返す式（無ければ `null`） |
 | `THROW` | `caught`: `catch` のある `try` の中なら `true`（出口にしない）、`expression`: 投げる式 |
@@ -236,7 +236,7 @@ interface RawContextModel {
 | `EXTERNAL_CALL`・`RECURSION` | `callee`・`args`・`receiver`（`CALL` と同じ）、`reason`: たどらなかった理由（2.1 の表。`RECURSION` は `"RECURSION"`） |
 | `DATA_MUTATION`・`ASYNC_CUT` | `callee`・`args`・`receiver`（`CALL` と同じ） |
 
-- 既存の型からの変更: `intent` を外した（`ScenarioTarget` が持つ）。`entryPoint` を `inlet` にした（起点の所在を持つ）。`UseCaseSlice` の `precondition`・`outcome`（文字列）を、条件の一覧と出口に分けた。`isAsyncCutEnforced` は `ASYNC_CUT` のユニットで表すので外した。
+- 既存の型からの変更: `intent` を外した（当時は `ScenarioTarget` が持った。2026-10-30 からは `IntentSynthesizer` の出力が持つ）。`entryPoint` を `inlet` にした（起点の所在を持つ）。`UseCaseSlice` の `precondition`・`outcome`（文字列）を、条件の一覧と出口に分けた。`isAsyncCutEnforced` は `ASYNC_CUT` のユニットで表すので外した。
 - 初回の実装での変更: 種類に `CALL` を足した（`unitIds` の「呼び出し」に当たる種類が一覧に無かったため）。`unresolved` の各項目に `unitId` を足した。`coverage` を足した（2.6）。スライスの識別子の形を変えた（3.5）。
 
 ---
@@ -253,6 +253,6 @@ interface RawContextModel {
 - `ASYNC_CUT` は出口にしない。応答（`RESPONSE`）の出口は作らない。
 - UI・API・トリガー・スキーマの解析と、因果接続は作っていない（2.6、3.4）。
 
-M2 に引き継ぐこと（M2 の書き直しで扱う）:
-- `EXTERNAL_EFFECT` の条件に、「メソッドの受け手（`receiver`）が状態変数か `this`」を足す。メソッドの呼び出しによる状態の変更（`list.push(...)` など）は、M1 では `STATE_WRITE` にならず `EXTERNAL_CALL` として残るためである。
+FormalTranspiler に引き継ぐこと（FormalTranspiler の書き直しで扱う）:
+- `EXTERNAL_EFFECT` の条件に、「メソッドの受け手（`receiver`）が状態変数か `this`」を足す。メソッドの呼び出しによる状態の変更（`list.push(...)` など）は、ContextExtractor では `STATE_WRITE` にならず `EXTERNAL_CALL` として残るためである。
 - 構文木にできない条件の式（`"catch"` など）は命題として扱う。
