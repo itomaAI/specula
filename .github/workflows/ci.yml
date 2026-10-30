@@ -53,3 +53,18 @@ jobs:
           path: ${{ runner.temp }}/self
           if-no-files-found: warn
       - run: npm run build:itera
+      # Itera OS（ブラウザ）では node: のモジュールを読めない。bundle に静的な import が残っていたら落とす。
+      - name: bundle に node: の静的な import が無いことを確かめる
+        run: |
+          if grep -nE '^import .* from "node:' dist/specula.itera.js; then
+            echo "dist/specula.itera.js に node: の静的な import がある" >&2
+            exit 1
+          fi
+      - name: Itera OS 版（bundle と起動アプリ）を成果物として残す
+        uses: actions/upload-artifact@v4
+        with:
+          name: specula-itera
+          path: |
+            dist/specula.itera.js
+            itera/specula.html
+          if-no-files-found: error

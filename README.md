@@ -38,11 +38,11 @@ The core never touches the runtime environment directly. It talks to three ports
 | Port | What it does | Node.js / CI adapter | Itera OS adapter |
 | :--- | :--- | :--- | :--- |
 | `FileSystemPort` | Reads and writes text files | `NodeFsAdapter` (`node:fs`) | `IteraVfsAdapter` (`MetaOS.fs`, passed in by the launcher) |
-| `LanguageModelPort` | Asks an LLM for names, paraphrases, and sentences | `ClaudeCodeCli` (planned) | `IteraLlm` (planned) |
-| `SolverPort` | Runs Alloy 6 as an external process | `CliAlloy` (Alloy 6.2.0 command line via `java`) | `LocalBridgeAlloy` (returns UNREACHABLE until the bridge endpoint is decided) |
+| `LanguageModelPort` | Asks an LLM for names, paraphrases, and sentences | `ClaudeCodeCli` (planned; the command line only replays records for now) | `IteraLlmAdapter` (hands each request to the Itera OS agent as an internal task and waits for the answer file) |
+| `SolverPort` | Runs Alloy 6 as an external process | `CliAlloyAdapter` (Alloy 6.2.0 command line via `java`) | `LocalBridgeAlloyAdapter` (runs `java` on the user's machine through the Itera Local Bridge `/api/exec`) |
 
-- **LLM output is recorded.** `RecordingLanguageModel` wraps a real LLM client. It stores each output under `llm-records/<sha256 of task, prompt version and input>.json` and reuses it on the next run, so a run can be repeated without calling the LLM again. Outputs that never arrived or failed the shape check are not recorded; the result says "not generated" instead of being filled with a guess.
-- **The core modules M0–M5 are being rewritten one at a time** (see `docs/design/`). This stage contains only the shared foundation: the ports, the LLM recording, and the build.
+- **LLM output is recorded.** `RecordingLanguageModel` wraps a real LLM client. It stores each output under `<out>/llm_records/<sha256 of task, prompt version and input>.json` and reuses it on the next run, so a run can be repeated without calling the LLM again. Outputs that never arrived or failed the shape check are not recorded; the result says "not generated" instead of being filled with a guess.
+- **The core modules M0–M5 follow the designs in `docs/design/`.** They were rewritten one module at a time, and the orchestrator (`runPipeline`) connects them. The command line and the Itera OS launcher only assemble adapters and write the outputs.
 
 ---
 
@@ -58,10 +58,39 @@ npm test            # node --test on dist/tests
 npm run build:itera # bundle for Itera OS → dist/specula.itera.js
 ```
 
-`dist/` is not committed. CI (GitHub Actions) runs the type check, the build, and the tests on every push and pull request.
+`dist/` is not committed. CI (GitHub Actions) runs the type check, the build, and the tests on every push and pull request. It also runs specula on itself (artifact `specula-self`) and keeps the Itera OS bundle and launcher (artifact `specula-itera`).
 
 ---
 
-## 4. License
+## 4. Running
+
+### Command line (Node.js)
+
+```sh
+node dist/src/cli.js <repository dir> --out <output dir> [--alloy-jar <alloy jar>] [--records <llm records dir>]
+```
+
+Without `--alloy-jar`, verification (M3) is skipped and reported as unverified (`NO_SOLVER`). Exit codes: `0` the run finished (findings and ambiguities still give 0), `1` the environment failed, `2` wrong arguments.
+
+### Itera OS
+
+The launcher `itera/specula.html` builds the Itera adapters and runs the same pipeline. Put `dist/specula.itera.js` (from `npm run build:itera` or the `specula-itera` CI artifact) and `itera/specula.html` in the VFS, then spawn the launcher with these arguments:
+
+| Argument | Required | Meaning |
+| :--- | :--- | :--- |
+| `repo` | yes | VFS directory of the repository to analyse |
+| `out` | yes | VFS directory for the outputs |
+| `bundle` | yes | VFS path of `specula.itera.js` |
+| `jar` | no | Path of the Alloy 6.2.0 jar **on the user's machine**. Without it, M3 is skipped (`NO_SOLVER`) |
+| `java` | no | `java` command on the user's machine (default `java`) |
+| `connection` | no | Name of the Local Bridge connection (`connections[].name` in the `local_bridge` config). Default: the first enabled one |
+
+- **LLM requests go to the Itera OS agent.** Each request is written to `<out>/llm_exchange/<key>.request.json` and handed to the agent with `MetaOS.ai.task`; the launcher waits (up to 5 minutes per request) for `<out>/llm_exchange/<key>.answer.txt`. Answers that pass the shape check are recorded in `<out>/llm_records`, so a second run asks nothing. An answer that failed the check is not recorded, but its file stays and is read again on the next run; delete that answer file to ask again.
+- **Verification uses the Local Bridge.** The machine needs Java 17 or later, the Alloy jar, and `bash`, `mktemp` and `base64` (Linux, macOS or WSL). When the connection's `execMode` is `ask`, the launcher asks once before the run; if you decline, M3 is skipped. A model larger than about 100 KB after encoding is not sent and is reported as unreachable.
+- The outputs have the same layout as the command line: `run_report.json`, `system_map.mmd`, `system_map.json`, and `scenarios/<id>/…`.
+
+---
+
+## 5. License
 
 MIT License © 2026 itomaAI
