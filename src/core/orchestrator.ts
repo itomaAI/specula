@@ -11,10 +11,15 @@ import { InletNotFoundError, SyntaxExtractionError } from "../types/context.js";
 import { SolverContractError } from "../types/solver.js";
 import type { VerificationOutcome } from "../types/ledger.js";
 import { LedgerContractError } from "../types/ledger.js";
-import { ProjectionContractError, type ProjectionContext, type ViewRole } from "../types/projection.js";
+import {
+  ProjectionContractError,
+  type ProjectionContext,
+  type SystemProjectionRequest,
+  type ViewRole,
+} from "../types/projection.js";
 import type { Glossary } from "../types/glossary.js";
 import type { IntentCatalog } from "../types/intent.js";
-import type { RepositoryArtifacts, ScenarioTarget } from "../types/scenario.js";
+import type { EventStormingMap, RepositoryArtifacts, ScenarioTarget } from "../types/scenario.js";
 import type {
   PipelineDeps,
   PipelineOptions,
@@ -24,6 +29,8 @@ import type {
   ScenarioRunBase,
   ScenarioRunResult,
   StoppedStage,
+  SystemMapBundle,
+  SystemMapJson,
 } from "../types/run.js";
 import { discoverSystemContext, sliceScenarios } from "./scenario_extractor.js";
 import { buildGlossary } from "./glossary_builder.js";
@@ -92,9 +99,10 @@ export async function runPipeline(
   const glossary = await buildGlossary(map, repo, { llm: deps.llm });
   const sliced = sliceScenarios(map, options.selection);
   const intents = await synthesizeIntents(map, sliced, glossary, repo, { llm: deps.llm });
+  // system_map.mmd は level を省いた 1 枚の図、system_map.json は地図 1・地図 2 を束ねたもの（全体設計 4.1）。
   const systemViews = {
     mermaid: await projectSystemMap(map, glossary, intents, { format: "SYSTEM_MERMAID", viewRole }),
-    json: await projectSystemMap(map, glossary, intents, { format: "SYSTEM_JSON", viewRole }),
+    json: await bundleSystemMaps(map, glossary, intents, viewRole),
   };
 
   const inputs: ProjectionInputs = { glossary, intents, viewRole };
@@ -287,4 +295,31 @@ function totalsOf(results: readonly ScenarioRunResult[]): RunReport["totals"] {
     }
   }
   return { completed, ambiguous, stopped, ambiguity, verification };
+}
+
+/**
+ * 俯瞰図の JSON を束ねる（全体設計 4.1）。地図 1 と、全体マップの Bounded Context の順に地図 2（足す要素なし・あり）。
+ * basis は辞書の basis を写す。SpecProjector の俯瞰図の JSON は元にした全体マップと資料のハッシュを持たないため。
+ * Bounded Context の表示の id は地図 2 の Bounded Context のノードから取り、番号の振り方を SpecProjector の 1 箇所に保つ。
+ */
+async function bundleSystemMaps(
+  map: EventStormingMap,
+  glossary: Glossary,
+  intents: IntentCatalog,
+  viewRole: ViewRole,
+): Promise<SystemMapBundle> {
+  const project = async (request: Omit<SystemProjectionRequest, "format" | "viewRole">): Promise<SystemMapJson> => {
+    const view = await projectSystemMap(map, glossary, intents, { format: "SYSTEM_JSON", viewRole, ...request });
+    return JSON.parse(view.content) as SystemMapJson;
+  };
+  const contextMap = await project({ level: "CONTEXT_MAP" });
+  const details: SystemMapBundle["details"] = [];
+  for (const boundedContext of map.boundedContexts) {
+    const core = await project({ level: "CONTEXT_DETAIL", contextId: boundedContext.id });
+    const supporting = await project({ level: "CONTEXT_DETAIL", contextId: boundedContext.id, includeSupporting: true });
+    const id = core.nodes.find((node) => node["kind"] === "BOUNDED_CONTEXT")?.["id"];
+    if (typeof id !== "string") throw new Error("地図 2 に Bounded Context のノードが無い");
+    details.push({ context: id, core, supporting });
+  }
+  return { viewRole, basis: glossary.basis, contextMap, details };
 }

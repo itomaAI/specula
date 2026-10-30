@@ -6,9 +6,11 @@ import assert from "node:assert/strict";
 
 import { displayIdsOf, runPipeline } from "../src/core/orchestrator.js";
 import { discoverSystemContext, sliceScenarios } from "../src/core/scenario_extractor.js";
+import { projectSystemMap } from "../src/core/spec_projector.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
 import type { EngineInfo, SolverPort, SolverResponse } from "../src/ports/SolverPort.js";
+import type { SystemProjectionRequest } from "../src/types/projection.js";
 import type { RepositoryArtifacts } from "../src/types/scenario.js";
 
 class MemoryFs implements FileSystemPort {
@@ -200,7 +202,25 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   assert.ok(!ambiguous.view.content.includes("src/g.ts"));
 
   assert.equal(result.systemViews.mermaid.mediaType, "text/vnd.mermaid");
-  assert.equal(result.systemViews.json.mediaType, "application/json");
+  // system_map.json: 地図 1 と、Bounded Context ごとの地図 2（足す要素なし・あり）を束ね、辞書の basis を写す（全体設計 4.1）。
+  const maps = result.systemViews.json;
+  assert.equal(maps.viewRole, "PdM");
+  assert.deepEqual(maps.basis, result.glossary.basis);
+  const projected = async (request: Omit<SystemProjectionRequest, "format" | "viewRole">): Promise<unknown> =>
+    JSON.parse(
+      (await projectSystemMap(result.map, result.glossary, result.intents, { format: "SYSTEM_JSON", viewRole: "PdM", ...request })).content,
+    );
+  assert.deepEqual(maps.contextMap, await projected({ level: "CONTEXT_MAP" }));
+  assert.deepEqual(maps.details.map((detail) => detail.context), ["c1"]);
+  const detail = maps.details[0];
+  assert.ok(detail !== undefined);
+  assert.deepEqual(detail.core, await projected({ level: "CONTEXT_DETAIL", contextId: "DEFAULT_CONTEXT" }));
+  assert.deepEqual(
+    detail.supporting,
+    await projected({ level: "CONTEXT_DETAIL", contextId: "DEFAULT_CONTEXT", includeSupporting: true }),
+  );
+  const supportingKinds = new Set(["ACTOR", "READ_MODEL", "AGGREGATE"]);
+  assert.ok(detail.core.nodes.every((node) => !supportingKinds.has(String(node["kind"]))));
 
   // 実装との対応表: シナリオは表示の id の順。曖昧さは止まったシナリオの分、状態変数と論点は最後まで進んだシナリオの分だけ。
   const entries = result.implementationMap.entries;
@@ -257,6 +277,7 @@ test("同じ入力から同じ報告とビューができる", async () => {
   const second = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(second.report, first.report);
   assert.equal(second.systemViews.mermaid.content, first.systemViews.mermaid.content);
+  assert.deepEqual(second.systemViews.json, first.systemViews.json);
   const a = first.scenarios[0];
   const b = second.scenarios[0];
   assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");

@@ -394,7 +394,7 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
   - ポリシーの所属は GlossaryBuilder の設計 5.1 と同じ規則で、全体マップから求める。反応するイベントの Bounded Context に所属し、起動するコマンドの Bounded Context が違えば「またいでいる」。
   - またぐポリシーは、両方の Bounded Context の地図 2 に出す。JSON のポリシーのノードに `crossing: { from: "cN", to: "cM" }` を置き（またがないポリシーは `null`）、Mermaid では文の後ろに「（cN から cM へまたぐ）」と足す。地図 2 のつながりは、両端がその地図 2 にあるものだけを描く。相手の Bounded Context の要素は出さない。
   - 番号（`c1`・`n1`）は、階層と `includeSupporting` によらず全体マップの並びで振る（8.8 と同じ）。イベント・コマンド・ポリシーの順に振ったあと、アクター・リードモデル・アグリゲートの順に続けて振る。地図 1・地図 2・対応表で、同じ要素が同じ番号になるようにするためである。対応表（8.5）にアクター・リードモデル・アグリゲートの行は無い。
-  - `level` を省いたときは、今の 1 枚の俯瞰図（4.4）を出す。オーケストレーターの書き出しを地図 1・地図 2 に変えるのは次の変更（オーケストレーターと `writeOutputs`）で行うので、それまで今の呼び出しを壊さないためである。
+  - `level` を省いたときは、今の 1 枚の俯瞰図（4.4）を出す。オーケストレーターは、Mermaid ではこの 1 枚の図を `system_map.mmd` に書き、JSON では地図 1 と Bounded Context ごとの地図 2（足す要素なし・あり）を `system_map.json` に束ねる（全体設計 4.1）。
   - 求めた `contextId` が無いか全体マップに無いときは、`ProjectionContractError` の理由 `UNKNOWN_CONTEXT` で止める。`level` が上の 2 つのどれでもないときは `UNSUPPORTED_FORMAT` にする。
 - **地図 2 に足す要素（実装した）**: `SystemProjectionRequest` に `includeSupporting?: boolean`（既定 `false`）を足した。`true` のとき、地図 2 にアクター・リードモデル・アグリゲートとそのつながりを足す。`CONTEXT_DETAIL` 以外で `true` を渡したときは `UNSUPPORTED_FORMAT` にする（黙って無視しない）。
   - これらの要素は辞書の用語を持たないので（GlossaryBuilder 仕様 1.2）、ノードの文は「〈種類〉 nN」（例: 「アクター n5」）とし、実装の名前で埋めない。用語を付けるかは、画面で使ってみてから決める。

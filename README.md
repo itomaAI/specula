@@ -88,7 +88,7 @@ The launcher `itera/specula.html` builds the Itera adapters and runs the same pi
 
 - **LLM requests go to the Itera OS agent.** Each request is written to `<out>/llm_exchange/<key>.request.json` and handed to the agent with `MetaOS.ai.task`; the launcher waits (up to 5 minutes per request) for `<out>/llm_exchange/<key>.answer.txt`. Answers that pass the shape check are recorded in `<out>/llm_records`, so a second run asks nothing. An answer that failed the check is not recorded, but its file stays and is read again on the next run; delete that answer file to ask again.
 - **Verification uses the Local Bridge.** The machine needs Java 17 or later, the Alloy jar, and `bash`, `mktemp` and `base64` (Linux, macOS or WSL). When the connection's `execMode` is `ask`, the launcher asks once before the run; if you decline, M3 is skipped. A model larger than about 100 KB after encoding is not sent and is reported as unreachable.
-- The outputs have the same layout as the command line: `run_report.json`, `system_map.mmd`, `system_map.json`, `glossary.json`, `intents.json`, `implementation_map.json` (from the display ids such as `S-01` to the internal ids and the implementation), and `scenarios/<internal id>/…` (`ambiguity.json` and `ambiguity.md` for a scenario stopped by ambiguities).
+- The outputs have the same layout as the command line: `run_report.json`, `system_map.mmd` (one overview diagram), `system_map.json` (map 1, and map 2 for each bounded context with and without the supporting elements), `glossary.json`, `intents.json`, `implementation_map.json` (from the display ids such as `S-01` to the internal ids and the implementation), and `scenarios/<internal id>/…` (`ambiguity.json` and `ambiguity.md` for a scenario stopped by ambiguities).
 
 ---
 

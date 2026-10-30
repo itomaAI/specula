@@ -32,7 +32,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | ファイル | 使う画面 |
 | :--- | :--- |
 | `run_report.json` | シナリオ一覧・シナリオの詳細・仕様不備一覧 |
-| `system_map.json`（俯瞰図。地図 1・地図 2 の元） | 全体地図 |
+| `system_map.json`（俯瞰図。地図 1 と、Bounded Context ごとの地図 2 を足す要素なし・ありの 2 通りで束ねたもの。全体設計 4.1） | 全体地図 |
 | `glossary.json` | 用語辞典、ほかの画面の用語のポップアップ |
 | `intents.json` | シナリオ一覧・シナリオの詳細・全体地図 |
 | シナリオごとの `spec.md`・`matrix.md`・`flow.mmd`・`spec.als` | シナリオの詳細 |
@@ -209,6 +209,6 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **画面の実行環境**: 起動アプリ（Itera OS の app）を先に作る。Node.js で使う場合（静的な HTML を書き出すなど）の形は決めていない。
 - **出力に足す必要があるもの**（仕様 1.2 により、画面の側では補わない。足すのは出力を作るモジュールとオーケストレーター）:
   - ~~**実行の報告の `basis`**~~: 2026-10-31 に足した（全体設計 2.1）。`run_report.json` は辞書の `basis` を写すので、`checkRunOutputs` は辞書・意図の候補・実装との対応表・実行の報告の 4 つがそろっていることを確かめられる（仕様 3.1）。
-  - **俯瞰図の `basis`**: 俯瞰図の JSON（`system_map.json`）の中身は、元にした全体マップと資料のハッシュを持たない（`SpecificationView.basis` は形式仕様正本と論点カタログのためのもので、俯瞰図では `null`）。このままでは、俯瞰図だけが別の実行のものでも確かめられない。地図 1・地図 2 の書き出し方を決めるとき（次の項）に、一緒に足す。
-  - **地図 1・地図 2 と、地図 2 の足す要素を含む版**: `writeOutputs`（`src/lib/write_outputs.ts`）は俯瞰図を `system_map.json` の 1 つだけ書く。SpecProjector 基本設計 8.9 の形にしたあとは、地図 1（`CONTEXT_MAP`）、Bounded Context ごとの地図 2（`CONTEXT_DETAIL`）、3.4 の切り替えのための `includeSupporting: true` の版を書き出す必要がある。ファイルを分けるか、1 つの JSON の中で階層や足す要素に印を付けるかは、実装のときに決める。
+  - ~~**俯瞰図の `basis`**~~: 2026-10-31 に足した（全体設計 4.1）。`system_map.json` の最上位に、辞書の `basis` を写した `basis` を置く。SpecProjector の俯瞰図の JSON そのものは今もハッシュを持たないので、オーケストレーターが束ねるときに付ける。
+  - ~~**地図 1・地図 2 と、地図 2 の足す要素を含む版**~~: 2026-10-31 に、`system_map.json` を 1 つの JSON に束ねる形にした（全体設計 4.1）。中身は `{ viewRole, basis, contextMap, details: [{ context, core, supporting }] }` で、`context` は Bounded Context の表示の id（`c1` …）、`core` は足す要素なし、`supporting` は足す要素ありの地図 2 である。3.4 の切り替えは `core` と `supporting` を入れ替えて行う。`system_map.mmd` は今の 1 枚の図のまま残す。
   - ~~**シナリオの起点の種類・アクター・画面のルート・期待イベント**~~: 2026-10-31 に、実行の報告のシナリオの行に `inletType`・`actor`・`route`・`expectedEvent` を足した（全体設計 2.1）。3.2 の冒頭はこれを使う。

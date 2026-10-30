@@ -158,6 +158,8 @@ export type {
   ScenarioRunBase,
   ScenarioRunResult,
   StoppedStage,
+  SystemMapBundle,
+  SystemMapJson,
 } from "./types/run.js";
 export { runPipeline } from "./core/orchestrator.js";
 // 入口（コマンドラインと Itera OS の起動アプリ）が使う共通の関数。
