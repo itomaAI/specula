@@ -55,18 +55,19 @@ interface IntentCatalog {
   contexts: Array<{
     contextId: string;
     intent: LlmText;
-    intentStatus: "CANDIDATE" | "CONFIRMED";
+    intentStatus: ConfirmationStatus;            // GlossaryBuilder 基本設計 5.1 の型を共有する
   }>;                                            // contextId の辞書順
   scenarios: Array<{
     scenarioId: string;
     intent: LlmText;
-    intentStatus: "CANDIDATE" | "CONFIRMED";
+    intentStatus: ConfirmationStatus;
     userIntent?: string;                         // ScenarioTarget.userIntent をそのまま写す
   }>;                                            // scenarioId の辞書順
   basis: { mapHash: string; documentsHash: string }; // 元にした辞書の basis をそのまま写す
 }
 ```
 - `intentStatus` は、初回の実行ではすべて `CANDIDATE`。`CONFIRMED` にするのは、2 回目以降の実行で前回の合意結果を受け取る処理であり、初回の範囲外である。
+- **2026-10-31 の変更（まだ実装していない）**: `intentStatus` の型を、用語などと共有する `ConfirmationStatus`（`NOT_GENERATED`・`CANDIDATE`・`CONFIRMED`・`NEEDS_RECHECK`。GlossaryBuilder 基本設計 5.1）にした。`intent` が `NOT_GENERATED` の欄は `intentStatus` も `NOT_GENERATED` にし、書けた欄は `CANDIDATE` にする。本モジュールが `CONFIRMED` と `NEEDS_RECHECK` を書くことはない（確定の操作が無いため）。今のコードは「`intent` が未生成でも `CANDIDATE`」なので、実装のときに合わせる。
 - 2026-10-30 の時点で、意図を読む後段のモジュールは無い（`ScenarioExtractor` が出していたときも、読むものは無かった）。表示に使うかどうかは、全体基本設計書の表示の節で決める。`ContextExtractor`・`FormalTranspiler`・`FormalSolver`・`LedgerSynthesizer` は意図を使わない。
 
 ---

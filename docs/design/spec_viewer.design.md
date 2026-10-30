@@ -32,7 +32,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | ファイル | 使う画面 |
 | :--- | :--- |
 | `run_report.json` | シナリオ一覧・シナリオの詳細・仕様不備一覧 |
-| 俯瞰図（地図 1・地図 2 の JSON）と全体マップ | 全体地図 |
+| `system_map.json`（俯瞰図。地図 1・地図 2 の元） | 全体地図 |
 | `glossary.json` | 用語辞典、ほかの画面の用語のポップアップ |
 | `intents.json` | シナリオ一覧・シナリオの詳細・全体地図 |
 | シナリオごとの `spec.md`・`matrix.md`・`flow.mmd`・`spec.als` | シナリオの詳細 |
@@ -85,8 +85,8 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | 表示の id・シナリオの名前・Bounded Context | `run_report.json`・辞書 | |
 | 意図の候補 | `intents.json` | 確定の状態の印。未生成ならその理由 |
 | 利用者が書いた目的 | `userIntent` | 利用者が定義したシナリオで、目的があるときだけ |
-| 起点の種類 | `COMMAND` または `POLICY` | 「操作」「反応」と書く |
-| アクター・画面のルート・期待イベント | ScenarioTarget | 画面を持たないシステムでは画面のルートは無い |
+| 起点の種類 | `COMMAND` または `POLICY` | 「操作」「反応」と書く。**今の出力に無い**（7 節） |
+| アクター・画面のルート・期待イベント | `ScenarioTarget` | 画面を持たないシステムでは画面のルートは無い。**今の出力に無い**（7 節） |
 | 検証の状態 | `ledger.json` の検証の状態 | 論点より前に置く |
 | 検査の範囲 | 固定の文 | 「このシナリオだけを検査した。ほかのシナリオとの矛盾は見ていない」 |
 | 論点の件数 | `ledger.json` | 仕様不備一覧へのリンク |
@@ -207,3 +207,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 ## 7. 残っている課題
 - **横断の不備の一覧をファイルとしても出すか**: 今の出力はシナリオごとのファイルだけである。LLM に読ませる用途があるので、ファイルとして出すなら、作るのはオーケストレーターか SpecProjector になる（仕様 1.2 の「画面だけが持つ情報を作らない」）。
 - **画面の実行環境**: 起動アプリ（Itera OS の app）を先に作る。Node.js で使う場合（静的な HTML を書き出すなど）の形は決めていない。
+- **出力に足す必要があるもの**（仕様 1.2 により、画面の側では補わない。足すのは出力を作るモジュールとオーケストレーター）:
+  - **実行の報告の `basis`**: `run_report.json` は元の全体マップと資料のハッシュを持たない。辞書・意図の候補・実装との対応表・俯瞰図は `basis` を持つので、`checkRunOutputs` はこの 4 つが一致することだけを確かめられる（仕様 3.1）。実行の報告にも `basis` を足せば、5 つがそろう。
+  - **地図 1・地図 2 と、地図 2 の足す要素を含む版**: `writeOutputs`（`src/lib/write_outputs.ts`）は俯瞰図を `system_map.json` の 1 つだけ書く。SpecProjector 基本設計 8.9 の形にしたあとは、地図 1（`CONTEXT_MAP`）、Bounded Context ごとの地図 2（`CONTEXT_DETAIL`）、3.4 の切り替えのための `includeSupporting: true` の版を書き出す必要がある。ファイルを分けるか、1 つの JSON の中で階層や足す要素に印を付けるかは、実装のときに決める。
+  - **シナリオの起点の種類・アクター・画面のルート・期待イベント**: `run_report.json` のシナリオの行は、表示の id・Bounded Context・状態・件数だけを持つ。3.2 の冒頭のこれらの項目を出すには、実行の報告のシナリオの行に足す必要がある。足すまでは、この項目を出さない。
