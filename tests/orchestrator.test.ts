@@ -147,7 +147,8 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   assert.equal(ambiguous.view.format, "AMBIGUITY_DOCUMENT");
   assert.equal(ambiguous.view.displayId, "S-02");
   assert.ok(ambiguous.view.content.startsWith("# S-02"), ambiguous.view.content);
-  assert.ok(ambiguous.view.content.includes("### S-02-A-003"));
+  // PdM の曖昧さの一覧は合計だけ（SpecProjector の設計 8.9）。表示の id は対応表に残る（下）
+  assert.ok(ambiguous.view.content.includes("エンジニアの確認待ち: 3 件"), ambiguous.view.content);
   assert.ok(!ambiguous.view.content.includes("src/g.ts"));
 
   assert.equal(result.systemViews.mermaid.mediaType, "text/vnd.mermaid");

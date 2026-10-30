@@ -39,6 +39,11 @@ export function renderDocument(model: ViewModel): string {
   const lines: string[] = [];
 
   lines.push(`# 仕様書: ${mdLine(model.title)}${model.titleNote}`, "");
+  // 確定の状態（設計 8.9）。候補の印は個々の項目に付けず、ここに 1 回だけ書く。
+  lines.push(
+    "この文書の表示名と用語は、人が確かめていない候補である。人が確定したものには「（確定）」、確定のあとで元の資料やコードが変わったものには「（要再確認）」を付けた。",
+    "",
+  );
   if (model.ledgerIsStale === true) {
     lines.push("> 注意: この論点カタログは、いまの形式仕様正本とは別の版から作った。論点は古い版について見つかったものである。", "");
   }

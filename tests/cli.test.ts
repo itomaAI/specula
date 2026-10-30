@@ -164,7 +164,10 @@ test("曖昧さで止まったシナリオは ambiguity.json と曖昧さの一�
       assert.ok(await isFile(join(dir("pdm"), "ambiguity.json")));
       const pdm = await readFile(join(dir("pdm"), "ambiguity.md"), "utf8");
       const eng = await readFile(join(dir("eng"), "ambiguity.md"), "utf8");
-      assert.ok(pdm.includes(`${scenario.displayId}-A-001`));
+      // PdM は「エンジニアの確認待ち: N 件」だけ、Eng は曖昧さごとに表示の id と所在を書く（SpecProjector の設計 8.9）
+      assert.ok(pdm.includes("エンジニアの確認待ち: "));
+      assert.ok(!pdm.includes(`${scenario.displayId}-A-001`));
+      assert.ok(eng.includes(`${scenario.displayId}-A-001`));
       assert.ok(!pdm.includes("src/g.ts"));
       assert.ok(eng.includes("src/g.ts"));
     },
