@@ -40,8 +40,8 @@ function isPresented(entry: GlossaryEntry): entry is Presented {
   return entry.scope === "PRESENTED" && PRESENTED_KINDS.has(entry.kind);
 }
 
-/** 辞書の項目の id → 表示の id（"c1"・"n1"）。対応表が無ければ null。 */
-function displayIdsOf(map: ImplementationMap | null): Map<string, string> | null {
+/** 辞書の項目の id → 表示の id（"c1"・"n1"）。対応表が無ければ null。全体地図（map.ts）も同じ表で引く。 */
+export function displayIdsOf(map: ImplementationMap | null): Map<string, string> | null {
   if (map === null) return null;
   const result = new Map<string, string>();
   for (const row of map.entries) {

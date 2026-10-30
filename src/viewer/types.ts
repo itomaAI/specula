@@ -366,3 +366,88 @@ export interface GlossaryView {
   sections: GlossaryContextSectionView[];
   gaps: GlossaryGapsView | null;
 }
+
+// ---- 全体地図（設計 3.4・6.10） ----
+// 元は system_map.json（SpecProjector の俯瞰図の JSON を束ねたもの）。要素は俯瞰図の表示の id（"c1"・"n1"）で指す。
+// 地図の識別子（内部の識別子）は JSON にも無く、ビューモデルにも入れない。
+
+/** 地図の要素の種類（俯瞰図の JSON の kind）。 */
+export type MapNodeKind = "BOUNDED_CONTEXT" | "EVENT" | "COMMAND" | "POLICY" | "ACTOR" | "READ_MODEL" | "AGGREGATE";
+
+/** 地図のつながりの種類。地図 1 は "POLICY"（またぐポリシー）だけ、地図 2 はそれ以外（俯瞰図の JSON の kind）。 */
+export type MapEdgeKind = "POLICY" | "EMITS" | "AFTER" | "TRIGGERS" | "INVOKES" | "EXECUTES" | "VIEWED_FROM" | "RAISES";
+
+/** 要素を選んだときのポップアップ（設計 3.4・6.10）。持たないものは null。 */
+export interface MapPopupView {
+  /**
+   * 用語・確定の状態・意味。用語辞典の項目（buildGlossaryView）を表示の id で引いたもの。
+   * またぎの文は要素の crossing で持つので、ここでは null にしてある。
+   * アクター・リードモデル・アグリゲートは辞書の項目を持たないので null。
+   */
+  entry: GlossaryEntryView | null;
+  /** 辞書の項目を持つ種類なのに entry を引けなかったときの理由。ほかは null。 */
+  entryNote: string | null;
+  /** Bounded Context だけ: 意図の候補の文と確定の状態の印。候補が無ければ「意図の候補が無い」。 */
+  intent: string | null;
+  /** Bounded Context だけ: 属するシナリオの数。 */
+  scenarioCount: number | null;
+  /** コマンドとポリシーだけ: その要素を起点にしたシナリオの表示の id（"S-01"）。 */
+  scenarios: string[] | null;
+  /** intent・scenarioCount・scenarios を引けなかったときの理由（実装との対応表が無いとき）。ほかは null。 */
+  lookupNote: string | null;
+}
+
+/** 地図の要素 1 つ。 */
+export interface MapNodeView {
+  /** 俯瞰図の表示の id（"c1"・"n1"）。 */
+  displayId: string;
+  kind: MapNodeKind;
+  /** 俯瞰図の JSON の label（種類の前置きが入った文。未生成なら「（名前は未生成）」）。 */
+  label: string;
+  /** 地図 2 のまたぐポリシーだけ: またいでいる 2 つの Bounded Context の表示の id。ほかは null。 */
+  crossing: { from: string; to: string } | null;
+  /** 壊れた印（JSON の broken が null でなければ true）。初回は常に false。 */
+  broken: boolean;
+  /** 実装の名前と所在。画面の役割が Eng で、JSON にあるときだけ。 */
+  implementation: { names: string[]; locations: GlossaryLocation[] } | null;
+  popup: MapPopupView;
+}
+
+/** 地図のつながり 1 つ。from・to は同じ地図の nodes の並びの位置。 */
+export interface MapEdgeView extends GraphEdge {
+  kind: MapEdgeKind;
+  /** 地図 2 は「発生させる」など（俯瞰図と同じ文）。地図 1 はまたぐポリシーの文（JSON の label）。 */
+  text: string;
+  /** 地図 1 だけ: またぐポリシーの表示の id（地図 2 の要素を指す）。地図 2 は null。 */
+  policy: string | null;
+  broken: boolean;
+}
+
+/** 地図 1 枚。layout は nodes と edges を layoutLayers で層に並べたもの。 */
+export interface MapGraphView {
+  nodes: MapNodeView[];
+  edges: MapEdgeView[];
+  layout: GraphLayout;
+}
+
+/** 1 つの Bounded Context の地図 2。core と supporting は描く側が切り替える（設計 3.4）。 */
+export interface ContextDetailMapView {
+  /** 箱の題にする Bounded Context（JSON の先頭のノード）。層には入れない。 */
+  context: MapNodeView;
+  /** 足す要素なし。 */
+  core: MapGraphView;
+  /** アクター・リードモデル・アグリゲートを足したもの。 */
+  supporting: MapGraphView;
+}
+
+/** 全体地図（設計 3.4・6.10）。俯瞰図が無いか形が違えば、理由だけを持つ（画面全体は止めない）。 */
+export type MapView =
+  | {
+      kind: "OK";
+      /** Bounded Context が 1 つだけなら true（描く側は地図 2 から開く）。 */
+      startWithDetail: boolean;
+      contextMap: MapGraphView;
+      /** 地図 1 の Bounded Context の順。 */
+      details: ContextDetailMapView[];
+    }
+  | { kind: "UNAVAILABLE"; reason: string };
