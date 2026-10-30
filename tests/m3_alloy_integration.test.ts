@@ -186,38 +186,40 @@ test("M1 → M2 → M3 → M4: 真偽値の例は論点 0 件で、「スコー�
   assert.deepEqual(catalog.issues, []);
 });
 
-const COUNTER_SOURCE = [
-  "let count = 0;",
-  "export function increment() {",
-  "  count = count + 1;",
-  '  return "incremented";',
+// 条件の旗がどこでも true にならないので、旗が立っているときの出口には届かない。
+const UNREACHABLE_SOURCE = [
+  "let locked = false;",
+  "export function read() {",
+  "  if (locked) {",
+  '    return "locked";',
+  "  }",
+  '  return "read";',
   "}",
 ];
 
-test("M1 → M2 → M3 → M4: 数え上げの例は、あふれの手前で行き詰まり、未定義遷移とデッドロックが 1 つの論点になる", { skip }, async (t) => {
-  const facts = await extractContext(target("src/c.ts", "increment"), { fs: new MemoryFs({ "src/c.ts": COUNTER_SOURCE.join("\n") }) });
+test("M1 → M2 → M3 → M4: 届かない出口のある例は、到達できない操作が 1 件で 1 つの論点になる", { skip }, async (t) => {
+  const facts = await extractContext(target("src/r.ts", "read"), { fs: new MemoryFs({ "src/r.ts": UNREACHABLE_SOURCE.join("\n") }) });
   const result = await transpileFormal(facts, {});
   if (result.kind !== "SPEC") assert.fail(`SPEC ではない: ${JSON.stringify(result)}`);
-  const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 10 });
-  t.diagnostic(`counter checks: ${JSON.stringify(report.checks)}`);
-  t.diagnostic(`counter findings: ${JSON.stringify(report.findings.map((finding) => [finding.kind, finding.trace?.at(-1)?.values ?? null]))}`);
+  const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 3 });
+  t.diagnostic(`unreachable checks: ${JSON.stringify(report.checks.map((check) => [check.id, check.result]))}`);
 
   assert.equal(report.status, "CHECKED", JSON.stringify(report.reason));
-  const cover = report.findings.findIndex((finding) => finding.kind === "UNHANDLED_TRANSITION");
-  const deadlock = report.findings.findIndex((finding) => finding.kind === "DEADLOCK");
-  assert.notEqual(cover, -1);
-  assert.notEqual(deadlock, -1);
+  assert.deepEqual(
+    report.findings.map((finding) => finding.kind),
+    ["UNREACHABLE_OPERATION"],
+  );
 
   const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
   assert.equal(catalog.verification.outcome, "FOUND");
-  const issue = catalog.issues.find((item) => item.rootFinding === deadlock);
-  assert.ok(issue !== undefined, "デッドロックを本体にした論点が無い");
-  assert.equal(issue.kind, "DEADLOCK");
-  assert.ok(issue.dependentFindings.includes(cover), "未定義遷移がデッドロックに従属していない");
-  const covered = catalog.issues.flatMap((item) => [item.rootFinding, ...item.dependentFindings]).sort((a, b) => a - b);
-  assert.deepEqual(covered, report.findings.map((_, index) => index));
-  for (const item of catalog.issues) {
-    assert.equal(item.decision, null);
-    assert.equal(item.claim.status, "NOT_GENERATED");
-  }
+  assert.equal(catalog.basis.findingCount, 1);
+  assert.equal(catalog.issues.length, 1);
+  const issue = catalog.issues[0];
+  assert.equal(issue?.kind, "UNREACHABLE_OPERATION");
+  assert.equal(issue?.rootFinding, 0);
+  assert.deepEqual(issue?.dependentFindings, []);
+  assert.equal(issue?.trace, null);
+  assert.deepEqual(issue?.operations, report.findings[0]?.operations);
+  assert.equal(issue?.decision, null);
+  assert.equal(issue?.claim.status, "NOT_GENERATED");
 });
