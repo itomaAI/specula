@@ -164,7 +164,7 @@ Markdown で、次の順に節を置く。
 - ノードの文は、辞書でその要素の項目を引いた `term.label` とする（8.2）。用語が未生成の要素は、全体マップの id を出さずに「〈種類〉 nN（名前は未生成）」と書く（7.6）。
 - `subgraph` の題も、辞書で `BOUNDED_CONTEXT` の項目を引いた `term.label` とする。いまの実装は `DEFAULT_CONTEXT` のような実装の名前を題に出しているので、これをやめる。用語が未生成なら「Bounded Context cN（名前は未生成）」と書く（`cN` は Bounded Context の並び順に振る）。
 - 表示の役割が Eng のときは、ノードの文の後ろに「 / 〈ファイル〉#〈関数〉」を足す（8.3）。PdM のときは足さない。
-- `SYSTEM_JSON` は `{ nodes: [{ id, kind, label, context, intent, implementation }], edges: [{ from, to, kind }] }` の形にする（DAG Viewer で読むため）。`intent` は IntentSynthesizer の候補の文（`intents.contexts[].intent` が `GENERATED` のときの文）で、Bounded Context のノードだけに置く。候補が無いか未生成なら `null` にし、ほかの種類のノードには置かない。シナリオの意図の候補は俯瞰図に載せず、シナリオごとの仕様書（4.1）に書く。俯瞰図は `ScenarioTarget` を受け取らず、起点 1 つが複数のシナリオに分かれることもあるので、コマンドのノードに意図を 1 つ決められないためである（8.6）。`implementation` は表示の役割が Eng のときだけ置き（`{ names, locations }`。辞書の項目の `implementation` を写す）、PdM のときはキーごと置かない。キーの並びと配列の並びは決まった順にする。
+- `SYSTEM_JSON` は `{ nodes: [{ id, kind, label, context, intent, broken, implementation }], edges: [{ from, to, kind, broken }] }` の形にする（DAG Viewer で読むため。`broken` は 2026-10-31 に足した壊れた印の欄で、初回は常に `null`。地図 1・地図 2 の形は 8.9）。`intent` は IntentSynthesizer の候補の文（`intents.contexts[].intent` が `GENERATED` のときの文）で、Bounded Context のノードだけに置く。候補が無いか未生成なら `null` にし、ほかの種類のノードには置かない。シナリオの意図の候補は俯瞰図に載せず、シナリオごとの仕様書（4.1）に書く。俯瞰図は `ScenarioTarget` を受け取らず、起点 1 つが複数のシナリオに分かれることもあるので、コマンドのノードに意図を 1 つ決められないためである（8.6）。`implementation` は表示の役割が Eng のときだけ置き（`{ names, locations }`。辞書の項目の `implementation` を写す）、PdM のときはキーごと置かない。キーの並びと配列の並びは決まった順にする。
 
 ---
 
@@ -182,6 +182,9 @@ interface ProjectionRequest {
 interface SystemProjectionRequest {
   format: "SYSTEM_MERMAID" | "SYSTEM_JSON";
   viewRole: ViewRole;
+  level?: "CONTEXT_MAP" | "CONTEXT_DETAIL"; // 省くと今の 1 枚の俯瞰図（8.9）
+  contextId?: string;                     // CONTEXT_DETAIL のときの Bounded Context（全体マップの id。出力には出さない）
+  includeSupporting?: boolean;            // CONTEXT_DETAIL のときだけ。アクター・リードモデル・アグリゲートを足す（既定 false）
 }
 
 interface ProjectionContext {
@@ -284,10 +287,11 @@ interface SpecificationView {
 - `subgraph` への振り分けは、要素の `contextId` で行う。
 
 ### 7.7 入力の契約
-`ProjectionContractError` の理由は次の 5 つにした（1.2 の 2 つに 2 つを足し、2026-10-30 に辞書の照合の 1 つを足した）。
+`ProjectionContractError` の理由は次の 6 つにした（1.2 の 2 つに 2 つを足し、2026-10-30 に辞書の照合の 1 つを、2026-10-31 に地図 2 の Bounded Context の 1 つを足した）。
 | 理由 | 起きるとき |
 | :-- | :-- |
-| `UNSUPPORTED_FORMAT` | 表現形式が関数の受け付けるものでない。`projectSpecification` は `DOCUMENT`・`MATRIX`・`FLOW`、`projectAmbiguities` は `AMBIGUITY_DOCUMENT`、`projectSystemMap` は `SYSTEM_MERMAID`・`SYSTEM_JSON`（仕様 3.1）。表示の役割が `PdM`・`Eng` のどちらでもないときも、この理由にする |
+| `UNSUPPORTED_FORMAT` | 表現形式が関数の受け付けるものでない。`projectSpecification` は `DOCUMENT`・`MATRIX`・`FLOW`、`projectAmbiguities` は `AMBIGUITY_DOCUMENT`、`projectSystemMap` は `SYSTEM_MERMAID`・`SYSTEM_JSON`（仕様 3.1）。表示の役割が `PdM`・`Eng` のどちらでもないとき、俯瞰図の `level` が `CONTEXT_MAP`・`CONTEXT_DETAIL` のどちらでもないとき、`CONTEXT_DETAIL` 以外で `includeSupporting` が `true` のときも、この理由にする（8.9） |
+| `UNKNOWN_CONTEXT` | `projectSystemMap` の `CONTEXT_DETAIL` で、`contextId` が無いか、全体マップに無い Bounded Context を指す（8.9） |
 | `SCENARIO_MISMATCH` | `ledger.scenarioId` が `spec.scenarioId` と違う。2026-10-30 から、`context.scenario.id` が `spec.scenarioId`（曖昧さの一覧では `report.scenarioId`）と違うときも、この理由にする |
 | `UNKNOWN_OPERATION` | 論点が `spec` に無い操作の識別子を指す |
 | `UNKNOWN_STATE_VARIABLE` | 論点の実行列の値が `spec` に無い状態変数を指す。表示名を引けなくなるため（LedgerSynthesizer の契約と同じ） |
@@ -381,16 +385,23 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
   - 論点が `spec` に無い操作を指す: `UNKNOWN_OPERATION`
 - **オーケストレーター**: 対応表は、俯瞰図と同じくシナリオごとの段の外で 1 回だけ作り、`PipelineResult.implementationMap` に入れる。最後まで進んだシナリオには `spec` と `ledger` を、曖昧さで止まったシナリオには `ambiguity` を渡し、ほかの段で止まったシナリオはシナリオの項目だけになる。契約のエラーは実行全体を止める。ファイルへの書き出し（`implementation_map.json`。CLI と起動アプリ）は、まだ行っていない。
 
-### 8.9 画面の仕様に合わせて変えること（2026-10-31。まだ実装していない）
+### 8.9 画面の仕様に合わせて変えること（2026-10-31。俯瞰図の 3 項目は実装した。ほかはまだ実装していない）
 仕様 1.1・2.1 の変更（俯瞰図の 2 階層、地図 2 の切り替え、壊れた印の欄、検査の範囲、確定の状態、曖昧さの質問の例外）を、次の形で実装する。画面の仕様は `spec_viewer.spec.md` にある。
 
-- **俯瞰図の階層**: `SystemProjectionRequest` に `level: "CONTEXT_MAP" | "CONTEXT_DETAIL"` と、`CONTEXT_DETAIL` のときの `contextId` を足す。
-  - `CONTEXT_MAP`（地図 1）: Bounded Context のノード（`c1`…）と、Bounded Context をまたぐポリシーのつながりだけを出す。つながりは、ポリシーが反応するイベントの Bounded Context から、起動するコマンドの Bounded Context へ向ける。
-  - `CONTEXT_DETAIL`（地図 2）: 1 つの Bounded Context の中のコマンド・イベント・ポリシーとそのつながりを出す。今の俯瞰図の `subgraph` 1 つ分に当たる。またぐポリシーは、両方の Bounded Context の地図 2 に出し、「またいでいる」印を付ける。
-  - 番号（`c1`・`n1`）は、階層によらず全体マップの並びで振る（8.8 と同じ）。地図 1 と地図 2 で、同じ要素が同じ番号になるようにするためである。
-  - 今の 1 枚の俯瞰図（4.4）は、`level` を省いたときの形として残すかを、実装のときに決める。
-- **地図 2 に足す要素**: `SystemProjectionRequest` に `includeSupporting: boolean`（既定 `false`）を足す。`true` のとき、全体マップのアクター・リードモデル・アグリゲートとそのつながりを足す。これらの要素は辞書の用語を持たないので（GlossaryBuilder 仕様 1.2）、ノードの文は「〈種類〉 nN」とし、実装の名前で埋めない。用語を付けるかは、画面で使ってみてから決める。
-- **壊れた印の欄**: 俯瞰図の JSON のノードとつながりに `broken: null` を足す。初回は常に `null` である。中身の形（何が、なぜ壊れているか）は、判定を作るときに決める。Mermaid の出力には、`null` のあいだは何も足さない。
+- **俯瞰図の階層（実装した）**: `SystemProjectionRequest` に `level?: "CONTEXT_MAP" | "CONTEXT_DETAIL"` と、`CONTEXT_DETAIL` のときの `contextId`（全体マップの Bounded Context の id）を足した。
+  - `CONTEXT_MAP`（地図 1）: Bounded Context のノード（`c1`…）と、Bounded Context をまたぐポリシーのつながりだけを出す。つながりは、ポリシーが反応するイベントの Bounded Context から、起動するコマンドの Bounded Context へ向ける。またぐポリシー 1 つにつながり 1 本（種類 `POLICY`）とし、つながりにポリシーの番号（`policy: "nN"`）と文（`label`）を持たせる。Mermaid では `c1 -->|ポリシー: 〈表示名〉| c2` と書く。
+  - `CONTEXT_DETAIL`（地図 2）: 1 つの Bounded Context の中のイベント・コマンド・ポリシーとそのつながりを、その Bounded Context の `subgraph` 1 つにまとめて出す。今の俯瞰図の `subgraph` 1 つ分に当たる。
+  - ポリシーの所属は GlossaryBuilder の設計 5.1 と同じ規則で、全体マップから求める。反応するイベントの Bounded Context に所属し、起動するコマンドの Bounded Context が違えば「またいでいる」。
+  - またぐポリシーは、両方の Bounded Context の地図 2 に出す。JSON のポリシーのノードに `crossing: { from: "cN", to: "cM" }` を置き（またがないポリシーは `null`）、Mermaid では文の後ろに「（cN から cM へまたぐ）」と足す。地図 2 のつながりは、両端がその地図 2 にあるものだけを描く。相手の Bounded Context の要素は出さない。
+  - 番号（`c1`・`n1`）は、階層と `includeSupporting` によらず全体マップの並びで振る（8.8 と同じ）。イベント・コマンド・ポリシーの順に振ったあと、アクター・リードモデル・アグリゲートの順に続けて振る。地図 1・地図 2・対応表で、同じ要素が同じ番号になるようにするためである。対応表（8.5）にアクター・リードモデル・アグリゲートの行は無い。
+  - `level` を省いたときは、今の 1 枚の俯瞰図（4.4）を出す。オーケストレーターの書き出しを地図 1・地図 2 に変えるのは次の変更（オーケストレーターと `writeOutputs`）で行うので、それまで今の呼び出しを壊さないためである。
+  - 求めた `contextId` が無いか全体マップに無いときは、`ProjectionContractError` の理由 `UNKNOWN_CONTEXT` で止める。`level` が上の 2 つのどれでもないときは `UNSUPPORTED_FORMAT` にする。
+- **地図 2 に足す要素（実装した）**: `SystemProjectionRequest` に `includeSupporting?: boolean`（既定 `false`）を足した。`true` のとき、地図 2 にアクター・リードモデル・アグリゲートとそのつながりを足す。`CONTEXT_DETAIL` 以外で `true` を渡したときは `UNSUPPORTED_FORMAT` にする（黙って無視しない）。
+  - これらの要素は辞書の用語を持たないので（GlossaryBuilder 仕様 1.2）、ノードの文は「〈種類〉 nN」（例: 「アクター n5」）とし、実装の名前で埋めない。用語を付けるかは、画面で使ってみてから決める。
+  - アクターとリードモデルは、その Bounded Context のコマンドとつながるものだけを出す。アクターからコマンドへ「実行する」（`EXECUTES`）、リードモデルからコマンドへ「この画面から操作する」（`VIEWED_FROM`）とつなぐ。Mermaid では `subgraph` の外に置く。
+  - アグリゲートは、全体マップに独立した要素が無く、イベントの `aggregate` にだけ書かれている。そこで、Bounded Context と `aggregate` の組ごとに 1 つのアグリゲートとし、Bounded Context の id、`aggregate` の順に並べて番号を振る。アグリゲートからイベントへ「起こす」（`RAISES`）とつなぐ。Mermaid では `subgraph` の中に置く。
+  - 役割が `Eng` のときの `implementation`（8.3）: アクターとリードモデルは、辞書に同じ id・同じ種類の項目があればその `implementation` を写し、無ければ全体マップの名前だけ（所在は空）にする。アグリゲートは `aggregate` の名前だけにする。文（`label`）は役割で変えない。
+- **壊れた印の欄（実装した）**: 俯瞰図の JSON のノードとつながりに `broken: null` を足した（3 つの形すべて）。初回は常に `null` である。中身の形（何が、なぜ壊れているか）は、判定を作るときに決める。Mermaid の出力には、`null` のあいだは何も足さない。JSON のノードのキーは `id`・`kind`・`label`・`context`・`intent`（Bounded Context だけ）・`crossing`（地図 2 のポリシーだけ）・`broken`・`implementation`（Eng のときだけ）の順にする。
 - **検査の範囲**: 仕様書の検証の状態の節に、固定の文「検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。」を書く。実行の概要（`run_report.json`）に同じ内容を持たせるのはオーケストレーターである（全体設計 2.1 の `inspectionScope`）。
 - **確定の状態**: 表示名・用語・意図の候補・論点の文に、記録された `ConfirmationStatus`（GlossaryBuilder 基本設計 5.1）に応じた印を付ける。ただし、仕様書の中の表示名すべてに「（候補）」を付けると読みにくくなるので、案として、次のようにする。
   - 文書の冒頭に「この文書の表示名と用語は、人が確かめていない候補である」と 1 回書き、個々の項目には付けない。ただし、状態が違う項目（確定・要再確認・未生成）だけには個別に印を付ける。
