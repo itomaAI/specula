@@ -34,9 +34,18 @@ export interface AmbiguityProjectionRequest {
   displayId: string;
 }
 
+/** 俯瞰図の階層（SpecProjector の設計 8.9）。地図 1 は Bounded Context のつながり、地図 2 は 1 つの Bounded Context の中。 */
+export type SystemMapLevel = "CONTEXT_MAP" | "CONTEXT_DETAIL";
+
 export interface SystemProjectionRequest {
   format: SystemViewFormat;
   viewRole: ViewRole;
+  /** 省くと今の 1 枚の俯瞰図（設計 4.4）。 */
+  level?: SystemMapLevel;
+  /** CONTEXT_DETAIL のときの Bounded Context（全体マップの id）。出力には出さない。 */
+  contextId?: string;
+  /** CONTEXT_DETAIL のときだけ。アクター・リードモデル・アグリゲートとそのつながりを足す（既定 false）。 */
+  includeSupporting?: boolean;
 }
 
 /** シナリオの射影で、表示の用語と意図の候補を引くための入力（M5 の設計 5）。 */
@@ -128,7 +137,9 @@ export class ProjectionContractError extends Error {
       // 表現形式が関数の受け付けるものでない。表示の役割が PdM・Eng のどちらでもないときも、この理由にする
       | "UNSUPPORTED_FORMAT"
       // 辞書の basis.mapHash が、受け取った全体マップのハッシュと違う（SpecProjector の設計 7.7・8.1）
-      | "GLOSSARY_STALE",
+      | "GLOSSARY_STALE"
+      // 俯瞰図の地図 2 で、contextId が無いか、全体マップに無い Bounded Context を指す（SpecProjector の設計 8.9）
+      | "UNKNOWN_CONTEXT",
     readonly detail: string,
   ) {
     super(`M5 の入力の契約が破れている（${scenarioId}）: ${reason}: ${detail}`);

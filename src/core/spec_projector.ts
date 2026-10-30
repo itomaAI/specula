@@ -28,7 +28,7 @@ import { renderAmbiguities } from "./m5/render_ambiguities.js";
 import { renderDocument } from "./m5/render_document.js";
 import { renderFlow } from "./m5/render_flow.js";
 import { renderMatrix } from "./m5/render_matrix.js";
-import { renderSystemJson, renderSystemMermaid } from "./m5/render_system.js";
+import { renderSystemJson, renderSystemMermaid, type SystemRenderOptions } from "./m5/render_system.js";
 import { buildViewModel } from "./m5/view_model.js";
 
 export async function projectSpecification(
@@ -95,7 +95,30 @@ export async function projectAmbiguities(
 }
 
 /**
- * 全体マップと辞書から俯瞰図を作る（設計 4.4）。
+ * 俯瞰図の request の階層の指定を確かめ、描画の指定にする（設計 7.7・8.9）。
+ * - level が CONTEXT_MAP・CONTEXT_DETAIL・省略のどれでもない: UNSUPPORTED_FORMAT
+ * - CONTEXT_DETAIL 以外で includeSupporting が true: UNSUPPORTED_FORMAT（黙って無視しない）
+ * - CONTEXT_DETAIL で contextId が無いか、全体マップに無い: UNKNOWN_CONTEXT
+ */
+function systemRenderOptions(map: EventStormingMap, request: SystemProjectionRequest): SystemRenderOptions {
+  const level = request.level ?? null;
+  if (level !== null && level !== "CONTEXT_MAP" && level !== "CONTEXT_DETAIL") {
+    throw new ProjectionContractError("(system)", "UNSUPPORTED_FORMAT", `俯瞰図の階層: ${String(level)}`);
+  }
+  const includeSupporting = request.includeSupporting === true;
+  if (includeSupporting && level !== "CONTEXT_DETAIL") {
+    throw new ProjectionContractError("(system)", "UNSUPPORTED_FORMAT", "includeSupporting は CONTEXT_DETAIL のときだけ使える");
+  }
+  if (level !== "CONTEXT_DETAIL") return { viewRole: request.viewRole, level, contextId: null, includeSupporting: false };
+  const contextId = request.contextId;
+  if (contextId === undefined || !map.boundedContexts.some((context) => context.id === contextId)) {
+    throw new ProjectionContractError("(system)", "UNKNOWN_CONTEXT", `contextId: ${String(contextId)}`);
+  }
+  return { viewRole: request.viewRole, level, contextId, includeSupporting };
+}
+
+/**
+ * 全体マップと辞書から俯瞰図を作る（設計 4.4・8.9）。
  * 辞書が別の全体マップから作られていたら GLOSSARY_STALE（設計 7.7・8.1）。
  * 意図の候補の一覧が別の辞書から作られていたとき（basis が辞書の basis と違うとき）も GLOSSARY_STALE にする。
  * 一覧は辞書の basis をそのまま写すので、違えば別の実行の一覧を渡している（IntentSynthesizer の設計 3）。
@@ -126,13 +149,14 @@ export async function projectSystemMap(
   ) {
     throw new ProjectionContractError("(system)", "GLOSSARY_STALE", "意図の候補の一覧の basis が辞書の basis と違う");
   }
+  const options = systemRenderOptions(map, request);
   let content: string;
   let mediaType: SpecificationView["mediaType"];
   if (request.format === "SYSTEM_MERMAID") {
-    content = renderSystemMermaid(map, glossary, intents, request.viewRole);
+    content = renderSystemMermaid(map, glossary, intents, options);
     mediaType = "text/vnd.mermaid";
   } else {
-    content = renderSystemJson(map, glossary, intents, request.viewRole);
+    content = renderSystemJson(map, glossary, intents, options);
     mediaType = "application/json";
   }
   return {

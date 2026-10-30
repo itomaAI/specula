@@ -140,6 +140,7 @@ export type {
   ProjectionRequest,
   ScenarioViewFormat,
   SpecificationView,
+  SystemMapLevel,
   SystemProjectionRequest,
   SystemViewFormat,
   ViewRole,
