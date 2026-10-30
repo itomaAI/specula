@@ -54,6 +54,18 @@ export type {
 } from "./types/scenario.js";
 export { discoverSystemContext, sliceScenarios } from "./core/scenario_extractor.js";
 
+// GlossaryBuilder（ユビキタス言語辞書）
+export type {
+  EntryKind,
+  Glossary,
+  GlossaryEntry,
+  GlossaryGaps,
+  GlossaryLocation,
+  GlossaryTerm,
+  PresentedEntryKind,
+} from "./types/glossary.js";
+export { buildGlossary } from "./core/glossary_builder.js";
+
 // M1（ContextExtractor）
 export type {
   ExtractionCoverage,
