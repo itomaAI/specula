@@ -25,7 +25,7 @@ projectSpecification(
 projectAmbiguities(
   report: AmbiguityReport,
   context: ProjectionContext,
-  request: ProjectionRequest,             // format は "AMBIGUITY_DOCUMENT"
+  request: AmbiguityProjectionRequest,    // format は "AMBIGUITY_DOCUMENT"（8.4）
 ): Promise<SpecificationView>;
 
 projectSystemMap(
@@ -327,6 +327,14 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
    - `Eng` のときだけ: 所在（`location` を「〈ファイル〉 L〈行〉」の形で）と、原文（`detail`。コードの囲みに入れ、囲みの記号は 4.1 の付録と同じ規則で決める）
 - `unitIds` は出さない。ユニットの id にはファイルと行が入るためである（7.2 の `dataMutations` と同じ理由）。
 - 質問の文に実装の名前が入らないことは、FormalTranspiler の出力の検査で確かめる（全体設計 2.2）。本モジュールは文を書き換えない。
+- **実装で決めたこと（2026-10-30）**:
+  - 要求の型は `AmbiguityProjectionRequest`（`format: "AMBIGUITY_DOCUMENT"`・`viewRole`・`displayId`）として、シナリオのビューの `ProjectionRequest` と分けた。`ScenarioViewFormat` に足すと、`projectSpecification` が型の上で `AMBIGUITY_DOCUMENT` を受け付けてしまうためである。`SpecificationView.format` の和には `AMBIGUITY_DOCUMENT` を足した。
+  - 形式仕様も論点カタログも無いので、`basis` の 3 つはすべて `null` にする。
+  - 題は「# 〈表示の id〉 〈起点の用語〉〈Eng の併記〉 の曖昧さ」とした。用語の引き方と併記は仕様書の題と同じ関数で作る（8.3・8.7）。
+  - 件数は 3 つの種類を固定の順（値が決まらない・外部への作用がある・同じ条件で別の経路に進む）に、0 件のものも書く。曖昧さが 0 件なら「曖昧さは無い。」と書く。
+  - 所在は「`〈ファイル〉` L〈行〉」（列は書かない）、原文は言語の名前を付けないコードの囲みにした。
+  - 契約は、`format` が `AMBIGUITY_DOCUMENT` でない・役割が `PdM`・`Eng` でないときに `UNSUPPORTED_FORMAT`、`context.scenario.id` が `report.scenarioId` と違うときに `SCENARIO_MISMATCH`（7.7）。
+  - オーケストレーターは、曖昧さで止まったシナリオで `projectAmbiguities` を呼び、成果物の `view` に入れる。M5 の段として呼ぶので、契約のエラーならそのシナリオは M5 で止まったことになる。ファイルへの書き出し（CLI と起動アプリ）は、まだ行っていない（`src/lib/write_outputs.ts` は `ambiguity.json` だけを書く）。
 
 ### 8.5 実装との対応表（`implementation_map.json`）
 - `projectImplementationMap` が作る。表示の役割に関係なく、同じ入力からは同じ表を作る。
