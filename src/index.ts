@@ -170,6 +170,7 @@ export { readRunOutputs } from "./lib/read_outputs.js";
 // SpecViewer（画面）。ビューモデルを作る部分（src/viewer/）。描く側は起動アプリ（SpecViewer 基本設計 1.1）。
 export type {
   AmbiguityItemView,
+  ContextDetailMapView,
   FileRead,
   FlowGraphRead,
   FlowNode,
@@ -183,6 +184,13 @@ export type {
   GraphEdge,
   GraphLayout,
   IssueListView,
+  MapEdgeKind,
+  MapEdgeView,
+  MapGraphView,
+  MapNodeKind,
+  MapNodeView,
+  MapPopupView,
+  MapView,
   RunOutputs,
   RunOutputsCheck,
   RunOutputsProblem,
@@ -200,6 +208,7 @@ export { checkRunOutputs } from "./viewer/check.js";
 export { buildScenarioDetails, buildScenarioList } from "./viewer/scenarios.js";
 export { buildIssueList } from "./viewer/issues.js";
 export { buildGlossaryView } from "./viewer/glossary.js";
+export { buildMapView } from "./viewer/map.js";
 export type { MarkdownBlock } from "./viewer/markdown.js";
 export { parseMarkdown, tableCells } from "./viewer/markdown.js";
 export { buildFlowView, layoutLayers, parseFlow, unescapeMermaidLabel } from "./viewer/graph.js";

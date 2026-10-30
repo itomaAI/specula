@@ -48,7 +48,7 @@ export interface SystemRenderOptions {
 type CoreKind = "EVENT" | "COMMAND" | "POLICY";
 type SupportingKind = "ACTOR" | "READ_MODEL" | "AGGREGATE";
 type NodeKind = CoreKind | SupportingKind;
-type EdgeKind = "EMITS" | "AFTER" | "TRIGGERS" | "INVOKES" | "EXECUTES" | "VIEWED_FROM" | "RAISES";
+export type EdgeKind = "EMITS" | "AFTER" | "TRIGGERS" | "INVOKES" | "EXECUTES" | "VIEWED_FROM" | "RAISES";
 
 interface Implementation {
   names: string[];
@@ -102,7 +102,8 @@ const KIND_TEXT: Readonly<Record<NodeKind, string>> = {
   READ_MODEL: "リードモデル",
   AGGREGATE: "アグリゲート",
 };
-const EDGE_TEXT: Readonly<Record<EdgeKind, string>> = {
+/** つながりの文。画面（SpecViewer の全体地図）も同じ文を使う。 */
+export const EDGE_TEXT: Readonly<Record<EdgeKind, string>> = {
   EMITS: "発生させる",
   AFTER: "このあとに起きる",
   TRIGGERS: "反応する",
