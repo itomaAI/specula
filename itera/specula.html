@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>specula</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; }
+  h1 { font-size: 1.1rem; margin: 0 0 8px; }
+  #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+  .error { color: #c62828; }
+</style>
+</head>
+<body>
+<h1>specula（Itera OS 版）</h1>
+<div id="log"></div>
+<script>
+// Itera OS の入口（全体設計 4.1）。src/cli.ts と同じく、アダプターを組み立ててオーケストレーターに渡し、出力をファイルに書く。
+// 解析の処理は持たない。処理の本体は build:itera で作る bundle（dist/specula.itera.js）にある。
+//
+// 引数（spawn の属性）:
+//   repo       （必須）解析するリポジトリの VFS のディレクトリ
+//   out        （必須）出力先の VFS のディレクトリ
+//   bundle     （必須）specula.itera.js の VFS のパス
+//   jar        （任意）手元の PC での Alloy の jar のパス。無ければ検証（M3）をしない（NO_SOLVER）
+//   java       （任意）手元の PC での java のコマンド。既定は "java"
+//   connection （任意）ローカルブリッジの接続の名前（設定 local_bridge の connections[].name）。無ければ有効な最初の接続
+//
+// - LLM の依頼は、この Itera OS の AI エージェントに内部のタスク（MetaOS.ai.task）として渡し、答えをファイルで受け取る（IteraLlmAdapter）。
+//   依頼と答えは <out>/llm_exchange、記録は <out>/llm_records に置く。記録があれば、次の実行ではタスクを出さずに記録を使う。
+// - 接続の execMode が "ask" のときは、実行の前に 1 回だけ確かめる。断られたら検証をしない（solver を渡さない）。
+(async () => {
+  const logEl = document.getElementById('log');
+  const log = (text, cls) => {
+    const line = document.createElement('div');
+    line.textContent = text;
+    if (cls) line.className = cls;
+    logEl.appendChild(line);
+  };
+  const messageOf = (error) => (error instanceof Error ? error.message : String(error));
+  const trim = (path) => String(path || '').trim().replace(/\/+$/, '');
+
+  try {
+    const MetaOS = window.MetaOS;
+    const args = (await MetaOS.system.getArgs()) || {};
+    const repoDir = trim(args.repo);
+    const outDir = trim(args.out);
+    const bundlePath = trim(args.bundle);
+    const missing = [['repo', repoDir], ['out', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
+    if (missing.length > 0) {
+      log(`引数が足りない: ${missing.join(', ')}`, 'error');
+      log('使い方: spawn の属性に repo（リポジトリ）・out（出力先）・bundle（specula.itera.js）を渡す。jar・java・connection は任意。', 'error');
+      return;
+    }
+
+    // 1. bundle を読み込む（VFS のファイルなので、Blob の URL にして import する）。
+    log(`bundle を読み込む: ${bundlePath}`);
+    const bundleText = await MetaOS.fs.read(bundlePath);
+    const bundleUrl = URL.createObjectURL(new Blob([bundleText], { type: 'text/javascript' }));
+    const specula = await import(bundleUrl);
+    URL.revokeObjectURL(bundleUrl);
+    log(`specula ${specula.VERSION}`);
+
+    // 2. アダプターを組み立てる。
+    const fs = new specula.IteraVfsAdapter(MetaOS.fs);
+    const source = {
+      list: (dir) => MetaOS.fs.list(dir),
+      isDirectory: async (path) => (await MetaOS.fs.stat(path)).kind === 'directory',
+      read: (path) => MetaOS.fs.read(path),
+    };
+    const client = new specula.IteraLlmAdapter({
+      fs,
+      postTask: async (instruction, context) => { await MetaOS.ai.task(instruction, context); },
+      exchangeDir: `${outDir}/llm_exchange`,
+    });
+    const llm = new specula.RecordingLanguageModel(client, fs, `${outDir}/llm_records`);
+    const solver = await buildSolver(specula, MetaOS, args, log);
+
+    // 3. リポジトリを読み、オーケストレーターに渡す。
+    log(`リポジトリを読む: ${repoDir}`);
+    const repo = await specula.readIteraRepository(source, repoDir);
+    log(`ファイル ${repo.files.length} 件`);
+    log('解析を始める（LLM の依頼があれば、AI エージェントの答えを待つ）');
+    const result = await specula.runPipeline(repo, { fs: specula.withRoot(fs, repoDir), llm, solver });
+
+    // 4. 出力を書く。
+    const written = await specula.writeOutputs(fs, outDir, result);
+    log(`出力 ${written.length} 件を書いた: ${outDir}`);
+    log(`集計: ${JSON.stringify(result.report.totals)}`);
+  } catch (error) {
+    log(`実行を止めた（環境の故障）: ${messageOf(error)}`, 'error');
+  }
+
+  // jar が無い・接続が無い・断られたときは null（M3 は NO_SOLVER）。
+  async function buildSolver(specula, MetaOS, args, log) {
+    const jarPath = String(args.jar || '').trim();
+    if (jarPath === '') {
+      log('jar の指定が無いので、検証（M3）はしない');
+      return null;
+    }
+    const config = (await MetaOS.system.getConfig('local_bridge')) || {};
+    const enabled = (config.connections || []).filter((c) => c && c.enabled !== false);
+    const wanted = String(args.connection || '').trim();
+    const conn = wanted === '' ? enabled[0] : enabled.find((c) => c.name === wanted);
+    if (!conn || !conn.serverUrl) {
+      log(`ローカルブリッジの接続が無いので、検証（M3）はしない${wanted ? `（接続 ${wanted}）` : ''}`);
+      return null;
+    }
+    const serverUrl = String(conn.serverUrl).replace(/\/+$/, '');
+    const javaPath = String(args.java || '').trim() || 'java';
+    if ((conn.execMode || 'ask') === 'ask') {
+      const res = await MetaOS.host.showMessageBox({
+        title: 'specula: 手元の PC で Alloy を動かす',
+        message: `検証（M3）のために、${serverUrl} のローカルブリッジで java を実行します。`,
+        detail: `jar: ${jarPath}\njava: ${javaPath}\n\n実行は、シナリオの数と検査の数だけ繰り返します。確かめるのはこの 1 回だけです。`,
+        type: 'question',
+        buttons: [
+          { label: '実行しない', value: false, style: 'normal', isCancel: true },
+          { label: '実行する', value: true, style: 'primary', isDefault: true },
+        ],
+      });
+      if (!res || res.action !== true) {
+        log('ローカルでの実行が許可されなかったので、検証（M3）はしない');
+        return null;
+      }
+    }
+    log(`検証（M3）はローカルブリッジ ${serverUrl} で行う`);
+    return new specula.LocalBridgeAlloyAdapter({
+      fetch: (url, init) => fetch(url, init),
+      serverUrl,
+      jarPath,
+      javaPath,
+    });
+  }
+})();
+</script>
+</body>
+</html>

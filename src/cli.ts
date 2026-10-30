@@ -4,6 +4,7 @@
 // 終了コード: 0 = 最後まで回った（論点や曖昧さがあっても 0）、1 = 環境の故障、2 = 引数の誤り。
 //
 // このファイルは Itera 向けの bundle（index.ts から）に入らないので、node: のモジュールを静的に import してよい。
+// 出力の書き出しは Itera OS の起動アプリと共通の関数（lib/write_outputs.ts）で行う。
 
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -15,7 +16,9 @@ import { readRepository } from "./adapters/NodeRepositoryReader.js";
 import { RecordingLanguageModel } from "./adapters/RecordingLanguageModel.js";
 import { runPipeline } from "./core/orchestrator.js";
 import { withRoot } from "./lib/rooted_file_system.js";
-import type { PipelineResult } from "./types/run.js";
+import { writeOutputs } from "./lib/write_outputs.js";
+
+export { safeName } from "./lib/write_outputs.js";
 
 const USAGE =
   "使い方: node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>]";
@@ -72,32 +75,6 @@ export async function main(argv: readonly string[], io: CliIo = DEFAULT_IO): Pro
   } catch (error) {
     io.stderr(`実行を止めた（環境の故障）: ${messageOf(error)}`);
     return 1;
-  }
-}
-
-/** 英数字・"-"・"_"・"." 以外を "_" にする。 */
-export function safeName(id: string): string {
-  return id.replace(/[^A-Za-z0-9._-]/g, "_");
-}
-
-async function writeOutputs(fs: NodeFsAdapter, outDir: string, result: PipelineResult): Promise<void> {
-  const json = (value: unknown): string => JSON.stringify(value, null, 2) + "\n";
-  await fs.write(join(outDir, "run_report.json"), json(result.report));
-  await fs.write(join(outDir, "system_map.mmd"), result.systemViews.mermaid.content);
-  await fs.write(join(outDir, "system_map.json"), result.systemViews.json.content);
-  for (const scenario of result.scenarios) {
-    const dir = join(outDir, "scenarios", safeName(scenario.scenarioId));
-    if (scenario.kind === "COMPLETED") {
-      await fs.write(join(dir, "spec.json"), json(scenario.spec));
-      await fs.write(join(dir, "spec.als"), scenario.spec.source.endsWith("\n") ? scenario.spec.source : scenario.spec.source + "\n");
-      await fs.write(join(dir, "solver_report.json"), json(scenario.solverReport));
-      await fs.write(join(dir, "ledger.json"), json(scenario.ledger));
-      await fs.write(join(dir, "spec.md"), scenario.document.content);
-      await fs.write(join(dir, "matrix.md"), scenario.matrix.content);
-      await fs.write(join(dir, "flow.mmd"), scenario.flow.content);
-    } else if (scenario.kind === "AMBIGUOUS") {
-      await fs.write(join(dir, "ambiguity.json"), json(scenario.ambiguity));
-    }
   }
 }
 

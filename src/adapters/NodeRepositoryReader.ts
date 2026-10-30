@@ -9,8 +9,11 @@
 
 import type { RepositoryArtifacts } from "../types/scenario.js";
 
-const EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json"];
-const SKIPPED_DIRS = new Set(["node_modules", ".git", "dist"]);
+// IteraRepositoryReader も同じ規則で集めるので export する。
+export const REPOSITORY_EXTENSIONS: readonly string[] = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json"];
+export const REPOSITORY_SKIPPED_DIRS: ReadonlySet<string> = new Set(["node_modules", ".git", "dist"]);
+const EXTENSIONS = REPOSITORY_EXTENSIONS;
+const SKIPPED_DIRS = REPOSITORY_SKIPPED_DIRS;
 
 export async function readRepository(rootDir: string): Promise<RepositoryArtifacts> {
   const fs = await import("node:fs/promises");

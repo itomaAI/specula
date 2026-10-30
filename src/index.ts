@@ -27,7 +27,12 @@ export { RecordingLanguageModel } from "./adapters/RecordingLanguageModel.js";
 export type { LlmRecord } from "./adapters/RecordingLanguageModel.js";
 export { CliAlloyAdapter } from "./adapters/CliAlloyAdapter.js";
 export type { CliAlloyOptions } from "./adapters/CliAlloyAdapter.js";
-export { LOCAL_BRIDGE_NOT_READY, LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
+export { LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
+export type { BridgeFetch, BridgeFetchResponse, LocalBridgeAlloyOptions } from "./adapters/LocalBridgeAlloyAdapter.js";
+export { IteraLlmAdapter, ITERA_AGENT_MODEL } from "./adapters/IteraLlmAdapter.js";
+export type { IteraLlmOptions, IteraLlmRequestFile, PostTask } from "./adapters/IteraLlmAdapter.js";
+export { readIteraRepository } from "./adapters/IteraRepositoryReader.js";
+export type { RepositorySource } from "./adapters/IteraRepositoryReader.js";
 
 // M0（ScenarioExtractor）
 export type {
@@ -129,5 +134,8 @@ export type {
   StoppedStage,
 } from "./types/run.js";
 export { runPipeline } from "./core/orchestrator.js";
+// 入口（コマンドラインと Itera OS の起動アプリ）が使う共通の関数。
+export { withRoot } from "./lib/rooted_file_system.js";
+export { writeOutputs, safeName } from "./lib/write_outputs.js";
 
 export const VERSION = "0.1.0";

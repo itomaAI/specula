@@ -176,11 +176,10 @@ interface SolverPort {
   printf '%s' '<ソースの base64>' | base64 -d > "$d/model.als"
   '<java>' -jar '<jar>' exec -f -q [-n] -s '<SAT ソルバ>' -c '<コマンド名>' -o "$d/out" -t json "$d/model.als"
   echo "<<<SPECULA-EXIT $?>>>"; cat "$d/out/receipt.json" 2>/dev/null
-  echo "<<<SPECULA-SOLUTION>>>"; cat "$d/out/<コマンド名>-solution-0.json" 2>/dev/null
   ```
-  - `exec` の選択肢は 3.3 と同じである。
-  - 標準出力は 3 つに分かれる。1 つ目の目印の行の前が Alloy 自身の出力、2 つの目印の行のあいだが `receipt.json`、2 つ目の目印の行の後ろが実例のファイルである（解が無ければ空）。
-  - アダプターは目印の行で分ける。receipt と実例の読み取り、`ENGINE_ERROR` の `message` の取り出しは、`CliAlloyAdapter` と同じ関数で行う。
+  - `exec` の選択肢は 3.3 と同じである。`mktemp` に失敗したら終了コード 70 で止まり、目印の行が出ないので `ENGINE_ERROR` になる。
+  - 標準出力は 2 つに分かれる。目印の行の前が Alloy 自身の出力、後ろが `receipt.json` である。実例は `receipt.json` のコマンドの `solution` に入っているので、実例のファイル（`<コマンド名>-solution-0.json`）は送らない（`CliAlloyAdapter` も receipt だけを読む）。
+  - アダプターは目印の行で分ける。receipt の読み取りと、`ENGINE_ERROR` の `message` の取り出しは、`CliAlloyAdapter` と同じ関数（`interpretReceipt`・`errorMessage`）で行う。
   - 版は、プロセスごとではなくアダプターごとに 1 回、`'<java>' -jar '<jar>' version` で取る。
 - **結果の対応**:
 
