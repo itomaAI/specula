@@ -1,5 +1,6 @@
 // Stage 2 の後半と Stage 3: EventStormingAssembler（M0 の設計 3.2 の 2・3、3.3）。
-// 検出したシグナルからイベント・コマンド・ポリシー・リードモデル・アクターを組み、名前と意図の候補を LLM に頼む。
+// 検出したシグナルからイベント・コマンド・ポリシー・リードモデル・アクターを組む。LLM を使わない
+// （名前は GlossaryBuilder、意図の候補は IntentSynthesizer が作る）。
 //
 // 決めたこと（初回）:
 // - イベント: 1 つのハンドラの中のシグナルを (種類, 呼んでいる関数, 最初の文字列の引数) で分け、分けた 1 組が 1 イベント。
@@ -14,7 +15,6 @@
 //   ポリシーが起動するコマンドのイベントの after に、きっかけのイベントを入れる。それ以外の after は空。
 // - アグリゲートは初回は付けない。
 
-import type { LanguageModelPort } from "../../ports/LanguageModelPort.js";
 import type {
   Actor,
   BoundedContext,
@@ -36,22 +36,19 @@ import {
 } from "./ast.js";
 import type { BoundaryResult } from "./boundary.js";
 import { compareIds } from "./boundary.js";
-import { contextIntent, nameCommand, nameEvent, namePolicy, snippetOf } from "./naming.js";
 import { type Listener, type ModuleResolver, type Signal, findExportedFunction } from "./signals.js";
 
 export const CALLER_ACTOR_ID = "ACT-Caller";
 
 export interface AssembleInput {
   files: readonly ParsedFile[];
-  texts: ReadonlyMap<string, string>;
-  /** コードのファイルのパス（コンテキストの意図の入力に使う）。 */
+  /** コードのファイルのパス（リードモデルを探すのに使う）。 */
   codePaths: readonly string[];
   boundaries: BoundaryResult;
   signals: readonly Signal[];
   listeners: readonly Listener[];
   screenshots: readonly string[];
   resolver: ModuleResolver;
-  llm: LanguageModelPort;
 }
 
 const locationKey = (location: { file: string; symbol: string }): string => `${location.file}#${location.symbol}`;
@@ -63,7 +60,7 @@ interface EventDraft {
 }
 
 /** 経過（diagnostics）は呼び出し元（scenario_extractor.ts）が足す。 */
-export async function assembleMap(input: AssembleInput): Promise<Omit<EventStormingMap, "diagnostics">> {
+export function assembleMap(input: AssembleInput): Omit<EventStormingMap, "diagnostics"> {
   const byPath = new Map(input.files.map((file) => [file.path, file] as const));
 
   // ---- イベント（ハンドラごとに、シグナルの組を分ける）----
@@ -142,28 +139,13 @@ export async function assembleMap(input: AssembleInput): Promise<Omit<EventStorm
     }
   }
 
-  // ---- LLM（決まった順に 1 件ずつ）----
-  const contexts: BoundedContext[] = [];
-  for (const boundary of input.boundaries.contexts) {
-    const filePaths = input.codePaths.filter((path) => input.boundaries.contextOf(path) === boundary.id).sort(compareIds);
-    contexts.push({
-      ...boundary,
-      intent: await contextIntent(input.llm, { contextId: boundary.id, rootPaths: boundary.rootPaths, filePaths }),
-      intentStatus: "CANDIDATE",
-    });
-  }
+  // ---- 組み立て ----
+  const contexts: BoundedContext[] = input.boundaries.contexts.map((boundary) => ({ ...boundary }));
 
   const events: DomainEvent[] = [];
   for (const draft of eventDrafts) {
     events.push({
       id: draft.id,
-      name: await nameEvent(input.llm, {
-        handler: { file: draft.handler.file, symbol: draft.handler.symbol },
-        signalKind: draft.signal.kind,
-        callee: draft.signal.callee,
-        label: draft.signal.label,
-        snippet: snippetOf(input.texts.get(draft.handler.file), draft.handler.line),
-      }),
       contextId: input.boundaries.contextOf(draft.handler.file),
       handler: draft.handler,
       signal: {
@@ -178,17 +160,8 @@ export async function assembleMap(input: AssembleInput): Promise<Omit<EventStorm
 
   const commands: Command[] = [];
   for (const draft of commandDrafts) {
-    const signals = (signalsByHandler.get(locationKey(draft.handler)) ?? [])
-      .slice()
-      .sort((a, b) => a.line - b.line)
-      .map((signal) => ({ kind: signal.kind, callee: signal.callee, label: signal.label }));
     commands.push({
       id: draft.id,
-      name: await nameCommand(input.llm, {
-        handler: { file: draft.handler.file, symbol: draft.handler.symbol },
-        signals,
-        snippet: snippetOf(input.texts.get(draft.handler.file), draft.handler.line),
-      }),
       contextId: input.boundaries.contextOf(draft.handler.file),
       actorId: draft.actorId,
       ...(draft.readModelId === undefined ? {} : { readModelId: draft.readModelId }),
@@ -203,11 +176,6 @@ export async function assembleMap(input: AssembleInput): Promise<Omit<EventStorm
       id: draft.id,
       triggerEventId: draft.triggerEventId,
       actionCommandId: draft.actionCommandId,
-      name: await namePolicy(input.llm, {
-        eventName: draft.listener.eventName,
-        listener: { file: draft.listener.location.file, symbol: draft.listener.location.symbol },
-        target: { file: draft.listener.target.file, symbol: draft.listener.target.symbol },
-      }),
       listener: draft.listener.location,
     });
   }

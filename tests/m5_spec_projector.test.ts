@@ -4,14 +4,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { projectSpecification, projectSystemMap } from "../src/core/spec_projector.js";
+import { projectSpecification } from "../src/core/spec_projector.js";
 import { stepText } from "../src/core/m5/sentences.js";
 import { sha256Hex } from "../src/lib/sha256.js";
 import type { LlmText } from "../src/types/index.js";
 import type { FormalSpecification, OperationStep } from "../src/types/formal.js";
 import type { DomainLedgerCatalog, LedgerIssue } from "../src/types/ledger.js";
 import { ProjectionContractError, type ProjectionRequest } from "../src/types/projection.js";
-import type { EventStormingMap } from "../src/types/scenario.js";
+
 
 function generated(text: string): LlmText {
   return { status: "GENERATED", text, recordKey: `label-${text}` };
@@ -325,55 +325,4 @@ test("M5: 契約の違反", async () => {
   await assert.rejects(projectSpecification(SPEC, null, { format: "SEQUENCE" } as unknown as ProjectionRequest), (error: unknown) => {
     return error instanceof ProjectionContractError && error.reason === "UNSUPPORTED_FORMAT";
   });
-});
-
-const LOC = { file: "src/order.ts", symbol: "f", line: 1 };
-const MAP: EventStormingMap = {
-  boundedContexts: [
-    { id: "src_order", name: "注文", rootPaths: ["src/order"], isDefaultFallback: false, intent: generated("注文を扱う"), intentStatus: "CANDIDATE" },
-  ],
-  events: [
-    { id: "src/order.ts#close", name: generated("注文が締められた"), contextId: "src_order", handler: LOC, signal: { kind: "DB_MUTATION", callee: "db.update", label: null, line: 1 }, after: [] },
-    { id: "src/order.ts#notify", name: NOT_GENERATED, contextId: "src_order", handler: LOC, signal: { kind: "EVENT_EMIT", callee: "emit", label: "notify", line: 2 }, after: ["src/order.ts#close"] },
-  ],
-  commands: [
-    { id: "src/order.ts#closeOrder", name: generated("注文を締める"), contextId: "src_order", actorId: "Caller", eventIds: ["src/order.ts#close"], handler: LOC },
-  ],
-  policies: [
-    { id: "src/order.ts#onClose", triggerEventId: "src/order.ts#close", actionCommandId: "src/order.ts#closeOrder", name: generated("締めたら知らせる"), listener: LOC },
-  ],
-  readModels: [],
-  actors: [{ id: "Caller", name: "Caller" }],
-  diagnostics: { mode: "STATE_SIGNALS", entryFiles: [], parsedFileCount: 1, parseFailures: [], unattributedSignals: [] },
-};
-
-test("M5: 全体の俯瞰図（Mermaid）は Bounded Context ごとにまとめ、地図の id を出さない", () => {
-  const a = projectSystemMap(MAP, { format: "SYSTEM_MERMAID" });
-  const b = projectSystemMap(MAP, { format: "SYSTEM_MERMAID" });
-  assert.equal(a.content, b.content);
-  assert.equal(a.scenarioId, null);
-  assert.equal(a.mediaType, "text/vnd.mermaid");
-  assert.ok(a.content.includes('subgraph c1["注文"]'));
-  assert.ok(a.content.includes('n1["イベント: 注文が締められた"]'));
-  assert.ok(a.content.includes('n2["イベント: イベント n2（名前は未生成）"]'));
-  assert.ok(a.content.includes("n3 -->|発生させる| n1"));
-  assert.ok(a.content.includes("n1 -->|このあとに起きる| n2"));
-  assert.ok(a.content.includes("n1 -->|反応する| n4"));
-  assert.ok(a.content.includes("n4 -->|起動する| n3"));
-  assert.ok(!a.content.includes("src/order.ts"));
-});
-
-test("M5: 全体の俯瞰図（JSON）はノードとつながりを決まった順で返す", () => {
-  const view = projectSystemMap(MAP, { format: "SYSTEM_JSON" });
-  assert.equal(view.mediaType, "application/json");
-  const value = JSON.parse(view.content) as { nodes: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> };
-  assert.deepEqual(Object.keys(value.nodes[0]!), ["id", "kind", "label", "context"]);
-  assert.deepEqual(value.nodes.map((node) => node.kind), ["EVENT", "EVENT", "COMMAND", "POLICY"]);
-  assert.equal(value.nodes[3]!.context, null);
-  assert.deepEqual(value.edges, [
-    { from: "n3", to: "n1", kind: "EMITS" },
-    { from: "n1", to: "n2", kind: "AFTER" },
-    { from: "n1", to: "n4", kind: "TRIGGERS" },
-    { from: "n4", to: "n3", kind: "INVOKES" },
-  ]);
 });

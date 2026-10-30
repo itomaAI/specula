@@ -57,17 +57,13 @@ function politeAnswer(request: LlmRequest): string {
   return "```json\n" + JSON.stringify(out) + "\n```";
 }
 
-const NOT_GENERATED = { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" } as const;
-
 function target(file: string, symbol: string, line = 1): ScenarioTarget {
   return {
     id: "SCN-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
-    intent: NOT_GENERATED,
-    intentStatus: "CANDIDATE",
     inletType: "COMMAND",
-    inletTrigger: { id: "CMD-1", name: NOT_GENERATED, handler: { file, symbol, line } },
+    inletTrigger: { id: "CMD-1", handler: { file, symbol, line } },
     actor: { id: "Caller", name: "Caller" },
     expectedEvent: "EVT-1",
   };

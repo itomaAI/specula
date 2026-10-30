@@ -73,7 +73,7 @@ function repoOf(documents: RepositoryDocument[], omittedDocuments: string[] = []
 }
 
 async function mapOf(): Promise<EventStormingMap> {
-  return discoverSystemContext(repoOf([]), { llm: new FakeLlm(() => null) });
+  return discoverSystemContext(repoOf([]));
 }
 
 test("項目: 地図の要素は提示し、アクター・発行の名前・スキーマは記録だけにする（id の辞書順）", async () => {

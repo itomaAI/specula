@@ -1,7 +1,5 @@
 // M0（ScenarioExtractor）の入出力の型（M0 の設計 4.1・4.2）。
 
-import type { LlmText } from "./index.js";
-
 /**
  * M0 に渡すリポジトリの中身。読み込みは呼び出し元（アダプターの側）が行い、コアはファイルを読まない。
  * - files: テキストのファイルだけ。path はリポジトリのルートからの相対パス（"/" 区切り、先頭に "./" を付けない）。
@@ -33,23 +31,22 @@ export interface SourceLocation {
   line: number;
 }
 
-/** 意図が人間に確定されたか。初回の実行ではすべて CANDIDATE。 */
-export type IntentStatus = "CANDIDATE" | "CONFIRMED";
+// 2026-10-30: 地図の LLM の欄（Bounded Context の intent・intentStatus、イベント・コマンド・ポリシーの name、
+// シナリオの intent・intentStatus・inletTrigger.name）を外した。名前は GlossaryBuilder の辞書、
+// 意図の候補は IntentSynthesizer の出力に持つ（ScenarioExtractor の設計 4.1・4.2）。
 
 export interface BoundedContext {
   /** ルートパスから作る。単一コンテキストは "DEFAULT_CONTEXT"。 */
   id: string;
+  /** 根のディレクトリから機械的に決まる実装の名前。利用者向けの表示には使わない。 */
   name: string;
   rootPaths: string[];
   isDefaultFallback: boolean;
-  intent: LlmText;
-  intentStatus: IntentStatus;
 }
 
 export interface DomainEvent {
-  /** ハンドラの所在から作る（LLM の名前からは作らない）。 */
+  /** ハンドラの所在から作る。 */
   id: string;
-  name: LlmText;
   contextId: string;
   aggregate?: string;
   /** このイベントを起こすシグナルを含む関数。 */
@@ -65,7 +62,6 @@ export interface DomainEvent {
 
 export interface Command {
   id: string;
-  name: LlmText;
   contextId: string;
   actorId: string;
   readModelId?: string;
@@ -78,7 +74,6 @@ export interface Policy {
   id: string;
   triggerEventId: string;
   actionCommandId: string;
-  name: LlmText;
   listener: SourceLocation;
 }
 
@@ -130,17 +125,14 @@ export interface ScenarioTarget {
   id: string;
   boundedContext: string;
   origin: "EXTRACTED" | "USER_DEFINED";
-  intent: LlmText;
-  intentStatus: IntentStatus;
   /**
-   * 利用者定義のシナリオで、利用者が書いた目的（任意）。LLM の意図の候補（intent）とは別に持つ。
-   * これがあっても intentStatus は CANDIDATE のまま（確定は M5 の後の合意で行う）。
+   * 利用者定義のシナリオで、利用者が書いた目的（任意）。LLM の意図の候補（IntentSynthesizer の出力）とは別に持つ。
+   * これがあっても意図は確定にならない（確定は SpecProjector の後の合意で行う）。
    */
   userIntent?: string;
   inletType: "COMMAND" | "POLICY";
   inletTrigger: {
     id: string;
-    name: LlmText;
     /** 起点の所在。M1 はここから追跡を始める。 */
     handler: SourceLocation;
   };

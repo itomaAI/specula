@@ -54,10 +54,17 @@ export async function buildGlossary(
       omitted: [...repo.omittedDocuments].sort(compareIds),
     },
     basis: {
-      // 全体マップは JSON にできる値だけでできている。値が undefined の任意の欄が実行時に混じっても止まらないように、
-      // JSON に一度書いて読み直してから正準化する（undefined の欄は落ちる）。
-      mapHash: await sha256Hex(canonicalJson(JSON.parse(JSON.stringify(map)) as JsonValue)),
+      mapHash: await mapHashOf(map),
       documentsHash: await sha256Hex(canonicalJson(documentsJson)),
     },
   };
+}
+
+/**
+ * 全体マップの SHA-256（辞書の basis.mapHash）。SpecProjector が辞書の古さ（GLOSSARY_STALE）を確かめるときも、これを使う。
+ * 全体マップは JSON にできる値だけでできている。値が undefined の任意の欄が実行時に混じっても止まらないように、
+ * JSON に一度書いて読み直してから正準化する（undefined の欄は落ちる）。
+ */
+export async function mapHashOf(map: EventStormingMap): Promise<string> {
+  return sha256Hex(canonicalJson(JSON.parse(JSON.stringify(map)) as JsonValue));
 }

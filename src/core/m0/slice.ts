@@ -1,5 +1,5 @@
-// Stage 4: ScenarioSlicerResolver（M0 の設計 3.4）。
-// 全体マップから、コマンドかポリシーを起点にしたシナリオを切り出す。LLM に頼むのは意図の候補だけ。
+// Stage 4: ScenarioSlicerResolver（ScenarioExtractor の設計 3.4）。
+// 全体マップから、コマンドかポリシーを起点にしたシナリオを切り出す。LLM を使わない（意図の候補は IntentSynthesizer が作る）。
 //
 // 決めたこと（初回）:
 // - コマンドが起点: 期待イベントはそのコマンドのイベント。1 イベントにつき 1 シナリオ。
@@ -11,8 +11,6 @@
 //   そのルートのリードモデルが全体マップに無ければ rejected。あれば、そのリードモデルを付ける。
 //   同じ起点のシナリオが抽出側にもあれば、抽出側を出さない。
 
-import type { LlmText } from "../../types/index.js";
-import type { LanguageModelPort } from "../../ports/LanguageModelPort.js";
 import type {
   Actor,
   Command,
@@ -23,12 +21,10 @@ import type {
   SourceLocation,
 } from "../../types/scenario.js";
 import { compareIds } from "./boundary.js";
-import { scenarioIntent } from "./naming.js";
 
 interface Inlet {
   type: "COMMAND" | "POLICY";
   id: string;
-  name: LlmText;
   handler: SourceLocation;
   /** 期待イベントの候補（起点が起動するコマンドのイベント）。 */
   command: Command;
@@ -42,13 +38,7 @@ interface Draft {
   readModelId?: string;
 }
 
-const NO_LLM: LlmText = { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "LLM のポートが渡されていない" };
-
-export async function slice(
-  map: EventStormingMap,
-  selection: ScenarioSelection | undefined,
-  llm: LanguageModelPort | undefined,
-): Promise<SliceResult> {
+export function slice(map: EventStormingMap, selection: ScenarioSelection | undefined): SliceResult {
   const inlets = inletsOf(map);
   const findInlet = (ref: string): Inlet | undefined =>
     inlets.find((inlet) => inlet.id === ref || `${inlet.handler.file}#${inlet.handler.symbol}` === ref);
@@ -103,7 +93,7 @@ export async function slice(
     }
   }
 
-  // ---- 組み立て（識別子の辞書順に、LLM を 1 件ずつ）----
+  // ---- 組み立て（識別子の辞書順）----
   const drafts = [...userDrafts, ...extractedDrafts]
     .map((draft) => ({ draft, id: scenarioIdOf(draft.inlet, draft.eventId) }))
     .sort((a, b) => compareIds(a.id, b.id));
@@ -111,33 +101,14 @@ export async function slice(
   const scenarios: ScenarioTarget[] = [];
   for (const { draft, id } of drafts) {
     const actor = actorOf(map, draft.inlet.command.actorId);
-    const event = map.events.find((candidate) => candidate.id === draft.eventId);
     const model = draft.readModelId === undefined ? undefined : map.readModels.find((m) => m.id === draft.readModelId);
-    const intent =
-      llm === undefined || event === undefined
-        ? NO_LLM
-        : await scenarioIntent(llm, {
-            inletType: draft.inlet.type,
-            handler: { file: draft.inlet.handler.file, symbol: draft.inlet.handler.symbol },
-            expectedEvent: {
-              file: event.handler.file,
-              symbol: event.handler.symbol,
-              kind: event.signal.kind,
-              callee: event.signal.callee,
-              label: event.signal.label,
-            },
-            actor: actor.name,
-            route: model?.route ?? null,
-          });
     scenarios.push({
       id,
       boundedContext: draft.inlet.command.contextId,
       origin: draft.origin,
-      intent,
-      intentStatus: "CANDIDATE",
       ...(draft.userIntent === undefined ? {} : { userIntent: draft.userIntent }),
       inletType: draft.inlet.type,
-      inletTrigger: { id: draft.inlet.id, name: draft.inlet.name, handler: draft.inlet.handler },
+      inletTrigger: { id: draft.inlet.id, handler: draft.inlet.handler },
       actor,
       ...(model === undefined
         ? {}
@@ -160,14 +131,13 @@ function inletsOf(map: EventStormingMap): Inlet[] {
   const inlets: Inlet[] = map.commands.map((command) => ({
     type: "COMMAND" as const,
     id: command.id,
-    name: command.name,
     handler: command.handler,
     command,
   }));
   for (const policy of map.policies) {
     const command = map.commands.find((candidate) => candidate.id === policy.actionCommandId);
     if (command === undefined) continue; // 全体マップの組み立てで起きないはずだが、壊れたマップを渡されたら起点にしない
-    inlets.push({ type: "POLICY", id: policy.id, name: policy.name, handler: policy.listener, command });
+    inlets.push({ type: "POLICY", id: policy.id, handler: policy.listener, command });
   }
   return inlets.sort((a, b) => compareIds(a.id, b.id));
 }

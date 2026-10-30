@@ -31,17 +31,13 @@ class MemoryFs implements FileSystemPort {
   }
 }
 
-const NOT_GENERATED = { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" } as const;
-
 function target(file: string, symbol: string): ScenarioTarget {
   return {
     id: "SCN-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
-    intent: NOT_GENERATED,
-    intentStatus: "CANDIDATE",
     inletType: "COMMAND",
-    inletTrigger: { id: "CMD-1", name: NOT_GENERATED, handler: { file, symbol, line: 1 } },
+    inletTrigger: { id: "CMD-1", handler: { file, symbol, line: 1 } },
     actor: { id: "Caller", name: "Caller" },
     expectedEvent: "EVT-1",
   };
