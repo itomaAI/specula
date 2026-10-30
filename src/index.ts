@@ -29,6 +29,8 @@ export { CliAlloyAdapter } from "./adapters/CliAlloyAdapter.js";
 export type { CliAlloyOptions } from "./adapters/CliAlloyAdapter.js";
 export { LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
 export type { BridgeFetch, BridgeFetchResponse, LocalBridgeAlloyOptions } from "./adapters/LocalBridgeAlloyAdapter.js";
+export { IteraLlmAdapter, ITERA_AGENT_MODEL } from "./adapters/IteraLlmAdapter.js";
+export type { IteraLlmOptions, IteraLlmRequestFile, PostTask } from "./adapters/IteraLlmAdapter.js";
 
 // M0（ScenarioExtractor）
 export type {
