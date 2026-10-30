@@ -6,6 +6,7 @@
 // 報告（元の記録）は書き換えない。
 
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
+import type { ConfirmationStatus, LlmText } from "../types/index.js";
 import type { FormalSpecification } from "../types/formal.js";
 import type { DomainLedgerCatalog, LedgerIssue, LedgerVerification } from "../types/ledger.js";
 import type { Finding, SolverReport } from "../types/solver.js";
@@ -40,6 +41,9 @@ export async function synthesizeLedger(
       claim: texts.claim,
       observation: texts.observation,
       question: texts.question,
+      claimStatus: statusOf(texts.claim),
+      observationStatus: statusOf(texts.observation),
+      questionStatus: statusOf(texts.question),
       options: optionsFor(root.kind),
       decision: null,
     });
@@ -71,4 +75,9 @@ function verificationOf(report: SolverReport): LedgerVerification {
     invariantChecks: { ...report.invariantChecks },
     nonExhaustiveChecks: report.checks.filter((check) => !check.exhaustive).map((check) => check.id),
   };
+}
+
+/** 文の確定の状態。確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（M4 の設計 8）。 */
+function statusOf(text: LlmText): ConfirmationStatus {
+  return text.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED";
 }

@@ -60,6 +60,7 @@ const REPORT: AmbiguityReport = {
       location: { file: "src/pay.ts", line: 3, column: 3 },
       detail: "state = compute(x)",
       question: { status: "GENERATED", text: "請求額はどう決まりますか。", recordKey: "q-1" },
+      questionStatus: "CANDIDATE",
     },
     {
       kind: "EXTERNAL_EFFECT",
@@ -67,6 +68,7 @@ const REPORT: AmbiguityReport = {
       location: { file: "src/pay.ts", line: 4, column: 3 },
       detail: "save(`a` + ``b``)",
       question: NOT_GENERATED,
+      questionStatus: "NOT_GENERATED",
     },
   ],
   counts: { UNDETERMINED_VALUE: 1, EXTERNAL_EFFECT: 1, CONFLICTING_SLICES: 0 },

@@ -14,7 +14,7 @@ import type { CheckedFacts } from "./contract.js";
 import { type TranslatedPaths, conditionKey } from "./paths.js";
 import type { StateModel } from "./states.js";
 
-export type AmbiguityDraft = Omit<AmbiguityIssue, "question">;
+export type AmbiguityDraft = Omit<AmbiguityIssue, "question" | "questionStatus">;
 
 export interface CollectedAmbiguity {
   issues: AmbiguityDraft[];

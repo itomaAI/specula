@@ -1,6 +1,6 @@
 // M2（FormalTranspiler）の出力の型（M2 の設計 4.3・5）。
 
-import type { LlmText } from "./index.js";
+import type { ConfirmationStatus, LlmText } from "./index.js";
 import type { OutletKind, UnitLocation } from "./context.js";
 
 /** 状態変数のドメイン（M2 の設計 2.1）。 */
@@ -95,6 +95,8 @@ export interface FormalSpecification {
   sourceMap: Record<string, string[]>;
   /** Alloy の識別子 → 表示名。 */
   labels: Record<string, LlmText>;
+  /** labels と同じキー。表示名の確定の状態（NOT_GENERATED か CANDIDATE。M2 の設計 6）。 */
+  labelStatus: Record<string, ConfirmationStatus>;
   previousDiff: { status: "NOT_COMPUTED"; reason: "FIRST_RUN" | "OUT_OF_SCOPE" };
 }
 
@@ -109,6 +111,8 @@ export interface AmbiguityIssue {
   detail: string;
   /** 人への質問の文（LLM。task: "m2.ambiguity-question"）。 */
   question: LlmText;
+  /** 質問の文の確定の状態（NOT_GENERATED か CANDIDATE。M2 の設計 6）。 */
+  questionStatus: ConfirmationStatus;
 }
 
 export interface AmbiguityReport {

@@ -155,6 +155,9 @@ interface LedgerIssue {
   claim: LlmText;
   observation: LlmText;
   question: LlmText;
+  claimStatus: ConfirmationStatus;            // 3 つの文の確定の状態（8 節）
+  observationStatus: ConfirmationStatus;
+  questionStatus: ConfirmationStatus;
   options: Array<{ id: string; meaning: string }>;   // 4 節の表から
   decision: null;                             // 初回は常に未決
 }
@@ -194,3 +197,26 @@ interface LedgerIssue {
 - 本物の Alloy 6 で、ContextExtractor → FormalTranspiler → FormalSolver → LedgerSynthesizer を 2 つの例で通す（`tests/m3_alloy_integration.test.ts`）。真偽値の例は論点 0 件になる。false だけを書く旗で分かれる例は、届かない出口の操作が到達できない操作の論点 1 件になる。
 - 旗に書き込みが 1 つも無い例では、到達できない操作は出なかった。ContextExtractor は書き込みのある変数だけを状態変数にするため、書き込みの無い旗を読む条件は環境が決める命題になり、どちらの出口にも届くからである。読むだけのモジュールの変数を定数として扱うかどうかは ContextExtractor・FormalTranspiler の範囲の話で、LedgerSynthesizer では変えない。
 - 同じ状態の反例をまとめる場面（未定義遷移とデッドロック）は、本物のエンジンではまだ確かめていない。関数 1 つのシナリオでは、経路の条件が互いに補い合うので、どの操作も実行できない状態が作りにくいためである（`count = count + 1` の例は、あふれを禁じても操作の guard は常に成り立つので、未定義遷移にならなかった）。
+
+---
+
+## 8. 画面の仕様に合わせて足したもの（2026-10-31）
+
+仕様 2.2 の変更（主張・観測事実・判断質問に、その確定の状態を持たせる）を、次の形で実装した。確定の状態（`ConfirmationStatus`）の意味は SpecViewer の仕様 2.4 にあり、型は `src/types/index.ts` にある。実装は `src/types/ledger.ts`・`src/core/ledger_synthesizer.ts`。
+
+### 8.1 型に足すもの
+```typescript
+interface LedgerIssue {
+  // …これまでの欄…
+  claimStatus: ConfirmationStatus;        // 主張の文の確定の状態
+  observationStatus: ConfirmationStatus;  // 観測事実の文の確定の状態
+  questionStatus: ConfirmationStatus;     // 判断質問の文の確定の状態
+}
+```
+
+### 8.2 決めたこと
+- 状態は、文（`LlmText`）とは別の欄に、文ごとに持つ。仕様が「文と、その確定の状態」を出力に持つと書いているためである。形は FormalTranspiler の `labelStatus`・`questionStatus`（FormalTranspiler の設計 6 節）と同じにそろえる。
+- 3 つの文は 1 回の呼び出しで作るが、状態は文ごとに持つ。確定の操作を足したとき、人は文を 1 つずつ確かめるためである。
+- 確定の操作は現在の範囲に無いので、本モジュールが書くのは `NOT_GENERATED` と `CANDIDATE` だけである。文が `GENERATED` なら `CANDIDATE`、`NOT_GENERATED` なら `NOT_GENERATED` とする。現在は 5 節の検査で 3 つの文がそろって作られるか、そろって未生成になるので、3 つの状態は同じ値になる。
+- 文の確定の状態は、論点の `decision`（人が選択肢を選んだ記録）とは別の欄である（仕様 2.2）。文を確定にしても、論点は未決のままでありうる。
+- SpecProjector はまだこの欄を読まない。表示は SpecProjector の変更（画面の仕様に合わせる変更の次の段）で行う。

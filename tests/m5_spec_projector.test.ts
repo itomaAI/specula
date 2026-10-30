@@ -89,6 +89,18 @@ const SPEC: FormalSpecification = {
     o1: generated("締めた結果"),
     o2: generated("断りの例外"),
   },
+  labelStatus: {
+    v1: "CANDIDATE",
+    v1_1: "CANDIDATE",
+    v1_2: "CANDIDATE",
+    v2: "CANDIDATE",
+    v3: "CANDIDATE",
+    c1: "CANDIDATE",
+    op1: "CANDIDATE",
+    op2: "CANDIDATE",
+    o1: "CANDIDATE",
+    o2: "CANDIDATE",
+  },
   previousDiff: { status: "NOT_COMPUTED", reason: "FIRST_RUN" },
 };
 
@@ -165,6 +177,9 @@ function issue(overrides: Partial<LedgerIssue> = {}): LedgerIssue {
     claim: generated("締め切り済みの注文にも、扱いが決まっているべきである。"),
     observation: generated("締め切り済みで強制の指定があるとき、受け付ける操作が無かった。"),
     question: generated("締め切り済みの注文に強制の指定が来たら、どう扱いますか。"),
+    claimStatus: "CANDIDATE",
+    observationStatus: "CANDIDATE",
+    questionStatus: "CANDIDATE",
     options: [
       { id: "SPECIFY_HANDLING", meaning: "この状況での扱いを決めて、実装に足す" },
       { id: "RECHECK_WITH_LARGER_SCOPE", meaning: "範囲を広げて調べ直す" },
@@ -399,8 +414,12 @@ test("M5: カタログが無いときは、そのことを書き、basis は nul
 });
 
 test("M5: 表示名と論点の文が未生成なら、そのまま「未生成」と書き、detail は出さない", async () => {
-  const spec: FormalSpecification = { ...SPEC, labels: { ...SPEC.labels, v1_2: NOT_GENERATED, op2: NOT_GENERATED } };
-  const view = await projectSpecification(spec, await catalog({}, [issue({ claim: NOT_GENERATED })]), CONTEXT, DOCUMENT);
+  const spec: FormalSpecification = {
+    ...SPEC,
+    labels: { ...SPEC.labels, v1_2: NOT_GENERATED, op2: NOT_GENERATED },
+    labelStatus: { ...SPEC.labelStatus, v1_2: "NOT_GENERATED", op2: "NOT_GENERATED" },
+  };
+  const view = await projectSpecification(spec, await catalog({}, [issue({ claim: NOT_GENERATED, claimStatus: "NOT_GENERATED" })]), CONTEXT, DOCUMENT);
   assert.ok(view.content.includes("v1_2（表示名は未生成）"));
   assert.ok(view.content.includes("### op2（表示名は未生成）"));
   assert.ok(view.content.includes("- 主張: 未生成（LLM に届かなかった）"));
