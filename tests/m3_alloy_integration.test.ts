@@ -8,7 +8,9 @@ import { CliAlloyAdapter } from "../src/adapters/CliAlloyAdapter.js";
 import { extractContext } from "../src/core/context_extractor.js";
 import { transpileFormal } from "../src/core/formal_transpiler.js";
 import { verifySpecification } from "../src/core/formal_solver.js";
+import { synthesizeLedger } from "../src/core/ledger_synthesizer.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
+import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
 import type { SolverRequest } from "../src/ports/SolverPort.js";
 import type { ScenarioTarget } from "../src/types/scenario.js";
 
@@ -160,4 +162,67 @@ test("M1 → M2 → M3: 真偽値の例を本物のエンジンにかける（�
   );
   assert.deepEqual(report.findings, []);
   assert.deepEqual(report.unexecutedChecks, []);
+});
+
+// ---------------------------------------------------------------------------
+// M1 → M2 → M3 → M4。M4 は LLM が届かない偽のポートで、論点の構成だけを確かめる。
+
+const NO_LLM: LanguageModelPort = {
+  async generate() {
+    return { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" };
+  },
+};
+
+test("M1 → M2 → M3 → M4: 真偽値の例は論点 0 件で、「スコープの中で見つからなかった」になる", { skip }, async () => {
+  const facts = await extractContext(target("src/a.ts", "openIt"), { fs: new MemoryFs({ "src/a.ts": BOOL_SOURCE.join("\n") }) });
+  const result = await transpileFormal(facts, {});
+  if (result.kind !== "SPEC") assert.fail("SPEC ではない");
+  const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 3 });
+  const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
+
+  assert.equal(catalog.verification.outcome, "NONE_FOUND_WITHIN_SCOPE");
+  assert.equal(catalog.basis.reportId, report.reportId);
+  assert.equal(catalog.basis.findingCount, 0);
+  assert.deepEqual(catalog.issues, []);
+});
+
+// 条件の旗に書くのは false だけなので、旗が立っているときの出口には届かない。
+// 旗に書き込みが無いと M1 は状態変数にせず、条件は環境が決める命題になって両方の出口に届く（552f28d の CI で確かめた）。
+// そのため、旗を false に書く行を経路に置いている。
+const UNREACHABLE_SOURCE = [
+  "let locked = false;",
+  "export function read() {",
+  "  if (locked) {",
+  '    return "locked";',
+  "  }",
+  "  locked = false;",
+  '  return "read";',
+  "}",
+];
+
+test("M1 → M2 → M3 → M4: 届かない出口のある例は、到達できない操作が 1 件で 1 つの論点になる", { skip }, async (t) => {
+  const facts = await extractContext(target("src/r.ts", "read"), { fs: new MemoryFs({ "src/r.ts": UNREACHABLE_SOURCE.join("\n") }) });
+  const result = await transpileFormal(facts, {});
+  if (result.kind !== "SPEC") assert.fail(`SPEC ではない: ${JSON.stringify(result)}`);
+  const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 3 });
+  t.diagnostic(`unreachable checks: ${JSON.stringify(report.checks.map((check) => [check.id, check.result]))}`);
+
+  assert.equal(report.status, "CHECKED", JSON.stringify(report.reason));
+  assert.deepEqual(
+    report.findings.map((finding) => finding.kind),
+    ["UNREACHABLE_OPERATION"],
+  );
+
+  const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
+  assert.equal(catalog.verification.outcome, "FOUND");
+  assert.equal(catalog.basis.findingCount, 1);
+  assert.equal(catalog.issues.length, 1);
+  const issue = catalog.issues[0];
+  assert.equal(issue?.kind, "UNREACHABLE_OPERATION");
+  assert.equal(issue?.rootFinding, 0);
+  assert.deepEqual(issue?.dependentFindings, []);
+  assert.equal(issue?.trace, null);
+  assert.deepEqual(issue?.operations, report.findings[0]?.operations);
+  assert.equal(issue?.decision, null);
+  assert.equal(issue?.claim.status, "NOT_GENERATED");
 });

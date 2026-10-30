@@ -134,11 +134,13 @@ interface DomainLedgerCatalog {
     issueCount: number;                       // まとめた論点の件数 k
   };
   verification: {
+    outcome: "UNVERIFIED" | "NONE_FOUND_WITHIN_SCOPE" | "FOUND";   // 2 節の表の 3 つの場合
     status: "CHECKED" | "UNVERIFIED";
     reason: SolverReport["reason"];
+    scope: { scope: number; maxSteps: number; bitwidth: number };  // 「見つからなかった」と言える範囲
     unexecutedChecks: string[];
     invariantChecks: SolverReport["invariantChecks"];
-    nonExhaustiveChecks: string[];            // 反例を 1 件だけ返す検査の id
+    nonExhaustiveChecks: string[];            // 実行した検査のうち、反例を 1 件だけ返す検査の id
   };
   issues: LedgerIssue[];
 }
@@ -159,3 +161,36 @@ interface LedgerIssue {
 ```
 - `findingCount` と、すべての論点の `rootFinding` と `dependentFindings` の合計は一致する（すべての反例がどれかの論点からたどれる）。
 - **古くなったことの印**: カタログは `basis.specSourceHash` を持つ。M5 またはオーケストレーターは、いまの形式仕様正本のソースの SHA-256 と比べ、違えば「このカタログは古い仕様から作った」と表示する。2 回目以降に人の決定を持つようになっても、この印で決定を消したり上書きしたりしない（全体アーキテクチャ 4.3）。
+
+---
+
+## 7. 初回の実装で決めたこと
+
+設計の 1〜6 節に書かれていなかったことを、初回の実装（`src/core/ledger_synthesizer.ts` と `src/core/m4/`）で次のように決めた。
+
+### 7.1 入力の契約（1.2 の補足）
+- `LedgerContractError` の理由は `SCENARIO_MISMATCH`・`SPEC_HASH_MISMATCH`・`UNKNOWN_OPERATION`・`UNKNOWN_STATE_VARIABLE` の 4 つとする。
+- 実行列の値が形式仕様に無い状態変数を指すときも契約違反にする。M5 が表示名を引けなくなるためである。
+
+### 7.2 検証の状態の持ち方（2 節の補足）
+- 2 節の表の文（「未検証」「指定のスコープの中で、行った検査では見つからなかった」）は、カタログに文として入れない。かわりに `verification.outcome` と `verification.scope` を持ち、M5 がこの値から表示する。定型文を LLM の文と混ぜないためである。
+- `nonExhaustiveChecks` は、実行した検査だけから作る。実行しなかった検査は `unexecutedChecks` に入っているので、重ねて書かない。
+
+### 7.3 反例のまとめ方（3 節の補足）
+- 「同じ状態」は、実行列の最後の時点の `values` を正準化した JSON（`canonicalJson`）が同じこととする。`holds` と `outcome` は比べない。
+- 同じ状態に同じ種類の反例が 2 件以上あるとき（操作の重なりの組が 2 つあるときなど）は、`findings` の中で先のものを本体にする。
+- 論点の `operations` は、本体の操作のあとに、従属する反例の操作を重ねずに足したものとする。人が 1 つの状態について、関わる操作をまとめて見られるようにするためである。
+- 論点の `trace` は本体の実行列とする。
+
+### 7.4 論点の文（5 節の補足）
+- LLM への入力は、機械的に決まる値だけにする。中身は、反例の種類、本体と従属する反例（種類と操作）、実行列、関わる識別子の語彙である。語彙には、状態変数と値（値の元のリテラルを含む）、実行列と操作の条件に出てくる命題（原文の式を含む）、関わる操作（出口の種類と条件を含む）、出口を入れる。表示名は `GENERATED` の文だけを渡し、無ければ `null` にする。
+- 識別子が文に出たかどうかは、形式仕様の識別子（状態変数・値・命題・操作・guard の述語・出口）を、英数字と `_` で区切られた語として 3 つの文の中に探して確かめる。
+- 400 文字以内の検査は前後の空白を除いて数える。改行は許す。
+- プロンプトの版は `M4_PROMPT_VERSION = "1"` とする。
+- 論点ごとの呼び出しは、1 件ずつ順に行う。
+
+### 7.5 確かめたこと
+- 偽の報告と偽の LLM で、0 件・未検証・同じ状態のまとめ方・単独の論点・決定性・表示名の渡し方・LLM が届かないとき・出力の検査・契約の違反・元の記録を書き換えないことを確かめる（`tests/m4_ledger_synthesizer.test.ts`）。
+- 本物の Alloy 6 で、M1 → M2 → M3 → M4 を 2 つの例で通す（`tests/m3_alloy_integration.test.ts`）。真偽値の例は論点 0 件になる。false だけを書く旗で分かれる例は、届かない出口の操作が到達できない操作の論点 1 件になる。
+- 旗に書き込みが 1 つも無い例では、到達できない操作は出なかった。M1 は書き込みのある変数だけを状態変数にするため、書き込みの無い旗を読む条件は環境が決める命題になり、どちらの出口にも届くからである。読むだけのモジュールの変数を定数として扱うかどうかは M1・M2 の範囲の話で、M4 では変えない。
+- 同じ状態の反例をまとめる場面（未定義遷移とデッドロック）は、本物のエンジンではまだ確かめていない。関数 1 つのシナリオでは、経路の条件が互いに補い合うので、どの操作も実行できない状態が作りにくいためである（`count = count + 1` の例は、あふれを禁じても操作の guard は常に成り立つので、未定義遷移にならなかった）。
