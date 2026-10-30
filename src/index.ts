@@ -27,7 +27,8 @@ export { RecordingLanguageModel } from "./adapters/RecordingLanguageModel.js";
 export type { LlmRecord } from "./adapters/RecordingLanguageModel.js";
 export { CliAlloyAdapter } from "./adapters/CliAlloyAdapter.js";
 export type { CliAlloyOptions } from "./adapters/CliAlloyAdapter.js";
-export { LOCAL_BRIDGE_NOT_READY, LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
+export { LocalBridgeAlloyAdapter } from "./adapters/LocalBridgeAlloyAdapter.js";
+export type { BridgeFetch, BridgeFetchResponse, LocalBridgeAlloyOptions } from "./adapters/LocalBridgeAlloyAdapter.js";
 
 // M0（ScenarioExtractor）
 export type {
