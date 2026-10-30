@@ -38,7 +38,7 @@ function renderIssue(issue: IssueView): string[] {
 export function renderDocument(model: ViewModel): string {
   const lines: string[] = [];
 
-  lines.push(`# 仕様書: ${model.scenarioId}`, "");
+  lines.push(`# 仕様書: ${mdLine(model.title)}${model.titleNote}`, "");
   if (model.ledgerIsStale === true) {
     lines.push("> 注意: この論点カタログは、いまの形式仕様正本とは別の版から作った。論点は古い版について見つかったものである。", "");
   }
@@ -49,6 +49,17 @@ export function renderDocument(model: ViewModel): string {
   } else {
     lines.push(model.verification.headline, "");
     for (const line of model.verification.lines) lines.push(`- ${mdLine(line)}`);
+    lines.push("");
+  }
+
+  // 意図の候補（設計 4.1 の 3）。LLM が作った推測で、人が確かめていないので「候補」と明記する。
+  lines.push("## 意図の候補", "");
+  if (model.intent === null) {
+    lines.push("意図の候補が無い。", "");
+  } else {
+    lines.push("次の文は、コードと資料から LLM が推測した候補である。まだ人が確かめていない。", "");
+    lines.push(`- 候補: ${mdLine(model.intent.text)}`);
+    if (model.intent.userIntent !== null) lines.push(`- 利用者が書いた目的: ${mdLine(model.intent.userIntent)}`);
     lines.push("");
   }
 
@@ -110,10 +121,13 @@ export function renderDocument(model: ViewModel): string {
     }
   }
 
-  lines.push("## 付録: 形式仕様のソース", "");
-  const source = stripSourceComments(model.source).replace(/\n+$/, "");
-  const fence = fenceFor(source);
-  lines.push(`${fence}alloy`, source, fence);
+  // 付録は Eng のときだけ（設計 2 節・4.1・8.3）。正本のソースは識別子を含むため、PdM には出さない。
+  if (model.viewRole === "Eng") {
+    lines.push("## 付録: 形式仕様のソース", "");
+    const source = stripSourceComments(model.source).replace(/\n+$/, "");
+    const fence = fenceFor(source);
+    lines.push(`${fence}alloy`, source, fence);
+  }
 
   return joinLines(lines);
 }

@@ -3,7 +3,7 @@
 // 条件と書き込みは別の列に分かれるが、条件の文はそれより前の書き込みを反映した値についての文である（設計 3.2）。
 // このため、どちらの列でも各項目の前に経路の中の位置「(n)」を付け、列をまたいで順が読めるようにする。
 
-import { joinLines, mdCell } from "./escape.js";
+import { joinLines, mdCell, mdLine } from "./escape.js";
 import type { OperationView, ViewModel } from "./view_model.js";
 
 function stepsCell(operation: OperationView, kind: "CONDITION" | "WRITE"): string {
@@ -16,7 +16,8 @@ function stepsCell(operation: OperationView, kind: "CONDITION" | "WRITE"): strin
 
 export function renderMatrix(model: ViewModel): string {
   const lines: string[] = [];
-  lines.push(`# 操作の一覧表: ${model.scenarioId}`, "");
+  // 題は仕様書と同じ（設計 4.1）。内部の識別子は出さない。
+  lines.push(`# 操作の一覧表: ${mdLine(model.title)}${model.titleNote}`, "");
   if (model.ledgerIsStale === true) {
     lines.push("> 注意: この論点カタログは、いまの形式仕様正本とは別の版から作った。論点は古い版について見つかったものである。", "");
   }

@@ -1,19 +1,26 @@
-// M5 の入力の契約を確かめる（M5 の設計 1.2、仕様 3.1）。破れていれば ProjectionContractError。
+// M5 の入力の契約を確かめる（M5 の設計 1.2・7.7、仕様 3.1）。破れていれば ProjectionContractError。
 //
-// - 表現形式が DOCUMENT・MATRIX・FLOW のどれかであること。
-// - 論点カタログのシナリオが、形式仕様のシナリオと同じであること。
+// - 表現形式が DOCUMENT・MATRIX・FLOW のどれかで、表示の役割が PdM・Eng のどちらかであること。
+// - context.scenario と論点カタログのシナリオが、形式仕様のシナリオと同じであること。
 // - 論点が指す操作と、論点の実行列の状態変数が、形式仕様にあること（表示名を引けなくならないように）。
 // カタログが古いこと（ソースの SHA-256 が違うこと）は契約違反ではない。ビューの先頭で知らせる（設計 3.3）。
 
 import type { FormalSpecification } from "../../types/formal.js";
 import type { DomainLedgerCatalog } from "../../types/ledger.js";
-import { ProjectionContractError, type ProjectionRequest } from "../../types/projection.js";
+import { ProjectionContractError, type ProjectionContext, type ProjectionRequest, type ViewRole } from "../../types/projection.js";
 
 const SCENARIO_FORMATS: readonly string[] = ["DOCUMENT", "MATRIX", "FLOW"];
+const VIEW_ROLES: readonly string[] = ["PdM", "Eng"] satisfies readonly ViewRole[];
+
+/** 表示の役割が PdM・Eng のどちらかであること。俯瞰図の射影からも使う。 */
+export function isViewRole(value: unknown): value is ViewRole {
+  return typeof value === "string" && VIEW_ROLES.includes(value);
+}
 
 export function checkProjectionContract(
   spec: FormalSpecification,
   ledger: DomainLedgerCatalog | null,
+  context: ProjectionContext,
   request: ProjectionRequest,
 ): void {
   const fail = (reason: ProjectionContractError["reason"], detail: string): never => {
@@ -22,6 +29,13 @@ export function checkProjectionContract(
 
   if (!SCENARIO_FORMATS.includes(request.format)) {
     fail("UNSUPPORTED_FORMAT", String(request.format));
+  }
+  if (!isViewRole(request.viewRole)) {
+    fail("UNSUPPORTED_FORMAT", `表示の役割: ${String(request.viewRole)}`);
+  }
+
+  if (context.scenario.id !== spec.scenarioId) {
+    fail("SCENARIO_MISMATCH", `context のシナリオは ${context.scenario.id}、形式仕様は ${spec.scenarioId}`);
   }
 
   if (ledger === null) return;
