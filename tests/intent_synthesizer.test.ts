@@ -96,12 +96,27 @@ test("網羅: すべての Bounded Context とシナリオに 1 つずつ、id �
   assert.deepEqual(catalog.basis, glossary.basis);
 });
 
-test("LLM が無ければ、すべて NOT_GENERATED（UNREACHABLE）。文で埋めない", async () => {
+test("LLM が無ければ、すべて NOT_GENERATED（UNREACHABLE）。文で埋めない。確定の状態も NOT_GENERATED", async () => {
   const { repo, map, slice, glossary } = await inputsOf();
   const catalog = await synthesizeIntents(map, slice, glossary, repo, {});
   for (const item of [...catalog.contexts, ...catalog.scenarios]) {
     assert.deepEqual(item.intent, { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "LLM が渡されていない" });
+    assert.equal(item.intentStatus, "NOT_GENERATED");
+  }
+});
+
+test("確定の状態は欄ごとに決まる: 書けた欄は CANDIDATE、届かなかった欄は NOT_GENERATED", async () => {
+  const { repo, map, slice, glossary } = await inputsOf();
+  const llm = intentLlm((request) => (request.task === "intent.context" ? "利用者の登録を受け持つ。" : null));
+  const catalog = await synthesizeIntents(map, slice, glossary, repo, { llm });
+  assert.ok(catalog.contexts.length > 0 && catalog.scenarios.length > 0);
+  for (const item of catalog.contexts) {
+    assert.equal(item.intent.status, "GENERATED");
     assert.equal(item.intentStatus, "CANDIDATE");
+  }
+  for (const item of catalog.scenarios) {
+    assert.ok(item.intent.status === "NOT_GENERATED" && item.intent.reason === "UNREACHABLE");
+    assert.equal(item.intentStatus, "NOT_GENERATED");
   }
 });
 
@@ -177,7 +192,7 @@ test("手がかりに辞書の用語（term・label）を入れない", async ()
   }
 });
 
-test("出力の検査: 2 行・空・200 字を超えるものは INVALID_OUTPUT。200 字ちょうどは通す", async () => {
+test("出力の検査: 2 行・空・200 字を超えるものは INVALID_OUTPUT（確定の状態は NOT_GENERATED）。200 字ちょうどは通す（CANDIDATE）", async () => {
   const { repo, map, slice, glossary } = await inputsOf();
   const cases: Array<[string, LlmText["status"]]> = [
     ["一行目。\n二行目。", "NOT_GENERATED"],
@@ -189,6 +204,7 @@ test("出力の検査: 2 行・空・200 字を超えるものは INVALID_OUTPUT
     const catalog = await synthesizeIntents(map, slice, glossary, repo, { llm: intentLlm(() => answer) });
     for (const item of [...catalog.contexts, ...catalog.scenarios]) {
       assert.equal(item.intent.status, status, JSON.stringify(answer).slice(0, 40));
+      assert.equal(item.intentStatus, status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED");
       if (item.intent.status === "NOT_GENERATED") assert.equal(item.intent.reason, "INVALID_OUTPUT");
     }
   }

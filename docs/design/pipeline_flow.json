@@ -279,7 +279,7 @@
         "責務": "Bounded Context とシナリオの意図の候補を作る。手がかりは辞書が選んだ節だけを使い、辞書の用語（LLM の結果）は入力に入れない",
         "LLM の担当": "意図の候補の文"
       },
-      "markdown": "### モジュール: `IntentSynthesizer`\n\n候補は人が確かめるまで候補のままである（初回はすべて CANDIDATE）。"
+      "markdown": "### モジュール: `IntentSynthesizer`\n\n候補は人が確かめるまで候補のままである（初回は、作れた候補が CANDIDATE、作れなかった候補が NOT_GENERATED）。"
     },
     {
       "id": "T_INT",

@@ -74,7 +74,8 @@ const LABELS = {
 };
 
 function intentsOf(glossary: Glossary, intent: LlmText): IntentCatalog {
-  return { contexts: [{ contextId: "src_order", intent, intentStatus: "CANDIDATE" }], scenarios: [], basis: { ...glossary.basis } };
+  const intentStatus = intent.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED";
+  return { contexts: [{ contextId: "src_order", intent, intentStatus }], scenarios: [], basis: { ...glossary.basis } };
 }
 
 const INTENT: LlmText = { status: "GENERATED", text: "注文を受け付けてから締めるまでを扱う", recordKey: "intent-1" };

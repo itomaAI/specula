@@ -3,7 +3,7 @@
 // 補助の関数（記録のキー・受け取りの解釈・正準化 JSON・SHA-256・ルートの付け替え・リポジトリの読み込み）は公開しない。
 // 使うときは元のファイルから読む。
 
-export type { JsonValue, LlmRequest, LlmText } from "./types/index.js";
+export type { ConfirmationStatus, JsonValue, LlmRequest, LlmText } from "./types/index.js";
 
 export type { FileSystemPort } from "./ports/FileSystemPort.js";
 export type {
@@ -66,7 +66,7 @@ export type {
 export { buildGlossary } from "./core/glossary_builder.js";
 
 // IntentSynthesizer（意図の候補）
-export type { ContextIntent, IntentCatalog, IntentStatus, ScenarioIntent } from "./types/intent.js";
+export type { ContextIntent, IntentCatalog, ScenarioIntent } from "./types/intent.js";
 export { IntentContractError } from "./types/intent.js";
 export { INTENT_PROMPT_VERSION, synthesizeIntents } from "./core/intent_synthesizer.js";
 

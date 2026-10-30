@@ -171,6 +171,9 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
 test("意図の候補を 1 回だけ作り、すべての Bounded Context とシナリオに 1 つずつ載せ、報告に要約を書く", async () => {
   const unreachable = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(unreachable.report.intents, { contextCount: 1, scenarioCount: 3, notGenerated: { UNREACHABLE: 4, INVALID_OUTPUT: 0 } });
+  for (const item of [...unreachable.intents.contexts, ...unreachable.intents.scenarios]) {
+    assert.equal(item.intentStatus, "NOT_GENERATED");
+  }
 
   const tasks: string[] = [];
   const intentLlm: LanguageModelPort = {
