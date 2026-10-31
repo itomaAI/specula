@@ -24,8 +24,8 @@
 //   jar        （任意）手元の PC での Alloy の jar のパス。無ければ検証（M3）をしない（NO_SOLVER）
 //   java       （任意）手元の PC での java のコマンド。既定は "java"
 //   connection （任意）ローカルブリッジの接続の名前（設定 local_bridge の connections[].name）。無ければ有効な最初の接続
-//   viewRole   （任意）利用者向けの出力の表示の役割。"BUSINESS"（既定）か "IMPLEMENTATION"（実装の名前と所在を併記する。全体設計 2.2）
 //
+// 利用者向けの出力は両方の表示の役割で書く（<out>/views/business/ と views/implementation/。全体設計 4.1）。役割の引数は無い。
 // - LLM の依頼は、この Itera OS の AI エージェントに内部のタスク（MetaOS.ai.task）として渡し、答えをファイルで受け取る（IteraLlmAdapter）。
 //   依頼と答えは <out>/llm_exchange、記録は <out>/llm_records に置く。記録があれば、次の実行ではタスクを出さずに記録を使う。
 // - 接続の execMode が "ask" のときは、実行の前に 1 回だけ確かめる。断られたら検証をしない（solver を渡さない）。
@@ -49,14 +49,12 @@
     const missing = [['repo', repoDir], ['out', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
     if (missing.length > 0) {
       log(`引数が足りない: ${missing.join(', ')}`, 'error');
-      log('使い方: spawn の属性に repo（リポジトリ）・out（出力先）・bundle（specula.itera.js）を渡す。jar・java・connection・viewRole は任意。', 'error');
+      log('使い方: spawn の属性に repo（リポジトリ）・out（出力先）・bundle（specula.itera.js）を渡す。jar・java・connection は任意。', 'error');
       return;
     }
-    // 役割の誤りは実行の前に止める（そのまま渡すと俯瞰図の射影が契約のエラーを投げ、環境の故障と区別できないため）。
-    // 小文字で受け取ってよく、読むときに大文字へ戻す（全体仕様 4.5）。列挙に無い値はエラーにする。
-    const viewRole = (String(args.viewRole || '').trim() || 'BUSINESS').toUpperCase();
-    if (viewRole !== 'BUSINESS' && viewRole !== 'IMPLEMENTATION') {
-      log(`引数の誤り: viewRole は BUSINESS か IMPLEMENTATION（${viewRole} を受け取った）`, 'error');
+    // 役割は両方で書くので受け取らない。渡されたら、黙って無視せずに止める（コマンドラインの --view-role と同じ）。
+    if (args.viewRole !== undefined) {
+      log('引数の誤り: viewRole は使わない（利用者向けの出力は両方の役割で書く）。画面の役割は spec_viewer.html で選ぶ。', 'error');
       return;
     }
 
@@ -87,8 +85,8 @@
     log(`リポジトリを読む: ${repoDir}`);
     const repo = await specula.readIteraRepository(source, repoDir);
     log(`ファイル ${repo.files.length} 件、仕様の資料 ${repo.documents.length} 件（合計の上限で外した資料 ${repo.omittedDocuments.length} 件）`);
-    log(`解析を始める（表示の役割 ${viewRole}。LLM の依頼があれば、AI エージェントの答えを待つ）`);
-    const result = await specula.runPipeline(repo, { fs: specula.withRoot(fs, repoDir), llm, solver }, { viewRole });
+    log('解析を始める（利用者向けの出力は両方の役割で書く。LLM の依頼があれば、AI エージェントの答えを待つ）');
+    const result = await specula.runPipeline(repo, { fs: specula.withRoot(fs, repoDir), llm, solver });
 
     // 4. 出力を書く。
     const written = await specula.writeOutputs(fs, outDir, result);

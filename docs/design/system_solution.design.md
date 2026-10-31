@@ -195,15 +195,15 @@ FormalTranspiler が `AmbiguityReport` を返したコマンドは、そこで�
 
 ### 2.2 表示の役割と実装名の分離
 
-利用者向けの出力から実装の名前を外し、実装との対応は辞書から作る対応表に持つ。表示の役割（PdM・Eng）で、対応を併記するかどうかを切り替える。
+利用者向けの出力から実装の名前を外し、実装との対応は辞書から作る対応表に持つ。表示の役割（`BUSINESS`・`IMPLEMENTATION`。全体仕様 4.5）で、対応を併記するかどうかを切り替える。
 
-- **表示の役割（`viewRole`）**: `"PdM"`（既定）と `"Eng"` の 2 つ。SpecProjector の `ProjectionRequest` と `SystemProjectionRequest` に持つ。入口（コマンドラインの `--view-role`、起動アプリの引数）で選び、無ければ `"PdM"` とする。
-- **利用者向けの出力**: 仕様書・操作の一覧表・操作の流れ図・全体の俯瞰図・曖昧さの一覧を指す。`"PdM"` のときは、ファイルのパス・関数名・行番号・コードの断片を出さない。地図の要素は辞書の `term.label` で表し、用語が未生成なら「<種類> <番号>（名前は未生成）」と表す。
-- **`"Eng"` のとき**: 同じ文に、辞書の `implementation`（実装の名前と所在）を併記する。文そのものは役割で変えない。役割で変わるのは、併記があるかどうかと、仕様書の付録に形式仕様のソースを載せるかどうか（`"Eng"` のときだけ載せる。正本の `-- @source:` の行にファイルのパスが入るため）である。
+- **表示の役割（`viewRole`）**: `"BUSINESS"`（画面の表示名は「業務」）と `"IMPLEMENTATION"`（「実装」）の 2 つ（全体仕様 4.5）。SpecProjector の `ProjectionRequest` と `SystemProjectionRequest` に持つ。オーケストレーターは 1 回の実行で両方の役割で射影し、入口（コマンドライン、起動アプリ）では役割を選ばない（4.1 の出力の置き方）。M5 の射影は LLM を呼ばないので、両方の役割で射影しても LLM の依頼は増えない。
+- **利用者向けの出力**: 仕様書・操作の一覧表・操作の流れ図・全体の俯瞰図・曖昧さの一覧を指す。`"BUSINESS"` のときは、ファイルのパス・関数名・行番号・コードの断片を出さない。地図の要素は辞書の `term.label` で表し、用語が未生成なら「<種類> <番号>（名前は未生成）」と表す。
+- **`"IMPLEMENTATION"` のとき**: 同じ文に、辞書の `implementation`（実装の名前と所在）を併記する。文そのものは役割で変えない。役割で変わるのは、併記があるかどうかと、仕様書の付録に形式仕様のソースを載せるかどうか（`"IMPLEMENTATION"` のときだけ載せる。正本の `-- @source:` の行にファイルのパスが入るため）である。
 - **表示の id**: コマンドは切り出しの順に `C-01`、`C-02` … と振る。曖昧さは、そのコマンドの中の順に `C-01-A-001` … と振る。論点は、論点カタログの並びで `C-01-L-001` … と振る（2026-10-30 に足した。論点の識別子 `LEDGER-<コマンドの識別子>-NNN` は実装の所在を含むため。SpecProjector の設計 7.3・8.7）。表示の id は出力の中だけで使い、内部の識別子（`commandId` など）は変えない。いまは仕様書の題に内部の識別子（`CT-CMD-<ファイル>#<関数>`）が出ている（`spec_projector` の設計 4.1・7.4）ので、表示の id に置き換える。
-- **実装との対応表（`implementation_map.json`）**: 表示の id から、内部の識別子・辞書の項目の id・`implementation` を引く表。SpecProjector が辞書と実行の結果から作る射影であり、役割に関係なく出力する。Eng 向けの併記は、この表と同じ内容を使う。
+- **実装との対応表（`implementation_map.json`）**: 表示の id から、内部の識別子・辞書の項目の id・`implementation` を引く表。SpecProjector が辞書と実行の結果から作る射影であり、役割に関係なく出力する。`IMPLEMENTATION` の併記は、この表と同じ内容を使う。
 - **状態の変数と条件**: FormalTranspiler の表示名をそのまま使う（辞書の用語は付けない。1.2 の辞書の範囲）。辞書との対応は `implementation.names` との完全一致で引き、一致したものだけを対応表に載せる。一致しないものを辞書に足さない（GlossaryBuilder の設計 4.2。2026-10-30 に中瀬古様の了承を得た。C0AF4DJJK8A 1793354518.934329）。後段が見つけた名前を辞書に取り込む処理は、状態の名前が何を指すかを実例で見てから決める今後の拡張とする。
-- **曖昧さの一覧**: FormalTranspiler の `AmbiguityReport` を、SpecProjector が曖昧さの一覧（Markdown）として射影する。所在（ファイルと行）とコードの原文は `"Eng"` のときだけ出す。LLM が書く質問の文に実装の名前が入らないように、FormalTranspiler の出力の検査で、質問の文にそのコマンドの実装の名前（`RawContextModel` から機械的に集めたファイルのパス・関数名・識別子）が入っていたら `INVALID_OUTPUT` にする（`formal_transpiler` の設計 4.2）。FormalTranspiler は辞書を受け取らない（2 節）ので、辞書にしか無い名前は照合しない。
+- **曖昧さの一覧**: FormalTranspiler の `AmbiguityReport` を、SpecProjector が曖昧さの一覧（Markdown）として射影する。所在（ファイルと行）とコードの原文は `"IMPLEMENTATION"` のときだけ出す。LLM が書く質問の文に実装の名前が入らないように、FormalTranspiler の出力の検査で、質問の文にそのコマンドの実装の名前（`RawContextModel` から機械的に集めたファイルのパス・関数名・識別子）が入っていたら `INVALID_OUTPUT` にする（`formal_transpiler` の設計 4.2）。FormalTranspiler は辞書を受け取らない（2 節）ので、辞書にしか無い名前は照合しない。
 - **意図の候補**: `IntentCatalog` の候補を、仕様書の冒頭と全体の俯瞰図（JSON）に「意図の候補」として、候補であることが分かる形で出す。未生成ならそのまま「未生成」と書く。
 - **正本は変えない**: 形式仕様正本（Alloy）の `-- @source:` の注釈は、これまでどおり残す。正本は利用者向けの出力ではない。
 
@@ -265,18 +265,21 @@ FormalTranspiler が `AmbiguityReport` を返したコマンドは、そこで�
   - 限界: 依頼と答えのファイルは消さない（`FileSystemPort` に削除が無い）。形の合わない答えのファイルが残ると、次の実行でもそれが使われて `INVALID_OUTPUT` になる。問い直すには、その答えのファイルを消す。
 - **入口**: Node.js 用のコマンドライン（`src/cli.ts`）と、Itera OS 用の起動アプリ（`itera/`）を置く。どちらも、アダプターを組み立ててオーケストレーターに渡すだけで、解析の処理は持たない。出力の書き出しは、`FileSystemPort` を通す共通の関数にして、両方の入口から使う。
 - **リポジトリの読み方（両方の入口で共通）**: `NodeRepositoryReader`（Node.js）と `IteraRepositoryReader`（Itera OS）は、同じ拡張子と除外の規則で読む。コードと設定のファイル（`.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.mjs` `.cjs` `.json`）は `RepositoryArtifacts.files` に、仕様の資料（README・`docs/` の Markdown・スキーマ定義）は `RepositoryArtifacts.documents` に入れる。資料の集め方・除外・上限（1 ファイル 64 KB、合計 2 MB）と、上限で読まなかった資料の扱い（`omittedDocuments`）は、CommandExtractor の設計書 4.0 に従う。`node_modules`・`.git`・`dist` の下は読まない。どのファイルを解析するかは CommandExtractor が、資料をどう使うかは GlossaryBuilder が決める。
-- **起動アプリの使い方**: 引数は、解析するリポジトリ（VFS のディレクトリ）、出力先、`dist/specula.itera.js` の場所、Alloy の jar のパス、`java` のパス、表示の役割（`viewRole`。無ければ `PdM`）である。jar のパスが無ければ `SolverPort` を渡さない。画面は進み具合を出すだけにする。
-- **コマンドラインの使い方**: `node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>] [--view-role PdM|Eng]`。
+- **起動アプリの使い方**: 引数は、解析するリポジトリ（VFS のディレクトリ）、出力先、`dist/specula.itera.js` の場所、Alloy の jar のパス、`java` のパスである。表示の役割は受け取らず、`viewRole` を渡されたら実行を始めずに止める（両方の役割で書くため）。jar のパスが無ければ `SolverPort` を渡さない。画面は進み具合を出すだけにする。
+- **コマンドラインの使い方**: `node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>]`。
   - `--alloy-jar` が無ければ `SolverPort` を渡さない（FormalSolver は `UNVERIFIED`）。
   - LLM のクライアントは、`ClaudeCodeCliAdapter` ができるまで渡さない。`RecordingLanguageModel` にクライアント無しで包んで渡すので、記録が無い項目は `NOT_GENERATED` になる。`--records` が無ければ記録の置き場所は `<出力先>/llm_records`。
-  - `--view-role` が無ければ `PdM`。
+  - 表示の役割は選ばない（両方の役割で書く）。`--view-role` は知らない引数として、引数の誤りにする。
   - 終了コード: 実行が最後まで回れば 0（論点や曖昧さがあっても 0）、環境の故障は 1、引数の誤りは 2。
-- **出力の置き方**: `<出力先>/run_report.json`、全体の俯瞰図 `system_map.mmd`（1 枚の図）と、地図 1・地図 2 を束ねた `system_map.json`、辞書 `glossary.json`、意図の候補 `intents.json`、実装との対応表 `implementation_map.json`、コマンドごとの `commands/<コマンドの内部の識別子>/`。コマンドのディレクトリには、SpecProjector まで進んだものは `spec.json`・`spec.als`・`solver_report.json`・`ledger.json`・`spec.md`・`matrix.md`・`flow.mmd` を、FormalTranspiler で止まったものは `ambiguity.json` と曖昧さの一覧 `ambiguity.md` を置く。コマンドの識別子のうち、英数字・`-`・`_`・`.` 以外の文字は `_` に置き換える。
+- **出力の置き方**: 役割で中身が変わらない内部の記録と、役割で中身が変わる利用者向けの出力を分けて置く。コマンドの識別子のうち、英数字・`-`・`_`・`.` 以外の文字は `_` に置き換える。
+  - 内部の記録: `<出力先>/run_report.json`、辞書 `glossary.json`、意図の候補 `intents.json`、実装との対応表 `implementation_map.json`、コマンドごとの `commands/<コマンドの内部の識別子>/`。コマンドのディレクトリには、SpecProjector まで進んだものは `spec.json`・`spec.als`・`solver_report.json`・`ledger.json` を、FormalTranspiler で止まったものは `ambiguity.json` を置く。
+  - 利用者向けの出力: 役割ごとに `<出力先>/views/<役割の識別子の小文字>/`（`views/business/` と `views/implementation/`）の下に、内部の記録と同じ相対パスで置く。全体の俯瞰図 `system_map.mmd`（1 枚の図）と、地図 1・地図 2 を束ねた `system_map.json`、コマンドごとの `commands/<コマンドの内部の識別子>/` に、SpecProjector まで進んだものは `spec.md`・`matrix.md`・`flow.mmd` を、FormalTranspiler で止まったものは曖昧さの一覧 `ambiguity.md` を置く。
+  - 両方の役割を書く理由: 画面で役割を切り替えるたびに実行し直さずに済むためである。内部の記録は二重に持たない。画面は「`views/<役割>/` と内部の記録と同じ相対パス」で引ける。ディレクトリの名前を小文字にするのは、URL の規則（全体仕様 4.5）に合わせるためである。
   - ディレクトリの名前は、表示の id ではなく内部の識別子にする。表示の id は切り出しの順で決まるので、コードが変わると同じコマンドでも番号がずれ、2 回目以降の実行で前回の出力と突き合わせられなくなるためである。表示の id から内部の識別子は、`implementation_map.json` と `run_report.json` で引ける。
   - `system_map.json` は、SpecProjector の俯瞰図の JSON（SpecProjector 基本設計 8.9）を 1 つに束ねる。形は `{ viewRole, basis, contextMap, details: [{ context, core, supporting }] }` である。`contextMap` は地図 1（`CONTEXT_MAP`）、`details` は Bounded Context ごとの地図 2（`CONTEXT_DETAIL`）で、`core` は足す要素なし、`supporting` は `includeSupporting: true` の版である。`context` は Bounded Context の表示の id（`c1` …）で、`details` は全体マップの Bounded Context の順に並ぶ。`basis` は辞書の `basis` を写す（実行の報告・意図の候補・実装との対応表と同じ）。SpecProjector の俯瞰図の JSON は元にした全体マップと資料のハッシュを持たないので、オーケストレーターが束ねるときに付ける。
     - ファイルを分けずに束ねる理由: 画面は 1 つのファイルを読めば地図 1 と地図 2 を切り替えられる。鍵は表示の id でよい。俯瞰図へのリンクは 1 回の実行の中で閉じ（SpecViewer 仕様 2.3）、表示の id から内部の識別子は `implementation_map.json` で引けるためである。コマンドのように内部の識別子でディレクトリを作ると、Bounded Context の識別子をファイル名に出すことになる。
     - `system_map.mmd` は、level を省いた今の 1 枚の図のままにする。出力先を人や LLM が開いたときに全体を見るための図で、画面は `system_map.json` から描く。
-  - `glossary.json`・`intents.json`・`spec.als`・`ambiguity.json` は内部の記録であり、実装の名前を含む。役割で中身を変えない。役割で変わるのは、利用者向けの出力（`.md` と `.mmd`、`system_map.json`）だけである。
+  - `glossary.json`・`intents.json`・`spec.als`・`ambiguity.json` は内部の記録であり、実装の名前を含む。役割で中身を変えない。役割で変わるのは、利用者向けの出力（`.md` と `.mmd`、`system_map.json`）だけであり、これらだけを `views/<役割>/` に置く。
 
 ### 4.2 言語・ビルドパイプライン方針 (TypeScript ➔ JavaScript ESM)
 - **開発・実装言語**: **TypeScript (`.ts`)**。型の検査は `strict` で行い、`any` を使わない。

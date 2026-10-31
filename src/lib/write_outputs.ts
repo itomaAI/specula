@@ -3,6 +3,7 @@
 // パスは "/" でつなぐ（NodeFsAdapter は Windows でも "/" を受け付ける）。
 
 import type { FileSystemPort } from "../ports/FileSystemPort.js";
+import { viewsDirOf } from "../types/projection.js";
 import type { PipelineResult } from "../types/run.js";
 
 /** 英数字・"-"・"_"・"." 以外を "_" にする。 */
@@ -22,9 +23,6 @@ export async function writeOutputs(fs: FileSystemPort, outDir: string, result: P
   };
 
   await put(at("run_report.json"), json(result.report));
-  await put(at("system_map.mmd"), result.systemViews.mermaid.content);
-  // 地図 1 と Bounded Context ごとの地図 2 を束ねた俯瞰図（全体設計 4.1）。役割で中身が変わる。
-  await put(at("system_map.json"), json(result.systemViews.json));
   // 辞書と意図の候補は内部の記録、対応表は表示の id から実装を引く表。どれも実装の名前を含み、表示の役割で中身を変えない（全体設計 2.2・4.1）。
   await put(at("glossary.json"), json(result.glossary));
   await put(at("intents.json"), json(result.intents));
@@ -36,12 +34,26 @@ export async function writeOutputs(fs: FileSystemPort, outDir: string, result: P
       await put(`${dir}/spec.als`, commandTarget.spec.source.endsWith("\n") ? commandTarget.spec.source : commandTarget.spec.source + "\n");
       await put(`${dir}/solver_report.json`, json(commandTarget.solverReport));
       await put(`${dir}/ledger.json`, json(commandTarget.ledger));
-      await put(`${dir}/spec.md`, commandTarget.document.content);
-      await put(`${dir}/matrix.md`, commandTarget.matrix.content);
-      await put(`${dir}/flow.mmd`, commandTarget.flow.content);
     } else if (commandTarget.kind === "AMBIGUOUS") {
       await put(`${dir}/ambiguity.json`, json(commandTarget.ambiguity));
-      await put(`${dir}/ambiguity.md`, commandTarget.view.content);
+    }
+  }
+
+  // 利用者向けの出力は役割で中身が変わるので、両方の役割の分を views/<役割>/ の下に、上と同じ相対パスで書く（全体設計 4.1）。
+  for (const views of result.views) {
+    const base = viewsDirOf(views.viewRole);
+    await put(at(base, "system_map.mmd"), views.system.mermaid.content);
+    // 地図 1 と Bounded Context ごとの地図 2 を束ねた俯瞰図。
+    await put(at(base, "system_map.json"), json(views.system.json));
+    for (const commandViews of views.commands) {
+      const dir = at(base, "commands", safeName(commandViews.commandId));
+      if (commandViews.kind === "COMPLETED") {
+        await put(`${dir}/spec.md`, commandViews.document.content);
+        await put(`${dir}/matrix.md`, commandViews.matrix.content);
+        await put(`${dir}/flow.mmd`, commandViews.flow.content);
+      } else {
+        await put(`${dir}/ambiguity.md`, commandViews.view.content);
+      }
     }
   }
   return written;

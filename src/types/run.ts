@@ -23,8 +23,6 @@ export interface PipelineDeps {
 export interface PipelineOptions {
   selection?: CommandSelection;
   solver?: SolverOptions;
-  /** 利用者向けの出力の表示の役割（全体設計 2.2）。無ければ "BUSINESS"。 */
-  viewRole?: ViewRole;
 }
 
 /** 契約のエラーで止まった段。 */
@@ -131,7 +129,7 @@ export interface RunReport {
   basis: Glossary["basis"];
 }
 
-/** コマンド 1 つの成果物。報告の commands と同じ順・同じ id。 */
+/** コマンド 1 つの成果物のうち、役割で中身が変わらないもの（内部の記録）。報告の commands と同じ順・同じ id。 */
 export type CommandArtifacts =
   | {
       commandId: string;
@@ -140,19 +138,44 @@ export type CommandArtifacts =
       spec: FormalSpecification;
       solverReport: SolverReport;
       ledger: DomainLedgerCatalog;
-      document: SpecificationView;
-      matrix: SpecificationView;
-      flow: SpecificationView;
     }
   | {
       commandId: string;
       displayId: string;
       kind: "AMBIGUOUS";
       ambiguity: AmbiguityReport;
-      /** 曖昧さの一覧（AMBIGUITY_DOCUMENT。SpecProjector の設計 8.4）。 */
-      view: SpecificationView;
     }
   | { commandId: string; displayId: string; kind: "STOPPED" };
+
+/** コマンド 1 つの、役割で中身が変わる利用者向けの出力（全体設計 4.1）。途中で止まったコマンドには無い。 */
+export type CommandViews =
+  | {
+      commandId: string;
+      displayId: string;
+      kind: "COMPLETED";
+      /** spec.md */
+      document: SpecificationView;
+      /** matrix.md */
+      matrix: SpecificationView;
+      /** flow.mmd */
+      flow: SpecificationView;
+    }
+  | {
+      commandId: string;
+      displayId: string;
+      kind: "AMBIGUOUS";
+      /** 曖昧さの一覧（ambiguity.md。AMBIGUITY_DOCUMENT。SpecProjector の設計 8.4）。 */
+      view: SpecificationView;
+    };
+
+/** 1 つの役割の利用者向けの出力。出力先の views/<役割の識別子の小文字>/ に書く（全体設計 4.1）。 */
+export interface RoleViews {
+  viewRole: ViewRole;
+  /** mermaid は level を省いた 1 枚の図（system_map.mmd）、json は束ねた俯瞰図（system_map.json）。 */
+  system: { mermaid: SpecificationView; json: SystemMapBundle };
+  /** 報告の commands の順。途中で止まったコマンドは入らない。 */
+  commands: CommandViews[];
+}
 
 /** 俯瞰図の JSON 1 枚（SpecProjector の SYSTEM_JSON の content を読んだもの。SpecProjector の設計 4.4・8.9）。 */
 export interface SystemMapJson {
@@ -183,9 +206,9 @@ export interface PipelineResult {
   map: EventStormingMap;
   glossary: Glossary;
   intents: IntentCatalog;
-  /** mermaid は level を省いた 1 枚の図（system_map.mmd）、json は束ねた俯瞰図（system_map.json）。 */
-  systemViews: { mermaid: SpecificationView; json: SystemMapBundle };
   commands: CommandArtifacts[];
+  /** 両方の役割の利用者向けの出力（全体設計 4.1）。VIEW_ROLES の順（BUSINESS、IMPLEMENTATION）。 */
+  views: RoleViews[];
   /**
    * 実装との対応表（implementation_map.json。SpecProjector の設計 8.5）。表示の役割に関係なく作る。
    * 状態変数と論点は、最後まで進んだコマンド（COMPLETED）の分だけ入る。

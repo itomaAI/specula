@@ -53,9 +53,11 @@ export type CommandOutputs =
 
 /** 出力先から読んだファイルの中身（設計 2 節・6.1）。 */
 export interface RunOutputs {
+  /** 読んだ役割。役割で中身が変わるファイルは views/<役割>/ の下から読んだ（全体設計 4.1）。 */
+  viewRole: ViewRole;
   /** run_report.json */
   report: FileRead<RunReport>;
-  /** system_map.json */
+  /** views/<役割>/system_map.json */
   systemMap: FileRead<SystemMapBundle>;
   /** glossary.json */
   glossary: FileRead<Glossary>;
@@ -79,8 +81,13 @@ export interface RunOutputsProblem {
     // basis が run_report.json のものと違う（別の実行の出力が混ざっている）
     | "BASIS_MISMATCH"
     // run_report.json のコマンドの kind から決まるファイルが無い
-    | "COMMAND_FILE_MISSING";
-  /** 出力先の直下のファイルの名前（"glossary.json"）か、コマンドのディレクトリの中のファイルの名前（"spec.md"）。 */
+    | "COMMAND_FILE_MISSING"
+    // views/<役割>/system_map.json の viewRole が、読んだ役割と違う
+    | "VIEW_ROLE_MISMATCH";
+  /**
+   * 出力先からのファイルのパス（"glossary.json"、"views/business/system_map.json"）か、
+   * コマンドのファイルの名前（"spec.md"。役割で中身が変わるものは "views/business/ の spec.md" の形）。内部の識別子は入れない。
+   */
   file: string;
   /** コマンドのファイルなら、そのコマンドの表示の id。内部の識別子は出さない（仕様 2.3）。 */
   commandTarget: string | null;

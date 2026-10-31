@@ -96,16 +96,29 @@ test("リポジトリにかけると終了コード 0 で、報告・全体マ�
     });
     assert.deepEqual(captured.stdout, [JSON.stringify(report.totals)]);
 
-    for (const name of ["system_map.mmd", "system_map.json", "glossary.json", "intents.json", "implementation_map.json"]) {
+    for (const name of ["glossary.json", "intents.json", "implementation_map.json"]) {
       assert.ok(await isFile(join(out, name)), name);
     }
+    // 利用者向けの出力は両方の役割で、views/<役割>/ の下に書く（全体設計 4.1）。出力先の直下には書かない。
+    for (const role of ["business", "implementation"]) {
+      for (const name of ["system_map.mmd", "system_map.json"]) {
+        assert.ok(await isFile(join(out, "views", role, name)), `${role}/${name}`);
+      }
+    }
+    assert.ok(!(await isFile(join(out, "system_map.json"))));
 
     const [commandTarget] = report.commands;
     assert.equal(commandTarget.kind, "COMPLETED");
     assert.equal(commandTarget.unverifiedReason, "NO_SOLVER");
     const dir = join(out, "commands", safeName(commandTarget.commandId));
-    for (const name of ["spec.json", "spec.als", "solver_report.json", "ledger.json", "spec.md", "matrix.md", "flow.mmd"]) {
+    for (const name of ["spec.json", "spec.als", "solver_report.json", "ledger.json"]) {
       assert.ok(await isFile(join(dir, name)), name);
+    }
+    for (const name of ["spec.md", "matrix.md", "flow.mmd"]) {
+      assert.ok(!(await isFile(join(dir, name))), name);
+      for (const role of ["business", "implementation"]) {
+        assert.ok(await isFile(join(out, "views", role, "commands", safeName(commandTarget.commandId), name)), `${role}/${name}`);
+      }
     }
     assert.ok((await readFile(join(dir, "spec.als"), "utf8")).endsWith("\n"));
 
@@ -118,8 +131,11 @@ test("リポジトリにかけると終了コード 0 で、報告・全体マ�
     assert.deepEqual(map.basis, { mapHash: glossary.basis.mapHash, documentsHash: glossary.basis.documentsHash });
 
     // 俯瞰図は地図 1 と Bounded Context ごとの地図 2 を束ねた 1 つの JSON（全体設計 4.1）。
-    const systemMap = JSON.parse(await readFile(join(out, "system_map.json"), "utf8"));
+    const systemMap = JSON.parse(await readFile(join(out, "views", "business", "system_map.json"), "utf8"));
     assert.equal(systemMap.viewRole, "BUSINESS");
+    const systemMapForImplementation = JSON.parse(await readFile(join(out, "views", "implementation", "system_map.json"), "utf8"));
+    assert.equal(systemMapForImplementation.viewRole, "IMPLEMENTATION");
+    assert.deepEqual(systemMapForImplementation.basis, glossary.basis);
     assert.deepEqual(systemMap.basis, glossary.basis);
     assert.ok(Array.isArray(systemMap.contextMap.nodes));
     assert.deepEqual(
@@ -145,38 +161,34 @@ test("同じリポジトリに 2 回かけると、同じ報告になる", async
   });
 });
 
-test("--view-role が無ければ BUSINESS で付録を載せず、IMPLEMENTATION なら仕様書に形式仕様のソースの付録を載せる", async () => {
+test("仕様書は BUSINESS では付録を載せず、IMPLEMENTATION では形式仕様のソースの付録を載せる（1 回の実行で両方を書く）", async () => {
   await withTempRepo(async (root) => {
-    assert.equal(await main([join(root, "repo"), "--out", join(root, "pdm")], capture().io), 0);
-    assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "IMPLEMENTATION"], capture().io), 0);
+    const out = join(root, "out");
+    assert.equal(await main([join(root, "repo"), "--out", out], capture().io), 0);
 
-    const report = JSON.parse(await readFile(join(root, "pdm", "run_report.json"), "utf8"));
+    const report = JSON.parse(await readFile(join(out, "run_report.json"), "utf8"));
     const name = safeName(report.commands[0].commandId);
-    const pdm = await readFile(join(root, "pdm", "commands", name, "spec.md"), "utf8");
-    const eng = await readFile(join(root, "eng", "commands", name, "spec.md"), "utf8");
-    assert.ok(!pdm.includes("## 付録: 形式仕様のソース"));
-    assert.ok(eng.includes("## 付録: 形式仕様のソース"));
-
-    // 対応表と内部の記録は、役割で変わらない。
-    for (const file of ["implementation_map.json", "glossary.json", "run_report.json"]) {
-      assert.equal(await readFile(join(root, "eng", file), "utf8"), await readFile(join(root, "pdm", file), "utf8"), file);
-    }
+    const business = await readFile(join(out, "views", "business", "commands", name, "spec.md"), "utf8");
+    const implementation = await readFile(join(out, "views", "implementation", "commands", name, "spec.md"), "utf8");
+    assert.ok(!business.includes("## 付録: 形式仕様のソース"));
+    assert.ok(implementation.includes("## 付録: 形式仕様のソース"));
   });
 });
 
 test("曖昧さで止まったコマンドは ambiguity.json と曖昧さの一覧 ambiguity.md を書き、所在は IMPLEMENTATION のときだけ出す", async () => {
   await withTempRepo(
     async (root) => {
-      assert.equal(await main([join(root, "repo"), "--out", join(root, "pdm")], capture().io), 0);
-      assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "IMPLEMENTATION"], capture().io), 0);
+      const out = join(root, "out");
+      assert.equal(await main([join(root, "repo"), "--out", out], capture().io), 0);
 
-      const report = JSON.parse(await readFile(join(root, "pdm", "run_report.json"), "utf8"));
+      const report = JSON.parse(await readFile(join(out, "run_report.json"), "utf8"));
       const [commandTarget] = report.commands;
       assert.equal(commandTarget.kind, "AMBIGUOUS", JSON.stringify(report.commands));
-      const dir = (out: string): string => join(root, out, "commands", safeName(commandTarget.commandId));
-      assert.ok(await isFile(join(dir("pdm"), "ambiguity.json")));
-      const pdm = await readFile(join(dir("pdm"), "ambiguity.md"), "utf8");
-      const eng = await readFile(join(dir("eng"), "ambiguity.md"), "utf8");
+      const name = safeName(commandTarget.commandId);
+      assert.ok(await isFile(join(out, "commands", name, "ambiguity.json")));
+      assert.ok(!(await isFile(join(out, "commands", name, "ambiguity.md"))));
+      const pdm = await readFile(join(out, "views", "business", "commands", name, "ambiguity.md"), "utf8");
+      const eng = await readFile(join(out, "views", "implementation", "commands", name, "ambiguity.md"), "utf8");
       // BUSINESS は「エンジニアの確認待ち: N 件」だけ、IMPLEMENTATION は曖昧さごとに表示の id と所在を書く（SpecProjector の設計 8.9）
       assert.ok(pdm.includes("エンジニアの確認待ち: "));
       assert.ok(!pdm.includes(`${commandTarget.displayId}-A-001`));
@@ -194,7 +206,7 @@ test("引数の誤りは終了コード 2 で、使い方を出す", async () =>
     ["--out", "out"], // リポジトリが無い
     ["a", "b", "--out", "out"], // リポジトリが 2 つ
     ["repo", "--out", "out", "--unknown"], // 知らない引数
-    ["repo", "--out", "out", "--view-role", "pdm"], // 役割は BUSINESS か IMPLEMENTATION だけ（大文字小文字も区別する）
+    ["repo", "--out", "out", "--view-role", "business"], // 役割は受け取らない（両方の役割で書く。全体設計 4.1）
   ];
   for (const argv of cases) {
     const captured = capture();
