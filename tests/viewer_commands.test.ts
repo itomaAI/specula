@@ -66,8 +66,9 @@ async function withOutputs(body: (out: string, report: RunReport) => Promise<voi
 }
 
 /** 読み戻して事前条件を確かめた入力。 */
-async function checkedOutputs(out: string): Promise<RunOutputs> {
-  const outputs = await readRunOutputs(fs, out);
+async function checkedOutputs(out: string, viewRole: "BUSINESS" | "IMPLEMENTATION" = "BUSINESS"): Promise<RunOutputs> {
+  // 役割で中身が変わるファイルは views/<役割>/ から読む（全体設計 4.1）。
+  const outputs = await readRunOutputs(fs, out, viewRole);
   assert.deepEqual(checkRunOutputs(outputs), { ok: true, problems: [] });
   return outputs;
 }
@@ -105,7 +106,7 @@ test("コマンド一覧: すべてのコマンドが実行の報告の順に出
     assert.equal(pdm.showContextColumn, report.system.boundedContextCount > 1);
     assert.ok(pdm.summary.inspectionScope[0]?.includes("コマンドどうしの矛盾は見ていない"));
 
-    const eng = buildCommandList(outputs, "IMPLEMENTATION");
+    const eng = buildCommandList(await checkedOutputs(out, "IMPLEMENTATION"), "IMPLEMENTATION");
     assert.equal(eng.rows.find((r) => r.displayId === ambiguous.displayId)!.countText, `曖昧さ ${ambiguousTotal} 件`);
     assert.deepEqual(
       eng.summary.ambiguity.byKind?.map((k) => [k.kind, k.count]),
@@ -132,7 +133,7 @@ test("BUSINESS の一覧と詳細の冒頭には、内部の識別子と所在�
 
 test("IMPLEMENTATION では起点の所在を一覧と詳細に持つ", async () => {
   await withOutputs(async (out) => {
-    const outputs = await checkedOutputs(out);
+    const outputs = await checkedOutputs(out, "IMPLEMENTATION");
     const list = buildCommandList(outputs, "IMPLEMENTATION");
     assert.ok(list.rows.every((r) => Array.isArray(r.inletLocations)));
     assert.ok(list.rows.some((r) => (r.inletLocations ?? []).some((l) => l.file.endsWith("src/a.ts"))));
@@ -176,7 +177,7 @@ test("詳細: 仕様になったコマンドは SpecProjector と同じ検証の
     assert.equal(flow.nodes.length, 1 + spec.operations.reduce((sum, operation) => sum + operation.steps.length + 2, 0));
     assert.equal(flow.nodes[0]?.kind, "START");
     assert.equal(flow.layout.layers[0]?.length, 1);
-    const engDetail = buildCommandDetails(outputs, "IMPLEMENTATION").find((d) => d.displayId === completed.displayId)!;
+    const engDetail = buildCommandDetails(await checkedOutputs(out, "IMPLEMENTATION"), "IMPLEMENTATION").find((d) => d.displayId === completed.displayId)!;
     const engSource = engDetail.tabs?.source;
     assert.ok(typeof engSource === "string" && engSource.length > 0);
     assert.ok(!/^\s*--\s*@source:/m.test(engSource));
@@ -204,7 +205,7 @@ test("辞書や対応表が無いときは、名前を「未生成」ではな�
     }
 
     await rm(join(out, "implementation_map.json"));
-    const noMap = buildCommandList(await checkedOutputs(out), "IMPLEMENTATION");
+    const noMap = buildCommandList(await checkedOutputs(out, "IMPLEMENTATION"), "IMPLEMENTATION");
     assert.deepEqual(
       noMap.rows.map((r) => r.title),
       report.commands.map((s) => `${s.displayId}（名前を引けない: 実装との対応表が無い）`),
@@ -217,7 +218,7 @@ test("辞書や対応表が無いときは、名前を「未生成」ではな�
 test("事前条件を通っていない入力では例外を投げる", async () => {
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
-    const outputs = await readRunOutputs(fs, out);
+    const outputs = await readRunOutputs(fs, out, "BUSINESS");
     assert.throws(() => buildCommandList(outputs, "BUSINESS"), /checkRunOutputs/);
     assert.throws(() => buildCommandDetails(outputs, "BUSINESS"), /checkRunOutputs/);
   });

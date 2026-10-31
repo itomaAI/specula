@@ -189,27 +189,49 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだコマ�
   assert.ok(completed?.kind === "COMPLETED");
   assert.equal(completed.solverReport.status, "UNVERIFIED");
   assert.equal(completed.ledger.basis.reportId, completed.solverReport.reportId);
-  assert.equal(completed.document.format, "DOCUMENT");
-  assert.equal(completed.matrix.format, "MATRIX");
-  assert.equal(completed.flow.format, "FLOW");
-  for (const view of [completed.document, completed.matrix, completed.flow]) {
-    assert.equal(view.commandId, completed.commandId);
-    assert.equal(view.basis.ledgerIsStale, false);
-  }
 
   const ambiguous = result.commands[1];
   assert.ok(ambiguous?.kind === "AMBIGUOUS");
   assert.equal(ambiguous.ambiguity.issues.length, 3);
-  assert.equal(ambiguous.view.format, "AMBIGUITY_DOCUMENT");
-  assert.equal(ambiguous.view.displayId, "C-02");
-  assert.ok(ambiguous.view.content.startsWith("# C-02"), ambiguous.view.content);
-  // BUSINESS の曖昧さの一覧は合計だけ（SpecProjector の設計 8.9）。表示の id は対応表に残る（下）
-  assert.ok(ambiguous.view.content.includes("エンジニアの確認待ち: 3 件"), ambiguous.view.content);
-  assert.ok(!ambiguous.view.content.includes("src/g.ts"));
 
-  assert.equal(result.systemViews.mermaid.mediaType, "text/vnd.mermaid");
+  // 利用者向けの出力は両方の役割で持つ。コマンドは報告の順で、途中で止まったコマンドは入らない（全体設計 4.1）。
+  assert.deepEqual(result.views.map((views) => views.viewRole), ["BUSINESS", "IMPLEMENTATION"]);
+  for (const views of result.views) {
+    assert.deepEqual(
+      views.commands.map((commandViews) => [commandViews.commandId, commandViews.displayId, commandViews.kind]),
+      result.commands.filter((commandTarget) => commandTarget.kind !== "STOPPED").map((commandTarget) => [commandTarget.commandId, commandTarget.displayId, commandTarget.kind]),
+    );
+    for (const commandViews of views.commands) {
+      const formats = commandViews.kind === "COMPLETED" ? [commandViews.document, commandViews.matrix, commandViews.flow] : [commandViews.view];
+      for (const view of formats) assert.equal(view.viewRole, views.viewRole);
+    }
+    assert.equal(views.system.mermaid.viewRole, views.viewRole);
+    assert.equal(views.system.json.viewRole, views.viewRole);
+  }
+  const business = result.views[0]!;
+
+  const completedViews = business.commands[0];
+  assert.ok(completedViews?.kind === "COMPLETED");
+  assert.equal(completedViews.document.format, "DOCUMENT");
+  assert.equal(completedViews.matrix.format, "MATRIX");
+  assert.equal(completedViews.flow.format, "FLOW");
+  for (const view of [completedViews.document, completedViews.matrix, completedViews.flow]) {
+    assert.equal(view.commandId, completed.commandId);
+    assert.equal(view.basis.ledgerIsStale, false);
+  }
+
+  const ambiguousViews = business.commands[1];
+  assert.ok(ambiguousViews?.kind === "AMBIGUOUS");
+  assert.equal(ambiguousViews.view.format, "AMBIGUITY_DOCUMENT");
+  assert.equal(ambiguousViews.view.displayId, "C-02");
+  assert.ok(ambiguousViews.view.content.startsWith("# C-02"), ambiguousViews.view.content);
+  // BUSINESS の曖昧さの一覧は合計だけ（SpecProjector の設計 8.9）。表示の id は対応表に残る（下）
+  assert.ok(ambiguousViews.view.content.includes("エンジニアの確認待ち: 3 件"), ambiguousViews.view.content);
+  assert.ok(!ambiguousViews.view.content.includes("src/g.ts"));
+
+  assert.equal(business.system.mermaid.mediaType, "text/vnd.mermaid");
   // system_map.json: 地図 1 と、Bounded Context ごとの地図 2（足す要素なし・あり）を束ね、辞書の basis を写す（全体設計 4.1）。
-  const maps = result.systemViews.json;
+  const maps = business.system.json;
   assert.equal(maps.viewRole, "BUSINESS");
   assert.deepEqual(maps.basis, result.glossary.basis);
   const projected = async (request: Omit<SystemProjectionRequest, "format" | "viewRole">): Promise<unknown> =>
@@ -282,12 +304,12 @@ test("同じ入力から同じ報告とビューができる", async () => {
   const first = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   const second = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(second.report, first.report);
-  assert.equal(second.systemViews.mermaid.content, first.systemViews.mermaid.content);
-  assert.deepEqual(second.systemViews.json, first.systemViews.json);
-  const a = first.commands[0];
-  const b = second.commands[0];
-  assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");
-  assert.equal(b.document.content, a.document.content);
+  // ビューは両方の役割とも同じになる（俯瞰図・仕様書・一覧表・流れ図・曖昧さの一覧）。
+  assert.equal(first.views.length, 2);
+  assert.deepEqual(second.views, first.views);
+  const a = first.views[0]?.commands[0];
+  assert.ok(a?.kind === "COMPLETED");
+  assert.ok(a.document.content.length > 0);
 });
 
 test("契約のエラーでない例外（読み込みの故障）は、報告に残さず投げ直す", async () => {
@@ -323,25 +345,34 @@ test("表示の id を切り出しの順に C-01 … と振り、報告と成果
 
   const completed = result.commands[0];
   assert.ok(completed?.kind === "COMPLETED");
-  for (const view of [completed.document, completed.matrix, completed.flow]) {
-    assert.equal(view.displayId, "C-01");
-    assert.equal(view.viewRole, "BUSINESS");
-    assert.ok(view.content.includes("C-01"), view.format);
-    assert.ok(!view.content.includes(completed.commandId), view.format);
+  for (const views of result.views) {
+    const completedViews = views.commands[0];
+    assert.ok(completedViews?.kind === "COMPLETED");
+    assert.equal(completedViews.displayId, "C-01");
+    for (const view of [completedViews.document, completedViews.matrix, completedViews.flow]) {
+      assert.equal(view.displayId, "C-01");
+      assert.equal(view.viewRole, views.viewRole);
+      assert.ok(view.content.includes("C-01"), `${views.viewRole} ${view.format}`);
+      // 内部の id を出さないのは BUSINESS だけ（IMPLEMENTATION の付録の形式仕様のソースは識別子を含む。render_document.ts）。
+      if (views.viewRole === "BUSINESS") assert.ok(!view.content.includes(completed.commandId), view.format);
+    }
   }
 });
 
-test("既定の役割は BUSINESS で仕様書に付録が無く、IMPLEMENTATION を渡すと付録が付く", async () => {
-  const pdm = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
-  const eng = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null }, { viewRole: "IMPLEMENTATION" });
-  const a = pdm.commands[0];
-  const b = eng.commands[0];
+test("1 回の実行で両方の役割のビューを作り、BUSINESS の仕様書に付録は無く、IMPLEMENTATION には付録が付く", async () => {
+  const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
+  const [business, implementation] = result.views;
+  assert.ok(business !== undefined && implementation !== undefined);
+  assert.equal(business.viewRole, "BUSINESS");
+  assert.equal(implementation.viewRole, "IMPLEMENTATION");
+  const a = business.commands[0];
+  const b = implementation.commands[0];
   assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");
   assert.ok(!a.document.content.includes("## 付録"));
   assert.ok(b.document.content.includes("## 付録: 形式仕様のソース"));
   assert.equal(b.document.viewRole, "IMPLEMENTATION");
-  assert.equal(pdm.systemViews.json.viewRole, "BUSINESS");
-  assert.equal(eng.systemViews.json.viewRole, "IMPLEMENTATION");
+  assert.equal(business.system.json.viewRole, "BUSINESS");
+  assert.equal(implementation.system.json.viewRole, "IMPLEMENTATION");
 });
 
 test("選択で絞っても、表示の id は回したコマンドの中で C-01 から振る", async () => {

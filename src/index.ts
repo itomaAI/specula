@@ -145,7 +145,7 @@ export type {
   SystemViewFormat,
   ViewRole,
 } from "./types/projection.js";
-export { ProjectionContractError } from "./types/projection.js";
+export { ProjectionContractError, VIEW_ROLES, viewsDirOf } from "./types/projection.js";
 export { projectAmbiguities, projectImplementationMap, projectSpecification, projectSystemMap } from "./core/spec_projector.js";
 
 // オーケストレーター（全体設計 2.1）。src/cli.ts は node: を静的に読むので、ここからは export しない。
@@ -157,6 +157,8 @@ export type {
   CommandArtifacts,
   CommandRunBase,
   CommandRunResult,
+  CommandViews,
+  RoleViews,
   StoppedStage,
   SystemMapBundle,
   SystemMapJson,

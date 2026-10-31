@@ -68,8 +68,9 @@ async function withOutputs(body: (out: string, report: RunReport) => Promise<voi
   }
 }
 
-async function checkedOutputs(out: string): Promise<RunOutputs> {
-  const outputs = await readRunOutputs(fs, out);
+async function checkedOutputs(out: string, viewRole: "BUSINESS" | "IMPLEMENTATION" = "BUSINESS"): Promise<RunOutputs> {
+  // 役割で中身が変わるファイルは views/<役割>/ から読む（全体設計 4.1）。
+  const outputs = await readRunOutputs(fs, out, viewRole);
   assert.deepEqual(checkRunOutputs(outputs), { ok: true, problems: [] });
   return outputs;
 }
@@ -196,7 +197,7 @@ test("曖昧さ: IMPLEMENTATION は SpecProjector の曖昧さの一覧と同じ
 test("仕様不備一覧: 事前条件を通っていない入力では例外を投げる", async () => {
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
-    const outputs = await readRunOutputs(fs, out);
+    const outputs = await readRunOutputs(fs, out, "BUSINESS");
     assert.throws(() => buildIssueList(outputs, "BUSINESS"), /checkRunOutputs/);
   });
 });

@@ -20,6 +20,14 @@ export type SystemViewFormat = "SYSTEM_MERMAID" | "SYSTEM_JSON";
  */
 export type ViewRole = "BUSINESS" | "IMPLEMENTATION";
 
+/** 両方の役割。出力は役割ごとに、この順で書く（全体設計 4.1）。 */
+export const VIEW_ROLES: readonly ViewRole[] = ["BUSINESS", "IMPLEMENTATION"];
+
+/** 役割で中身が変わる出力の置き場所（出力先からの相対パス）。役割の識別子を小文字にする（全体仕様 4.5、全体設計 4.1）。 */
+export function viewsDirOf(viewRole: ViewRole): string {
+  return `views/${viewRole.toLowerCase()}`;
+}
+
 export interface ProjectionRequest {
   format: CommandViewFormat;
   viewRole: ViewRole;

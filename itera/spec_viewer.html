@@ -68,7 +68,8 @@
 // 引数（spawn の属性）:
 //   out      （必須）specula の出力先の VFS のディレクトリ
 //   bundle   （必須）specula.itera.js の VFS のパス
-//   viewRole （任意）"BUSINESS"（既定）か "IMPLEMENTATION"
+//   viewRole （任意）初めに開く表示の役割。"BUSINESS"（既定。画面では「業務」）か "IMPLEMENTATION"（「実装」）。小文字でもよい
+//            出力は両方の役割で書かれている（<out>/views/business/ と views/implementation/）。役割は Global Menu で切り替える。
 (async () => {
   const MetaOS = window.MetaOS;
   const mainEl = document.getElementById('main');
@@ -103,8 +104,14 @@
   // メインウィンドウの履歴（下の「メインウィンドウの履歴」）。起動の処理より前に置く（render が読むため）。
   const SCREENS = ['commands', 'detail', 'map', 'issues', 'glossary'];
   const FILTER_PREFIX = 'f_';
-  let launch = null; // { out, bundle, viewRole }（起動の引数）
+  let launch = null; // { out, bundle }（起動の引数）
   let declared = null; // 最後に名乗った場所（同じ場所を名乗り直して履歴に同じ段を積まないため）
+  // 表示の役割と画面の表示名（全体仕様 4.5）。出力は両方の役割で書かれている（全体設計 4.1）ので、
+  // 役割を切り替えるときは、その役割の views/<役割>/ を読んでビューモデルを作る。作ったものは役割ごとに取っておく。
+  const ROLE_LABELS = { BUSINESS: '業務', IMPLEMENTATION: '実装' };
+  const viewsByRole = {};
+  let specula = null;
+  let vfs = null;
 
   try {
     const args = (await MetaOS.system.getArgs()) || {};
@@ -112,31 +119,27 @@
     const bundlePath = trim(args.bundle);
     const missing = [['out', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
     if (missing.length > 0) {
-      fail([`引数が足りない: ${missing.join(', ')}`, '使い方: spawn の属性に out（specula の出力先）・bundle（specula.itera.js）を渡す。viewRole（BUSINESS か IMPLEMENTATION）は任意。']);
+      fail([`引数が足りない: ${missing.join(', ')}`, '使い方: spawn の属性に out（specula の出力先）・bundle（specula.itera.js）を渡す。viewRole（business か implementation。初めに開く役割）は任意。']);
       return;
     }
-    // 小文字で受け取ってよく、読むときに大文字へ戻す（全体仕様 4.5）。列挙に無い値はエラーにする。
-    const viewRole = (String(args.viewRole || '').trim() || 'BUSINESS').toUpperCase();
-    if (viewRole !== 'BUSINESS' && viewRole !== 'IMPLEMENTATION') {
-      fail([`引数の誤り: viewRole は BUSINESS か IMPLEMENTATION（${viewRole} を受け取った）`]);
+    const viewRole = roleOf(args.viewRole);
+    if (viewRole === null) {
+      fail([`引数の誤り: viewRole は BUSINESS か IMPLEMENTATION（${String(args.viewRole)} を受け取った）`]);
       return;
     }
 
     const bundleText = await MetaOS.fs.read(bundlePath);
     const bundleUrl = URL.createObjectURL(new Blob([bundleText], { type: 'text/javascript' }));
-    const specula = await import(bundleUrl);
+    specula = await import(bundleUrl);
     URL.revokeObjectURL(bundleUrl);
 
-    const fs = new specula.IteraVfsAdapter(MetaOS.fs);
-    const outputs = await specula.readRunOutputs(fs, outDir);
-    const check = specula.checkRunOutputs(outputs);
-    if (!check.ok) {
-      fail(['画面を作れない（出力が事前条件を満たしていない）:',
-        ...check.problems.map((p) => `- ${p.commandTarget ? `${p.commandTarget} の ` : ''}${p.file}: ${p.detail}`)]);
+    vfs = new specula.IteraVfsAdapter(MetaOS.fs);
+    launch = { out: outDir, bundle: bundlePath };
+    const problems = await loadRole(viewRole);
+    if (problems !== null) {
+      fail(problems);
       return;
     }
-    view = specula.buildRunView(outputs, viewRole);
-    launch = { out: outDir, bundle: bundlePath, viewRole };
     // 起動の引数に場所（screen など）があれば、そこから開く（host が履歴から開き直したとき）。
     state = stateFromArgs(args);
     if (MetaOS.system.on) MetaOS.system.on('route_changed', onRouteChanged);
@@ -147,6 +150,41 @@
 
   function fail(lines) {
     mainEl.replaceChildren(...lines.map((line) => textLine(line, 'error')));
+  }
+
+  // 小文字で受け取ってよく、読むときに大文字へ戻す（全体仕様 4.5）。無ければ BUSINESS。列挙に無い値は null（呼ぶ側がエラーにする）。
+  function roleOf(value) {
+    const role = (String(value || '').trim() || 'BUSINESS').toUpperCase();
+    return Object.prototype.hasOwnProperty.call(ROLE_LABELS, role) ? role : null;
+  }
+
+  // その役割のビューモデルを view に置く。画面を作れないときは view を変えず、出す行を返す。
+  async function loadRole(role) {
+    if (!viewsByRole[role]) {
+      const outputs = await specula.readRunOutputs(vfs, launch.out, role);
+      const check = specula.checkRunOutputs(outputs);
+      if (!check.ok) {
+        return [`画面を作れない（${ROLE_LABELS[role]}の出力が事前条件を満たしていない）:`,
+          ...check.problems.map((p) => `- ${p.commandTarget ? `${p.commandTarget} の ` : ''}${p.file}: ${p.detail}`)];
+      }
+      viewsByRole[role] = specula.buildRunView(outputs, role);
+    }
+    view = viewsByRole[role];
+    return null;
+  }
+
+  // Global Menu の「業務／実装」。いまの画面（コマンドの詳細ならそのコマンド）のまま役割だけを替える。履歴には 1 段積む。
+  async function switchRole(role) {
+    try {
+      const problems = await loadRole(role);
+      if (problems !== null) {
+        fail(problems);
+        return;
+      }
+      go({});
+    } catch (error) {
+      fail([`画面を作れなかった（環境の故障）: ${messageOf(error)}`]);
+    }
   }
 
   function go(patch) {
@@ -166,7 +204,7 @@
     const p = new URLSearchParams();
     p.set('out', launch.out);
     p.set('bundle', launch.bundle);
-    p.set('viewRole', launch.viewRole.toLowerCase()); // URL では小文字（全体仕様 4.5）
+    p.set('viewRole', view.viewRole.toLowerCase()); // いま見ている役割。URL では小文字（全体仕様 4.5）
     p.set('screen', s.screen);
     if (s.screen === 'detail' && s.id) { p.set('id', s.id); p.set('tab', s.tab); }
     if (s.screen === 'map' && s.mapContext !== null && view.map.kind === 'OK') {
@@ -218,29 +256,46 @@
     } catch (_) {}
   }
 
-  // 戻る・進むで届いた場所へ画面を戻す。起動の引数が違う場所（別の出力・別の役割）は、この画面では開き直さない。
-  function onRouteChanged(payload) {
+  // 戻る・進むで届いた場所へ画面を戻す。役割が違えば、その役割を読んでから戻す。
+  // 起動の引数が違う場所（別の出力・別の bundle）は、この画面では開き直さない。
+  async function onRouteChanged(payload) {
     const args = payload && payload.args;
     if (!args || view === null || launch === null) return;
-    const role = String(args.viewRole || 'BUSINESS').toUpperCase();
-    if (trim(args.out) !== launch.out || trim(args.bundle) !== launch.bundle || role !== launch.viewRole) return;
-    const next = stateFromArgs(args);
-    const route = routeOf(next);
-    if (route === declared) return;
-    state = next;
-    declared = route;
-    render();
-    window.scrollTo(0, 0);
+    if (trim(args.out) !== launch.out || trim(args.bundle) !== launch.bundle) return;
+    const role = roleOf(args.viewRole);
+    if (role === null) return;
+    try {
+      if (role !== view.viewRole) {
+        const problems = await loadRole(role);
+        if (problems !== null) {
+          fail(problems);
+          return;
+        }
+      }
+      const next = stateFromArgs(args);
+      const route = routeOf(next);
+      if (route === declared) return;
+      state = next;
+      declared = route;
+      render();
+      window.scrollTo(0, 0);
+    } catch (error) {
+      fail([`画面を作れなかった（環境の故障）: ${messageOf(error)}`]);
+    }
   }
 
   // ---- Global Menu ----
+  // 画面のほかに、表示の役割の切り替え（業務／実装）を置く（仕様 1.1）。
   function renderMenu() {
     const items = [['commands', 'コマンド一覧'], ['map', '全体地図'], ['issues', '仕様不備一覧'], ['glossary', '用語辞典']];
     const current = state.screen === 'detail' ? 'commands' : state.screen;
     menuEl.replaceChildren(
       el('h1', { text: 'specula' }),
       ...items.map(([screen, label]) => el('button', { class: current === screen ? 'active' : null, text: label, onclick: () => go({ screen, id: null, filter: {} }) })),
-      el('span', { class: 'role', text: `表示の役割: ${view.viewRole}` }),
+      el('span', { class: 'role' },
+        '表示の役割 ',
+        ...Object.entries(ROLE_LABELS).map(([role, label]) =>
+          el('button', { class: view.viewRole === role ? 'active' : null, text: label, onclick: () => switchRole(role) }))),
     );
   }
 

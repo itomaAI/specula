@@ -52,9 +52,10 @@ async function withOutputs(body: (out: string) => Promise<void>): Promise<void> 
 
 test("4 つの画面とコマンドの詳細を、画面ごとの関数と同じ値で束ねる（役割ごと）", async () => {
   await withOutputs(async (out) => {
-    const outputs = await readRunOutputs(fs, out);
-    assert.deepEqual(checkRunOutputs(outputs), { ok: true, problems: [] });
     for (const viewRole of ["BUSINESS", "IMPLEMENTATION"] as const) {
+      // 役割で中身が変わるファイルは views/<役割>/ にあるので、役割ごとに読み直す（全体設計 4.1）。
+      const outputs = await readRunOutputs(fs, out, viewRole);
+      assert.deepEqual(checkRunOutputs(outputs), { ok: true, problems: [] });
       const view = buildRunView(outputs, viewRole);
       assert.equal(view.viewRole, viewRole);
       assert.deepEqual(view.commandList, buildCommandList(outputs, viewRole));
@@ -68,7 +69,7 @@ test("4 つの画面とコマンドの詳細を、画面ごとの関数と同じ
 
 test("コマンドの詳細は、コマンド一覧の行と同じ順・同じ数", async () => {
   await withOutputs(async (out) => {
-    const outputs = await readRunOutputs(fs, out);
+    const outputs = await readRunOutputs(fs, out, "BUSINESS");
     const view = buildRunView(outputs, "BUSINESS");
     assert.ok(view.commandList.rows.length > 0);
     assert.deepEqual(
@@ -81,7 +82,7 @@ test("コマンドの詳細は、コマンド一覧の行と同じ順・同じ�
 test("事前条件を満たさない入力（実行の報告が無い）では、画面を作らずに例外を投げる", async () => {
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
-    const outputs = await readRunOutputs(fs, out);
+    const outputs = await readRunOutputs(fs, out, "BUSINESS");
     assert.equal(checkRunOutputs(outputs).ok, false);
     assert.throws(() => buildRunView(outputs, "BUSINESS"), /画面を作れない（事前条件の破れ）: REPORT_MISSING run_report\.json/);
   });

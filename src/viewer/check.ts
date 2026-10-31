@@ -2,7 +2,9 @@
 // 純粋な関数。返す problems は、すべて画面を作れない理由である。任意のファイル（辞書・意図の候補・実装との対応表・俯瞰図）が
 // 無いことは problems に入れない（仕様 2.1。どの画面で何を出すかは buildRunView が決める）。
 // basis は run_report.json のものを基準にし、ほかのファイルと比べる。並びは決まった順にする（仕様 3.3 の決定論性）。
+// 役割で中身が変わるファイルは views/<役割>/ の下にある（全体設計 4.1）。ファイルの名前には、その置き場所を付けて返す。
 
+import { viewsDirOf } from "../types/projection.js";
 import type { FileRead, RunOutputs, RunOutputsCheck, RunOutputsProblem } from "./types.js";
 
 interface Basis {
@@ -24,6 +26,8 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
   const add = (reason: RunOutputsProblem["reason"], file: string, commandTarget: string | null, detail: string): void => {
     problems.push({ reason, file, commandTarget, detail });
   };
+  const views = viewsDirOf(outputs.viewRole);
+  const systemMapFile = `${views}/system_map.json`;
 
   // 実行の報告は必須（仕様 2.1）。basis の基準にする。
   let reference: Basis | null = null;
@@ -41,7 +45,7 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
     ["glossary.json", outputs.glossary],
     ["intents.json", outputs.intents],
     ["implementation_map.json", outputs.implementationMap],
-    ["system_map.json", outputs.systemMap],
+    [systemMapFile, outputs.systemMap],
   ];
   for (const [file, read] of others) {
     if (read.kind === "MISSING") continue;
@@ -63,15 +67,24 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
     }
   }
 
+  // 俯瞰図は読んだ役割のものでなければならない（置き場所と中身の役割が食い違うと、別の役割の図を出してしまうため）。
+  if (outputs.systemMap.kind === "OK") {
+    const role = (outputs.systemMap.value as { viewRole?: unknown }).viewRole;
+    if (role !== outputs.viewRole) {
+      add("VIEW_ROLE_MISMATCH", systemMapFile, null, `俯瞰図の役割（${String(role)}）が、置き場所の役割（${outputs.viewRole}）と違う。`);
+    }
+  }
+
   // コマンドのファイル。同じ実行の書き出しなら、コマンドの kind から決まるファイルは必ずある（設計 6.1）。
+  const inViews = (name: string): string => `${views}/ の ${name}`;
   for (const commandTarget of outputs.commands) {
     const files: Array<[string, FileRead<unknown>]> =
       commandTarget.kind === "COMPLETED"
         ? [
             ["spec.json", commandTarget.spec],
-            ["spec.md", commandTarget.document],
-            ["matrix.md", commandTarget.matrix],
-            ["flow.mmd", commandTarget.flow],
+            [inViews("spec.md"), commandTarget.document],
+            [inViews("matrix.md"), commandTarget.matrix],
+            [inViews("flow.mmd"), commandTarget.flow],
             ["spec.als", commandTarget.source],
             ["ledger.json", commandTarget.ledger],
           ]
@@ -81,7 +94,10 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
     for (const [file, read] of files) {
       // INVALID になるのは JSON のファイルだけ（readRunOutputs は文字列のファイルをパースしない）。
       if (read.kind === "MISSING") {
-        add("COMMAND_FILE_MISSING", file, commandTarget.displayId, "実行の報告にあるコマンドのファイルが無い。");
+        const detail = file.startsWith(views)
+          ? "実行の報告にあるコマンドのファイルが無い。役割ごとに書き出す前の古い出力なら、実行し直してください。"
+          : "実行の報告にあるコマンドのファイルが無い。";
+        add("COMMAND_FILE_MISSING", file, commandTarget.displayId, detail);
       } else if (read.kind === "INVALID") {
         add("INVALID_JSON", file, commandTarget.displayId, read.reason);
       }

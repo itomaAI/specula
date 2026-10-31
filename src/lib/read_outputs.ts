@@ -8,7 +8,7 @@ import type { AmbiguityReport, FormalSpecification } from "../types/formal.js";
 import type { Glossary } from "../types/glossary.js";
 import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog } from "../types/ledger.js";
-import type { ImplementationMap } from "../types/projection.js";
+import { viewsDirOf, type ImplementationMap, type ViewRole } from "../types/projection.js";
 import type { RunReport, SystemMapBundle } from "../types/run.js";
 import type { FileRead, RunOutputs, CommandOutputs } from "../viewer/types.js";
 import { safeName } from "./write_outputs.js";
@@ -28,13 +28,18 @@ async function readJson<T>(fs: FileSystemPort, path: string): Promise<FileRead<T
   }
 }
 
-export async function readRunOutputs(fs: FileSystemPort, outDir: string): Promise<RunOutputs> {
+/**
+ * 役割で中身が変わるファイル（system_map.json、各コマンドの spec.md・matrix.md・flow.mmd）は、
+ * 渡された役割の views/<役割>/ の下から読む（全体設計 4.1）。役割を切り替えるときは、その役割で読み直す。
+ */
+export async function readRunOutputs(fs: FileSystemPort, outDir: string, viewRole: ViewRole): Promise<RunOutputs> {
   // パスのつなぎ方は writeOutputs と同じ。
   const root = outDir.replace(/\/+$/, "");
   const at = (...parts: string[]): string => [root, ...parts].filter((p) => p !== "").join("/");
+  const views = viewsDirOf(viewRole);
 
   const report = await readJson<RunReport>(fs, at("run_report.json"));
-  const systemMap = await readJson<SystemMapBundle>(fs, at("system_map.json"));
+  const systemMap = await readJson<SystemMapBundle>(fs, at(views, "system_map.json"));
   const glossary = await readJson<Glossary>(fs, at("glossary.json"));
   const intents = await readJson<IntentCatalog>(fs, at("intents.json"));
   const implementationMap = await readJson<ImplementationMap>(fs, at("implementation_map.json"));
@@ -45,15 +50,16 @@ export async function readRunOutputs(fs: FileSystemPort, outDir: string): Promis
   const rows = report.kind === "OK" && Array.isArray(report.value.commands) ? report.value.commands : [];
   for (const row of rows) {
     const dir = at("commands", safeName(row.commandId));
+    const viewDir = at(views, "commands", safeName(row.commandId));
     const base = { commandId: row.commandId, displayId: row.displayId };
     if (row.kind === "COMPLETED") {
       commands.push({
         ...base,
         kind: "COMPLETED",
         spec: await readJson<FormalSpecification>(fs, `${dir}/spec.json`),
-        document: await readText(fs, `${dir}/spec.md`),
-        matrix: await readText(fs, `${dir}/matrix.md`),
-        flow: await readText(fs, `${dir}/flow.mmd`),
+        document: await readText(fs, `${viewDir}/spec.md`),
+        matrix: await readText(fs, `${viewDir}/matrix.md`),
+        flow: await readText(fs, `${viewDir}/flow.mmd`),
         source: await readText(fs, `${dir}/spec.als`),
         ledger: await readJson<DomainLedgerCatalog>(fs, `${dir}/ledger.json`),
       });
@@ -64,5 +70,5 @@ export async function readRunOutputs(fs: FileSystemPort, outDir: string): Promis
     }
   }
 
-  return { report, systemMap, glossary, intents, implementationMap, commands };
+  return { viewRole, report, systemMap, glossary, intents, implementationMap, commands };
 }

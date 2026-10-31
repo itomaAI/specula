@@ -13,6 +13,7 @@ import type { VerificationOutcome } from "../types/ledger.js";
 import { LedgerContractError } from "../types/ledger.js";
 import {
   ProjectionContractError,
+  VIEW_ROLES,
   type ProjectionContext,
   type SystemProjectionRequest,
   type ViewRole,
@@ -28,6 +29,8 @@ import type {
   CommandArtifacts,
   CommandRunBase,
   CommandRunResult,
+  CommandViews,
+  RoleViews,
   StoppedStage,
   SystemMapBundle,
   SystemMapJson,
@@ -85,7 +88,6 @@ export function displayIdsOf(count: number): string[] {
 interface ProjectionInputs {
   glossary: Glossary;
   intents: IntentCatalog;
-  viewRole: ViewRole;
 }
 
 export async function runPipeline(
@@ -93,28 +95,37 @@ export async function runPipeline(
   deps: PipelineDeps,
   options: PipelineOptions = {},
 ): Promise<PipelineResult> {
-  const viewRole: ViewRole = options.viewRole ?? "BUSINESS";
   const map = discoverSystemContext(repo);
   // 1 回の実行に 1 回だけ動く段。契約のエラーは止めずに投げ直す（全体設計 2.1）。
   const glossary = await buildGlossary(map, repo, { llm: deps.llm });
   const sliced = sliceCommands(map, options.selection);
   const intents = await synthesizeIntents(map, sliced, glossary, repo, { llm: deps.llm });
-  // system_map.mmd は level を省いた 1 枚の図、system_map.json は地図 1・地図 2 を束ねたもの（全体設計 4.1）。
-  const systemViews = {
-    mermaid: await projectSystemMap(map, glossary, intents, { format: "SYSTEM_MERMAID", viewRole }),
-    json: await bundleSystemMaps(map, glossary, intents, viewRole),
-  };
+  // 利用者向けの出力は両方の役割で作る（全体設計 4.1）。SpecProjector は LLM を呼ばないので、役割の数だけ射影しても LLM の依頼は増えない。
+  // system_map.mmd は level を省いた 1 枚の図、system_map.json は地図 1・地図 2 を束ねたもの。
+  const views: RoleViews[] = [];
+  for (const viewRole of VIEW_ROLES) {
+    views.push({
+      viewRole,
+      system: {
+        mermaid: await projectSystemMap(map, glossary, intents, { format: "SYSTEM_MERMAID", viewRole }),
+        json: await bundleSystemMaps(map, glossary, intents, viewRole),
+      },
+      commands: [],
+    });
+  }
 
-  const inputs: ProjectionInputs = { glossary, intents, viewRole };
+  const inputs: ProjectionInputs = { glossary, intents };
   const displayIds = displayIdsOf(sliced.commands.length);
   const results: CommandRunResult[] = [];
   const artifacts: CommandArtifacts[] = [];
   for (const [index, target] of sliced.commands.entries()) {
     const displayId = displayIds[index]!;
     try {
-      const [result, artifact] = await runCommand(target, displayId, inputs, deps, options);
+      const [result, artifact, commandViews] = await runCommand(target, displayId, inputs, deps, options);
       results.push(result);
       artifacts.push(artifact);
+      // 役割の順は views と同じ（VIEW_ROLES）。
+      for (const [roleIndex, item] of commandViews.entries()) views[roleIndex]!.commands.push(item);
     } catch (error) {
       if (!(error instanceof Stopped)) throw error;
       results.push(stoppedResult(target, displayId, error));
@@ -155,7 +166,7 @@ export async function runPipeline(
     inspectionScope: inspectionScopeOf(results),
     basis: { ...glossary.basis },
   };
-  return { report, map, glossary, intents, systemViews, commands: artifacts, implementationMap };
+  return { report, map, glossary, intents, commands: artifacts, views, implementationMap };
 }
 
 /**
@@ -226,29 +237,38 @@ async function runCommand(
   inputs: ProjectionInputs,
   deps: PipelineDeps,
   options: PipelineOptions,
-): Promise<[CommandRunResult, CommandArtifacts]> {
+): Promise<[CommandRunResult, CommandArtifacts, CommandViews[]]> {
   const base = rowBaseOf(target, displayId);
 
   const facts = await stage("M1", () => extractContext(target, { fs: deps.fs }));
   const transpiled = await stage("M2", () => transpileFormal(facts, { llm: deps.llm }, null));
   const context: ProjectionContext = { commandTarget: target, glossary: inputs.glossary, intents: inputs.intents };
+  // 利用者向けの出力は VIEW_ROLES の順に、両方の役割で作る（全体設計 4.1）。どちらかの射影が契約のエラーなら、コマンドは M5 で止まる。
+  const commandViews: CommandViews[] = [];
   if (transpiled.kind === "AMBIGUITY") {
     const report = transpiled.report;
-    const view = await stage("M5", () =>
-      projectAmbiguities(report, context, { format: "AMBIGUITY_DOCUMENT", viewRole: inputs.viewRole, displayId }),
-    );
+    for (const viewRole of VIEW_ROLES) {
+      const view = await stage("M5", () =>
+        projectAmbiguities(report, context, { format: "AMBIGUITY_DOCUMENT", viewRole, displayId }),
+      );
+      commandViews.push({ commandId: target.id, displayId, kind: "AMBIGUOUS", view });
+    }
     return [
       { ...base, kind: "AMBIGUOUS", counts: { ...report.counts } },
-      { commandId: target.id, displayId, kind: "AMBIGUOUS", ambiguity: report, view },
+      { commandId: target.id, displayId, kind: "AMBIGUOUS", ambiguity: report },
+      commandViews,
     ];
   }
   const spec = transpiled.spec;
   const solverReport = await stage("M3", () => verifySpecification(spec, { solver: deps.solver }, options.solver));
   const ledger = await stage("M4", () => synthesizeLedger(solverReport, spec, { llm: deps.llm }));
-  const request = (format: "DOCUMENT" | "MATRIX" | "FLOW") => ({ format, viewRole: inputs.viewRole, displayId });
-  const document = await stage("M5", () => projectSpecification(spec, ledger, context, request("DOCUMENT")));
-  const matrix = await stage("M5", () => projectSpecification(spec, ledger, context, request("MATRIX")));
-  const flow = await stage("M5", () => projectSpecification(spec, ledger, context, request("FLOW")));
+  for (const viewRole of VIEW_ROLES) {
+    const request = (format: "DOCUMENT" | "MATRIX" | "FLOW") => ({ format, viewRole, displayId });
+    const document = await stage("M5", () => projectSpecification(spec, ledger, context, request("DOCUMENT")));
+    const matrix = await stage("M5", () => projectSpecification(spec, ledger, context, request("MATRIX")));
+    const flow = await stage("M5", () => projectSpecification(spec, ledger, context, request("FLOW")));
+    commandViews.push({ commandId: target.id, displayId, kind: "COMPLETED", document, matrix, flow });
+  }
 
   return [
     {
@@ -259,7 +279,8 @@ async function runCommand(
       findingCount: solverReport.findings.length,
       issueCount: ledger.issues.length,
     },
-    { commandId: target.id, displayId, kind: "COMPLETED", spec, solverReport, ledger, document, matrix, flow },
+    { commandId: target.id, displayId, kind: "COMPLETED", spec, solverReport, ledger },
+    commandViews,
   ];
 }
 
