@@ -32,7 +32,7 @@
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "シナリオの起点から呼び出しをたどるためのソースファイル群。GlossaryBuilder は記録だけの実装の名前（スキーマのエンティティ・項目など）を拾うために読む"
+        "内容": "コマンドの起点から呼び出しをたどるためのソースファイル群。GlossaryBuilder は記録だけの実装の名前（スキーマのエンティティ・項目など）を拾うために読む"
       },
       "markdown": "### データ型: `SourceArtifacts`\n\n解析対象のソースコード。ContextExtractor は起点のハンドラから呼び出しをたどって読む。"
     },
@@ -49,15 +49,15 @@
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "シナリオに画面（readModel）があるときだけ使う。画面の無いシステムでは無い"
+        "内容": "コマンドに画面（readModel）があるときだけ使う。画面の無いシステムでは無い"
       },
-      "markdown": "### データ型: 画面キャプチャ（任意）\n\nシナリオに画面があるときだけ、ContextExtractor が UI の事実を対応付けるために使う。"
+      "markdown": "### データ型: 画面キャプチャ（任意）\n\nコマンドに画面があるときだけ、ContextExtractor が UI の事実を対応付けるために使う。"
     },
     {
       "id": "M_CT",
       "kind": "module",
       "name": "CommandExtractor",
-      "category": "全体マップの作成とシナリオの切り出し",
+      "category": "全体マップの作成とコマンドの切り出し",
       "in": "リポジトリの構造 / package.json / 画面のルート",
       "out": "EventStormingMap + SliceResult",
       "x": 30,
@@ -69,13 +69,13 @@
         "公開関数": "discoverSystemContext と sliceCommands",
         "LLM の担当": "なし（名前は GlossaryBuilder、意図の候補は IntentSynthesizer が作る）"
       },
-      "markdown": "### モジュール: `CommandExtractor`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）をコードから決定論的に作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。\n- 構造の判断は言葉の意味に頼らない。"
+      "markdown": "### モジュール: `CommandExtractor`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）をコードから決定論的に作る。\n- コマンドノード 1 つにつき、コマンドの単位を 1 つ切り出す。ポリシーは起点にせず、起動するコマンドの補助情報（invokedBy）にする。\n- 構造の判断は言葉の意味に頼らない。"
     },
     {
       "id": "T_TGT",
       "kind": "type",
       "name": "CommandTarget",
-      "category": "個別シナリオ",
+      "category": "コマンドの単位",
       "in": "CommandExtractor",
       "out": "ContextExtractor・IntentSynthesizer・SpecProjector",
       "x": 260,
@@ -84,9 +84,9 @@
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "起点（inletTrigger）、アクター、readModel（画面があるときだけ）、期待イベント 1 つ、出どころ（origin）"
+        "内容": "起点のコマンド（inletTrigger）、アクター、readModel（画面があるときだけ）、期待イベントの一覧（expectedEvents）、起動するポリシー（invokedBy）、出どころ（origin）"
       },
-      "markdown": "### データ型: `CommandTarget`\n\n起点と期待イベントを 1 つずつ持つシナリオ。SpecProjector は、起点の辞書の項目を引いて仕様書の題を作る。"
+      "markdown": "### データ型: `CommandTarget`\n\nコマンドノード 1 つ分の単位。起点のコマンドと、そのコマンドが発生させる期待イベントのすべてを持つ。SpecProjector は、起点の辞書の項目を引いて仕様書の題を作る。"
     },
     {
       "id": "M_EXT",
@@ -139,7 +139,7 @@
         "責務": "状態変数と操作の結果から状態を作り、スライスごとに操作の述語を作る。決められない箇所はすべて集めて AmbiguityReport にする",
         "LLM の担当": "表示名（ソースには入れない）と、曖昧性の質問の文（実装の名前が入れば検査で落とす）"
       },
-      "markdown": "### モジュール: `FormalTranspiler`\n\n- Alloy 6 のソースを機械的な識別子で書く。\n- 曖昧性が 1 件でもあれば、そのシナリオは FormalSolver に進まない。"
+      "markdown": "### モジュール: `FormalTranspiler`\n\n- Alloy 6 のソースを機械的な識別子で書く。\n- 曖昧性が 1 件でもあれば、そのコマンドは FormalSolver に進まない。"
     },
     {
       "id": "T_AMB",
@@ -156,7 +156,7 @@
         "分類": "データ型 (Data Type)",
         "内容": "UNDETERMINED_VALUE・EXTERNAL_EFFECT・CONFLICTING_SLICES と、種類ごとの件数"
       },
-      "markdown": "### データ型: `AmbiguityReport`\n\n人に確かめる箇所の一覧。オーケストレーターが全シナリオの件数を集計し、SpecProjector が曖昧さの一覧として射影する。"
+      "markdown": "### データ型: `AmbiguityReport`\n\n人に確かめる箇所の一覧。オーケストレーターがすべてのコマンドの件数を集計し、SpecProjector が曖昧さの一覧として射影する。"
     },
     {
       "id": "T_ALLOY",
@@ -276,7 +276,7 @@
       "height": 84,
       "details": {
         "分類": "演算モジュール (Module)",
-        "責務": "Bounded Context とシナリオの意図の候補を作る。手がかりは辞書が選んだ節だけを使い、辞書の用語（LLM の結果）は入力に入れない",
+        "責務": "Bounded Context とコマンドの意図の候補を作る。手がかりは辞書が選んだ節だけを使い、辞書の用語（LLM の結果）は入力に入れない",
         "LLM の担当": "意図の候補の文"
       },
       "markdown": "### モジュール: `IntentSynthesizer`\n\n候補は人が確かめるまで候補のままである（初回は、作れた候補が CANDIDATE、作れなかった候補が NOT_GENERATED）。"
@@ -294,7 +294,7 @@
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "Bounded Context ごととシナリオごとの意図の候補と、元にした辞書のハッシュ"
+        "内容": "Bounded Context ごととコマンドごとの意図の候補と、元にした辞書のハッシュ"
       },
       "markdown": "### データ型: `IntentCatalog`\n\n仕様書と全体の俯瞰図に「候補」として表示する。"
     },
@@ -381,7 +381,7 @@
       "height": 84,
       "details": {
         "分類": "データ型 (Data Type)",
-        "内容": "表示の id（S-01・S-01-A-001・n1 など）から、内部の識別子・辞書の項目・実装の名前と所在を引く表（implementation_map.json）"
+        "内容": "表示の id（C-01・C-01-A-001・n1 など）から、内部の識別子・辞書の項目・実装の名前と所在を引く表（implementation_map.json）"
       },
       "markdown": "### データ型: `ImplementationMap`\n\n辞書と実行の結果から作る射影。表示の役割に関係なく出力する。"
     }

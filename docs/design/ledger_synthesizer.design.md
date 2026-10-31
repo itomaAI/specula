@@ -20,7 +20,7 @@ synthesizeLedger(
   deps: { llm: LanguageModelPort },
 ): Promise<DomainLedgerCatalog>;
 ```
-- 報告 1 つ（シナリオ 1 つ）から、カタログを 1 つ作る。
+- 報告 1 つ（コマンド 1 つ）から、カタログを 1 つ作る。
 - 入力の契約が破れているとき（`report.commandId` と `spec.commandId` が違う、`report.specSourceHash` が `spec.source` の SHA-256 と違う、`findings` が `spec` に無い操作の識別子を指す）は、例外 `LedgerContractError` にする。
 
 ### 1.3 構成
@@ -82,7 +82,7 @@ synthesizeLedger(
 - 論点の識別子は `LEDGER-<commandId>-<3 桁の連番>` とする。同じ報告からは同じ識別子になる。
 
 ### 3.3 グルーピング
-- カタログはシナリオに 1 つなので、シナリオでのグルーピングはカタログの単位で済む。カタログの中では、本体の反例の種類で見出しを分ける（SpecProjector が表示する）。
+- カタログはコマンドに 1 つなので、コマンドでのグルーピングはカタログの単位で済む。カタログの中では、本体の反例の種類で見出しを分ける（SpecProjector が表示する）。
 
 ---
 
@@ -196,7 +196,7 @@ interface LedgerIssue {
 - 偽の報告と偽の LLM で、0 件・未検証・同じ状態のまとめ方・単独の論点・決定性・表示名の渡し方・LLM が届かないとき・出力の検査・契約の違反・元の記録を書き換えないことを確かめる（`tests/m4_ledger_synthesizer.test.ts`）。
 - 本物の Alloy 6 で、ContextExtractor → FormalTranspiler → FormalSolver → LedgerSynthesizer を 2 つの例で通す（`tests/m3_alloy_integration.test.ts`）。真偽値の例は論点 0 件になる。false だけを書く旗で分かれる例は、届かない出口の操作が到達できない操作の論点 1 件になる。
 - 旗に書き込みが 1 つも無い例では、到達できない操作は出なかった。ContextExtractor は書き込みのある変数だけを状態変数にするため、書き込みの無い旗を読む条件は環境が決める命題になり、どちらの出口にも届くからである。読むだけのモジュールの変数を定数として扱うかどうかは ContextExtractor・FormalTranspiler の範囲の話で、LedgerSynthesizer では変えない。
-- 同じ状態の反例をまとめる場面（未定義遷移とデッドロック）は、本物のエンジンではまだ確かめていない。関数 1 つのシナリオでは、経路の条件が互いに補い合うので、どの操作も実行できない状態が作りにくいためである（`count = count + 1` の例は、あふれを禁じても操作の guard は常に成り立つので、未定義遷移にならなかった）。
+- 同じ状態の反例をまとめる場面（未定義遷移とデッドロック）は、本物のエンジンではまだ確かめていない。関数 1 つのコマンドでは、経路の条件が互いに補い合うので、どの操作も実行できない状態が作りにくいためである（`count = count + 1` の例は、あふれを禁じても操作の guard は常に成り立つので、未定義遷移にならなかった）。
 
 ---
 

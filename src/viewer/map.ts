@@ -32,8 +32,8 @@ const NO_GLOSSARY = "用語と意味を出せない: 辞書が無い";
 const NO_IMPLEMENTATION_MAP = "用語と意味を引けない: 実装との対応表が無い";
 const NO_ENTRY = "用語と意味を引けない: 辞書に項目が無い";
 const NO_INTENT = "意図の候補が無い";
-const CONTEXT_LOOKUP = "意図の候補と属するシナリオの数を引けない";
-const COMMAND_LOOKUP = "起点のシナリオを引けない";
+const CONTEXT_LOOKUP = "意図の候補と属するコマンドの数を引けない";
+const COMMAND_LOOKUP = "起点にしたコマンドの単位を引けない";
 const NO_MAP_TABLE = "実装との対応表が無い";
 const NO_MAP_ROW = "実装との対応表に行が無い";
 
@@ -215,7 +215,7 @@ function popupFactory(outputs: RunOutputs, viewRole: ViewRole): PopupOf {
   const displayIds = displayIdsOf(sources.implementationMap);
   const entryIdOf = new Map<string, string>();
   for (const [entryId, displayId] of displayIds ?? []) entryIdOf.set(displayId, entryId);
-  // 起点の辞書の項目 → シナリオの表示の id（対応表の COMMAND_TARGET の行。設計 6.5）。
+  // 起点の辞書の項目 → コマンドの表示の id（対応表の COMMAND_TARGET の行。設計 6.5）。
   const commandsOf = new Map<string, string[]>();
   for (const row of sources.implementationMap?.entries ?? []) {
     if (row.kind !== "COMMAND_TARGET" || row.glossaryEntryId === null) continue;

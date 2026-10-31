@@ -63,7 +63,7 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
     }
   }
 
-  // シナリオのファイル。同じ実行の書き出しなら、シナリオの kind から決まるファイルは必ずある（設計 6.1）。
+  // コマンドのファイル。同じ実行の書き出しなら、コマンドの kind から決まるファイルは必ずある（設計 6.1）。
   for (const commandTarget of outputs.commands) {
     const files: Array<[string, FileRead<unknown>]> =
       commandTarget.kind === "COMPLETED"
@@ -81,7 +81,7 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
     for (const [file, read] of files) {
       // INVALID になるのは JSON のファイルだけ（readRunOutputs は文字列のファイルをパースしない）。
       if (read.kind === "MISSING") {
-        add("COMMAND_FILE_MISSING", file, commandTarget.displayId, "実行の報告にあるシナリオのファイルが無い。");
+        add("COMMAND_FILE_MISSING", file, commandTarget.displayId, "実行の報告にあるコマンドのファイルが無い。");
       } else if (read.kind === "INVALID") {
         add("INVALID_JSON", file, commandTarget.displayId, read.reason);
       }

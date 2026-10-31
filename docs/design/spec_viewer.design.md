@@ -19,7 +19,7 @@
 buildRunView(
   outputs: RunOutputs,            // 出力先から読んだファイルの中身（2 節）
   viewRole: "PdM" | "Eng",
-): RunView;                       // 4 つの画面とシナリオの詳細のビューモデル（リンクは表示の id で張る。6.11）
+): RunView;                       // 4 つの画面とコマンドの詳細のビューモデル（リンクは表示の id で張る。6.11）
 
 checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前条件
 ```
@@ -31,68 +31,68 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 ## 2. 入力（出力先のファイル）
 | ファイル | 使う画面 |
 | :--- | :--- |
-| `run_report.json` | シナリオ一覧・シナリオの詳細・仕様不備一覧 |
+| `run_report.json` | コマンド一覧・コマンドの詳細・仕様不備一覧 |
 | `system_map.json`（俯瞰図。地図 1 と、Bounded Context ごとの地図 2 を足す要素なし・ありの 2 通りで束ねたもの。全体設計 4.1） | 全体地図 |
 | `glossary.json` | 用語辞典、ほかの画面の用語のポップアップ |
-| `intents.json` | シナリオ一覧・シナリオの詳細・全体地図 |
-| シナリオごとの `spec.md`・`matrix.md`・`flow.mmd`・`spec.als` | シナリオの詳細 |
-| シナリオごとの `spec.json` | シナリオの詳細・仕様不備一覧（表示名・検査の名前・実行列の値を SpecProjector と同じ文にするため。6.5） |
-| シナリオごとの `ledger.json` | シナリオの詳細・仕様不備一覧 |
-| シナリオごとの `ambiguity.json` | シナリオの詳細・仕様不備一覧 |
+| `intents.json` | コマンド一覧・コマンドの詳細・全体地図 |
+| コマンドごとの `spec.md`・`matrix.md`・`flow.mmd`・`spec.als` | コマンドの詳細 |
+| コマンドごとの `spec.json` | コマンドの詳細・仕様不備一覧（表示名・検査の名前・実行列の値を SpecProjector と同じ文にするため。6.5） |
+| コマンドごとの `ledger.json` | コマンドの詳細・仕様不備一覧 |
+| コマンドごとの `ambiguity.json` | コマンドの詳細・仕様不備一覧 |
 | `implementation_map.json` | 画面どうしのリンク、役割 `Eng` の実装の名前と所在 |
 
 - 出力先の置き方は全体設計 4.1 に従う。
-- 仕様不備一覧の全シナリオの横断の一覧は、シナリオごとのファイルを束ねて作る。横断の一覧を LLM にも読ませるために、ファイルとしても出すかは 7 節に残す。
+- 仕様不備一覧のすべてのコマンドの横断の一覧は、コマンドごとのファイルを束ねて作る。横断の一覧を LLM にも読ませるために、ファイルとしても出すかは 7 節に残す。
 
 ---
 
 ## 3. 画面ごとの項目
 表の「Eng のみ」の印がある項目は、役割が `Eng` のときだけ出す。印の無い項目は、両方の役割で同じものを出す。
 
-### 3.1 シナリオ一覧
+### 3.1 コマンド一覧
 **上部: 実行の概要**（元: `run_report.json`）
 
 | 項目 | 元のデータ | 備考 |
 | :--- | :--- | :--- |
 | 解析したファイルの数・解析に失敗した数 | `system.parsedFileCount`・`parseFailureCount` | |
 | Bounded Context・コマンド・イベントの数 | `system.boundedContextCount`・`commandCount`・`eventCount` | |
-| シナリオの数と内訳 | `totals.completed`・`ambiguous`・`stopped` | 「仕様になった」「曖昧さで止まった」「途中で止まった」と書く |
+| コマンドの数と内訳 | `totals.completed`・`ambiguous`・`stopped` | 「仕様になった」「曖昧さで止まった」「途中で止まった」と書く |
 | 曖昧さの件数 | `totals.ambiguity` | `PdM` では「エンジニアの確認待ち: N 件」と合計だけを出す。`Eng` では種類ごとに出す |
 | 検証の状態の内訳 | `totals.verification` | `NONE_FOUND_WITHIN_SCOPE` は「指定の範囲で、行った検査では見つからなかった」と書く |
-| 検査の範囲 | `inspectionScope` | 「検査はシナリオごとに行った。シナリオどうしの矛盾は見ていない」（`unit`）と、行っていない検査（`invariantChecks` が `NOT_APPLICABLE` なら「不変条件の検査はしていない」、`commandsWithoutVerification` のシナリオは「検証の結果が無い」） |
+| 検査の範囲 | `inspectionScope` | 「検査はコマンドごとに行った。コマンドどうしの矛盾は見ていない」（`unit`）と、行っていない検査（`invariantChecks` が `NOT_APPLICABLE` なら「不変条件の検査はしていない」、`commandsWithoutVerification` のコマンドは「検証の結果が無い」） |
 | 未生成の数 | `glossary.notGenerated`・`intents.notGenerated` | 0 件でなければ目立たせる |
 | 読んだ資料の数 | `glossary.documents` | 上限で読まなかった資料があれば出す |
 
-**本体: シナリオの表**（元: `run_report.json` の `commands`、`intents.json`）
+**本体: コマンドの表**（元: `run_report.json` の `commands`、`intents.json`）
 
 | 列 | 元のデータ | 備考 |
 | :--- | :--- | :--- |
-| 表示の id | `displayId` | 例: `S-02` |
-| シナリオの名前 | 起点のコマンドまたはポリシーの、辞書の用語 | SpecProjector の仕様書の題と同じ引き方（SpecProjector 基本設計 4.1・8.4）。未生成なら「（名前は未生成）」 |
+| 表示の id | `displayId` | 例: `C-02` |
+| コマンドの名前 | 起点のコマンドの、辞書の用語 | SpecProjector の仕様書の題と同じ引き方（SpecProjector 基本設計 4.1・8.4）。未生成なら「（名前は未生成）」 |
 | 状態 | `kind` | 仕様になった／曖昧さで止まった／途中で止まった |
-| 検証 | `outcome`・`unverifiedReason` | 仕様になったシナリオだけ。未検証なら理由を出す |
+| 検証 | `outcome`・`unverifiedReason` | 仕様になったコマンドだけ。未検証なら理由を出す |
 | 件数 | 論点の件数（`issueCount`）、または曖昧さの件数（`counts` の合計） | 曖昧さは `PdM` では「エンジニアの確認待ち: N 件」 |
-| 意図の候補 | `intents.json` のシナリオの意図 | 1 行で切り、確定の状態の印を付ける |
+| 意図の候補 | `intents.json` のコマンドの意図 | 1 行で切り、確定の状態の印を付ける |
 | Bounded Context | `boundedContext` を用語にしたもの | Bounded Context が 1 つだけなら列を出さない |
 | 起点の所在（Eng のみ） | `implementation_map.json` | |
 
 - 絞り込み: 状態、Bounded Context、検証の状態。並び: 既定は表示の id の順。件数の多い順にも並べ替えられる。
 
-### 3.2 シナリオの詳細
+### 3.2 コマンドの詳細
 **冒頭**（すべてのタブで共通）
 
 | 項目 | 元のデータ | 備考 |
 | :--- | :--- | :--- |
-| 表示の id・シナリオの名前・Bounded Context | `run_report.json`・辞書 | |
+| 表示の id・コマンドの名前・Bounded Context | `run_report.json`・辞書 | |
 | 意図の候補 | `intents.json` | 確定の状態の印。未生成ならその理由 |
-| 利用者が書いた目的 | `userIntent` | 利用者が定義したシナリオで、目的があるときだけ |
-| 起動するポリシー | `run_report.json` のシナリオの行の `invokedBy` | 辞書の項目（種類が `POLICY`）の表示名を 1 行に 1 つ出す。空なら「なし（ポリシーからは起動されない）」と書く（2026-10-31 に「起点の種類」から置き換えた） |
-| アクター・画面のルート・期待イベント | `run_report.json` のシナリオの行の `actor`・`route`・`expectedEvents` | 画面を持たないシナリオでは `route` が `null` なので、画面のルートを出さない。期待イベントは 1 行に 1 つ出す |
+| 利用者が書いた目的 | `userIntent` | 利用者が定義したコマンドで、目的があるときだけ |
+| 起動するポリシー | `run_report.json` のコマンドの行の `invokedBy` | 辞書の項目（種類が `POLICY`）の表示名を 1 行に 1 つ出す。空なら「なし（ポリシーからは起動されない）」と書く（2026-10-31 に「起点の種類」から置き換えた） |
+| アクター・画面のルート・期待イベント | `run_report.json` のコマンドの行の `actor`・`route`・`expectedEvents` | 画面を持たないコマンドでは `route` が `null` なので、画面のルートを出さない。期待イベントは 1 行に 1 つ出す |
 | 検証の状態 | `ledger.json` の検証の状態 | 論点より前に置く |
-| 検査の範囲 | 検証の状態の文（`verificationView` の `lines`） | SpecProjector の仕様書と同じ「検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。」を、検証の状態の行の一つとして出す。画面で別の文を持たない（PR #32 で別に持たせたところ、同じ内容が 2 回出たので外した） |
+| 検査の範囲 | 検証の状態の文（`verificationView` の `lines`） | SpecProjector の仕様書と同じ「検査はこのコマンドだけで行った。ほかのコマンドとの矛盾は見ていない。」を、検証の状態の行の一つとして出す。画面で別の文を持たない（PR #32 で別に持たせたところ、同じ内容が 2 回出たので外した） |
 | 論点の件数 | `ledger.json` | 仕様不備一覧へのリンク |
 
-**タブ**（仕様になったシナリオだけ）
+**タブ**（仕様になったコマンドだけ）
 
 | タブ | 元のデータ | 備考 |
 | :--- | :--- | :--- |
@@ -101,20 +101,20 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | 操作の流れ図 | `flow.mmd` | |
 | 形式仕様のソース（Eng のみ） | `spec.als` | 付録として扱う |
 
-- 曖昧さで止まったシナリオは、冒頭だけを出し、タブの代わりに「このシナリオは、エンジニアの確認待ちの箇所が N 件あるため、形式仕様にできなかった」を出す。`Eng` では、仕様不備一覧（このシナリオで絞り込み）へのリンクも出す。
+- 曖昧さで止まったコマンドは、冒頭だけを出し、タブの代わりに「このコマンドは、エンジニアの確認待ちの箇所が N 件あるため、形式仕様にできなかった」を出す。`Eng` では、仕様不備一覧（このコマンドで絞り込み）へのリンクも出す。
 
 ### 3.3 仕様不備一覧
 | 種類 | 元のデータ | PdM | Eng |
 | :--- | :--- | :--- | :--- |
-| 論点 | シナリオごとの `ledger.json` | 出す | 出す |
-| 曖昧さ | シナリオごとの `ambiguity.json` | シナリオごとの件数だけ（「エンジニアの確認待ち」） | 質問・箇所・原文をすべて出す |
+| 論点 | コマンドごとの `ledger.json` | 出す | 出す |
+| 曖昧さ | コマンドごとの `ambiguity.json` | コマンドごとの件数だけ（「エンジニアの確認待ち」） | 質問・箇所・原文をすべて出す |
 
 **論点の項目**
 
 | 項目 | 元のデータ | 備考 |
 | :--- | :--- | :--- |
-| 表示の id | `S-01-L-001` …（SpecProjector 基本設計 8.7） | 論点カタログの識別子（`LEDGER-…`）は出さない |
-| シナリオ・関わる操作 | `ledger.json` | 操作の一覧表の該当する行へのリンク |
+| 表示の id | `C-01-L-001` …（SpecProjector 基本設計 8.7） | 論点カタログの識別子（`LEDGER-…`）は出さない |
+| コマンド・関わる操作 | `ledger.json` | 操作の一覧表の該当する行へのリンク |
 | 種類 | 未定義遷移・操作の重なり・到達できない操作・デッドロック | |
 | 主張・観測事実・判断質問 | LLM の文 | 確定の状態の印。未生成ならその理由 |
 | 選択肢 | 種類ごとに決まった 3 つ | どれも採択済みとして見せない |
@@ -126,20 +126,20 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 
 | 項目 | 元のデータ | 備考 |
 | :--- | :--- | :--- |
-| 表示の id | `S-02-A-001` … | |
-| シナリオ | 表示の id と名前 | シナリオの詳細へのリンク |
+| 表示の id | `C-02-A-001` … | |
+| コマンド | 表示の id と名前 | コマンドの詳細へのリンク |
 | 種類 | `kind` | 値が決まらない／外部への作用がある／同じ条件で別の経路に進む |
 | 質問 | `question.text` | 確定の状態の印。未生成ならその理由 |
 | 実装の箇所と原文 | `location`・`detail` | |
 
-- `PdM` の画面: 論点の一覧と、その下に「エンジニアの確認待ち」のシナリオ別の件数の表を置く。
-- 絞り込み: 種類、シナリオ、論点の種類、曖昧さの種類（Eng）。既定ではシナリオごとにまとめ、見出しに件数を出す。
+- `PdM` の画面: 論点の一覧と、その下に「エンジニアの確認待ち」のコマンド別の件数の表を置く。
+- 絞り込み: 種類、コマンド、論点の種類、曖昧さの種類（Eng）。既定ではコマンドごとにまとめ、見出しに件数を出す。
 
 ### 3.4 全体地図
-- **地図 1**: Bounded Context の箱と、またぐポリシーの矢印。箱を選ぶと、用語・意図の候補（確定の状態の印）・属するシナリオの数をポップアップで出し、地図 2 と、その Bounded Context で絞り込んだシナリオ一覧へのリンクを置く。Bounded Context が 1 つだけのときは、全体地図を開いたら地図 2 を出す。
+- **地図 1**: Bounded Context の箱と、またぐポリシーの矢印。箱を選ぶと、用語・意図の候補（確定の状態の印）・属するコマンドの数をポップアップで出し、地図 2 と、その Bounded Context で絞り込んだコマンド一覧へのリンクを置く。Bounded Context が 1 つだけのときは、全体地図を開いたら地図 2 を出す。
 - **地図 2**: 既定はコマンド・ドメインイベント・ポリシーとそのつながり。切り替えで、アクター・リードモデル・アグリゲートを足す。切り替えは SpecProjector に地図 2 を作り直させるのではなく、SpecProjector が出した地図 2 の JSON（足す要素を含む版）の表示を切り替える。
 - 要素は用語と表示の id（`c1`・`n1`）で表す。用語が未生成の要素は「〈種類〉 〈番号〉（名前は未生成）」（SpecProjector 基本設計 8.2）。
-- 要素を選んだときのポップアップ: 用語、確定の状態、意味（資料の抜粋）、その要素を起点にしたシナリオ。起点になるのはコマンドだけで、コマンドノード 1 つにつきシナリオ（コマンドの単位）は 1 つである（2026-10-31 改定。CommandExtractor 仕様 2.2）。画面は一覧の形のまま残してあるので、複数あれば一覧から選ぶ。
+- 要素を選んだときのポップアップ: 用語、確定の状態、意味（資料の抜粋）、その要素を起点にしたコマンドの単位。起点になるのはコマンドだけで、コマンドノード 1 つにつきコマンドの単位は 1 つである（2026-10-31 改定。CommandExtractor 仕様 2.2）。画面は一覧の形のまま残してあるので、複数あれば一覧から選ぶ。
 - 壊れた箇所の印: 地図の JSON の印の欄が空でなければ、要素とつながりに印を描く。初回は欄が常に空である。
 - 実装の名前と所在（Eng のみ）。
 
@@ -173,20 +173,20 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 ## 4. 画面どうしのリンク
 | リンク元 | リンク先 | 鍵 |
 | :--- | :--- | :--- |
-| シナリオ一覧の行（仕様になったもの） | シナリオの詳細 | シナリオ |
-| シナリオ一覧の行（曖昧さで止まったもの） | `PdM`: シナリオの詳細。`Eng`: 仕様不備一覧（そのシナリオで絞り込み） | シナリオ |
-| 地図 1 の Bounded Context | 地図 2、シナリオ一覧（その Bounded Context で絞り込み） | Bounded Context |
-| 地図 2 のコマンド・ポリシー | シナリオの詳細（複数なら選ぶ一覧を挟む） | 地図の要素 → シナリオ |
-| シナリオの詳細の論点の件数 | 仕様不備一覧（そのシナリオの論点で絞り込み） | シナリオ |
+| コマンド一覧の行（仕様になったもの） | コマンドの詳細 | コマンド |
+| コマンド一覧の行（曖昧さで止まったもの） | `PdM`: コマンドの詳細。`Eng`: 仕様不備一覧（そのコマンドで絞り込み） | コマンド |
+| 地図 1 の Bounded Context | 地図 2、コマンド一覧（その Bounded Context で絞り込み） | Bounded Context |
+| 地図 2 のコマンド・ポリシー | コマンドの詳細（複数なら選ぶ一覧を挟む） | 地図の要素 → コマンド |
+| コマンドの詳細の論点の件数 | 仕様不備一覧（そのコマンドの論点で絞り込み） | コマンド |
 | 操作の一覧表の「関わる論点」 | 仕様不備一覧の該当する論点 | 論点 |
-| 仕様不備一覧の論点 | シナリオの詳細の操作の一覧表の該当する行 | 論点 → 操作 |
-| 仕様不備一覧の項目 | シナリオの詳細 | シナリオ |
+| 仕様不備一覧の論点 | コマンドの詳細の操作の一覧表の該当する行 | 論点 → 操作 |
+| 仕様不備一覧の項目 | コマンドの詳細 | コマンド |
 | 地図・詳細・不備一覧の中の用語 | 用語辞典のポップアップ | 用語 |
 | 用語辞典の項目 | 地図 2 の該当する要素 | 地図の要素 |
 
 - ~~鍵は内部の識別子とする。表示の id と内部の識別子の対応は `implementation_map.json` で引く（SpecProjector 基本設計 8.5）。~~ 鍵は表示の id とする（2026-10-31 に変えた。理由は 6.7）。内部の識別子は、ビューモデルを作るときに辞書・意図の候補・対応表を引くためだけに使う。リンクは 1 回の実行の中で閉じる（仕様 2.3）。
 - 内部の識別子は URL やアドレスバーにも出さない（`PdM` で実装の所在が見えてしまうため）。画面の中の位置を外に示すときは表示の id を使う。
-- **Itera での動き**（起動アプリ `itera/spec_viewer.html`）: リンクで画面を移るたびに、いまの場所を `MetaOS.nav.declare` でメインウィンドウの履歴に名乗る。host の ← → とブラウザの戻る・進むで前の画面へ戻れる。場所は `?out=…&bundle=…&viewRole=…&screen=…` に、`id`（シナリオの表示の id）・`tab`・`context`（地図 2 の Bounded Context の表示の id）・`supporting`・`glossaryTab`・`f_〈絞り込みの鍵〉` を足したもの（`viewRole` は小文字）。同じ場所は名乗り直さない。戻る・進むで host がこのアプリの場所を開き直すと `route_changed` が届くので、その引数から画面を戻す。アプリが閉じていれば host が同じ引数で起動し直し、起動の引数から同じ画面を開く。選んだ要素と強調する行は場所に入れない（戻ったときは選んでいない状態で開く）。起動の引数（`out`・`bundle`・`viewRole`）が違う場所は、開いている画面では開き直さない。
+- **Itera での動き**（起動アプリ `itera/spec_viewer.html`）: リンクで画面を移るたびに、いまの場所を `MetaOS.nav.declare` でメインウィンドウの履歴に名乗る。host の ← → とブラウザの戻る・進むで前の画面へ戻れる。場所は `?out=…&bundle=…&viewRole=…&screen=…` に、`id`（コマンドの表示の id）・`tab`・`context`（地図 2 の Bounded Context の表示の id）・`supporting`・`glossaryTab`・`f_〈絞り込みの鍵〉` を足したもの（`viewRole` は小文字）。同じ場所は名乗り直さない。戻る・進むで host がこのアプリの場所を開き直すと `route_changed` が届くので、その引数から画面を戻す。アプリが閉じていれば host が同じ引数で起動し直し、起動の引数から同じ画面を開く。選んだ要素と強調する行は場所に入れない（戻ったときは選んでいない状態で開く）。起動の引数（`out`・`bundle`・`viewRole`）が違う場所は、開いている画面では開き直さない。
 - Standalone（HTML どうしのリンク）は、画面を HTML として書き出す機能がまだ無いので、ここでは扱わない（設計の案と見積もりを別に出す）。
 
 ---
@@ -208,9 +208,9 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 
 ### 6.1 出力先の読み方（`RunOutputs`）
 - 読むのは `src/lib/read_outputs.ts` の `readRunOutputs(fs: FileSystemPort, outDir: string): Promise<RunOutputs>` とする。ファイルを読むので `src/viewer/` には置かず、書く側の `src/lib/write_outputs.ts` と対にする。
-- 読むファイルは 2 節の表のものだけである。`system_map.mmd`、シナリオごとの `solver_report.json`・`ambiguity.md` は画面で使わないので読まない。
+- 読むファイルは 2 節の表のものだけである。`system_map.mmd`、コマンドごとの `solver_report.json`・`ambiguity.md` は画面で使わないので読まない。
   - 2026-10-31（PR #31）の時点では「`spec.json` も使わないので読まない」としていたが、誤りだった。論点の関わる操作・実行列の値・実行しなかった検査の名前は、SpecProjector が `spec.json`（`FormalSpecification`）の表示名から文にしている（`view_model.ts` の `verificationView`・`issueView`）。同じ文を出すには `spec.json` が要るので、読むファイルに足した（6.5）。
-- シナリオのディレクトリは、`run_report.json` の `commands` から `commands/<safeName(commandId)>/` として引く。`FileSystemPort.list` は順序を保証しないので、ディレクトリの一覧からは引かない。読むファイルはシナリオの `kind` で決める（`COMPLETED`: `spec.json`・`spec.md`・`matrix.md`・`flow.mmd`・`spec.als`・`ledger.json`、`AMBIGUOUS`: `ambiguity.json`、`STOPPED`: なし）。`run_report.json` が無いか読めないときは、シナリオのファイルを読まない。
+- コマンドのディレクトリは、`run_report.json` の `commands` から `commands/<safeName(commandId)>/` として引く。`FileSystemPort.list` は順序を保証しないので、ディレクトリの一覧からは引かない。読むファイルはコマンドの `kind` で決める（`COMPLETED`: `spec.json`・`spec.md`・`matrix.md`・`flow.mmd`・`spec.als`・`ledger.json`、`AMBIGUOUS`: `ambiguity.json`、`STOPPED`: なし）。`run_report.json` が無いか読めないときは、コマンドのファイルを読まない。
 - ファイルごとの結果は、次の 3 通りのどれかで持つ。読めなかったことを `null` 1 つにまとめないのは、無いのか壊れているのかで表示する理由が違うためである。
   - `{ kind: "OK", value }`: JSON はパースした値、Markdown・Mermaid・Alloy は文字列。
   - `{ kind: "MISSING" }`: ファイルが無い。
@@ -224,7 +224,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
   - 読めた JSON のファイルが壊れている（`INVALID`）。
   - `basis` を持たない（`basis` を足す前の古い出力）。
   - `run_report.json`・`glossary.json`・`intents.json`・`implementation_map.json`・`system_map.json` のうち、あるものどうしの `basis`（`mapHash`・`documentsHash`）が一致しない（仕様 3.1）。
-  - `run_report.json` のシナリオの `kind` から決まるシナリオのファイルが無い（同じ実行の書き出しなら必ずあるため）。
+  - `run_report.json` のコマンドの `kind` から決まるコマンドのファイルが無い（同じ実行の書き出しなら必ずあるため）。
 - 画面を作れるもの（`problems` に入れない）: 仕様 2.1 で任意とされている `glossary.json`・`intents.json`・`implementation_map.json`・`system_map.json` が無いこと。どの画面で何を出すかは `buildRunView` が決める（例: 辞書が無ければ要素の名前を「辞書が無い」と表示する。全体地図は俯瞰図が無ければ理由を出す）。
 - 表示の役割と `system_map.json` の `viewRole` の関係は、6.4 が決まるまで検査しない。
 
@@ -242,19 +242,19 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **LLM の文は `textContent` で描く**: 用語・意図・論点の文・質問の文は LLM が作り、LLM は解析対象のコードと資料を読んでいる。そのため、`innerHTML` に入れず、文字列として描く。
 - **表示の役割の切り替え**: 今の出力は、利用者向けのビュー（仕様書・操作の一覧表・流れ図・曖昧さの一覧・俯瞰図）を 1 つの役割で書く。仕様 1.1 の「Global Menu で役割を切り替える」を満たすには、出力の役割に固定するか、両方の役割のビューを書き出すかを決める必要がある。中瀬古様の答えを待っている（2026-10-31）。
 
-### 6.5 シナリオ一覧とシナリオの詳細
+### 6.5 コマンド一覧とコマンドの詳細
 - **SpecProjector の文を使う**: 検証の状態は SpecProjector の `verificationView`（1 行目と箇条書きの文）で、論点は `issueGroupsOf`（見出しごとの組。論点の 3 つの文と確定の状態の印、関わる操作、実行列、選択肢、従属する反例の数）で作る。LLM の文は `llmText`、確定の状態の印は `statusMark`、未検証の理由は `UNVERIFIED_REASON_TEXT`、曖昧さの種類は `AMBIGUITY_KIND_TEXT`（`render_ambiguities.ts`）を使う。
   - そのために `view_model.ts` から `verificationView`・`UNVERIFIED_REASON_TEXT` を export し、`buildViewModel` の中にあった論点の番号の振り方と見出しの組み分けを `issueDisplayIds`・`issueGroupsOf` に切り出して export した（`buildViewModel` はこれを呼ぶ。振る舞いは変えていない）。どれも引数から文を作るだけで I/O を持たない。
 - **`buildViewModel` は使わない**: `buildViewModel` は `ProjectionContext.commandTarget`（`CommandTarget`）を受け取るが、出力には `CommandTarget` が無い。実行の報告の行から `CommandTarget` を作り直すと、出力に無い値（起点の識別子など）を推測で埋めることになるため、使わない。
-- **論点の表示の id**: `buildViewModel` と同じく、`ledger.json` の `issues` の並びで `S-01-L-001` … を振る（SpecProjector 基本設計 8.7）。
-- **シナリオの名前の引き方**: SpecProjector は起点の識別子で辞書を引くが（`titleOf`）、実行の報告の行には起点の識別子が無い。画面は `implementation_map.json` の `COMMAND_TARGET` の行（`displayId` が一致するもの）の `glossaryEntryId` で `glossary.json` の項目を引く。項目の種類が `COMMAND` で、用語が生成されているときだけ名前にする。題の形は `titleOf` と同じ「`S-01 〈表示名〉〈確定の状態の印〉`」とする。
+- **論点の表示の id**: `buildViewModel` と同じく、`ledger.json` の `issues` の並びで `C-01-L-001` … を振る（SpecProjector 基本設計 8.7）。
+- **コマンドの名前の引き方**: SpecProjector は起点の識別子で辞書を引くが（`titleOf`）、実行の報告の行には起点の識別子が無い。画面は `implementation_map.json` の `COMMAND_TARGET` の行（`displayId` が一致するもの）の `glossaryEntryId` で `glossary.json` の項目を引く。項目の種類が `COMMAND` で、用語が生成されているときだけ名前にする。題の形は `titleOf` と同じ「`C-01 〈表示名〉〈確定の状態の印〉`」とする。
   - 名前を出せないときは、理由を分けて書く。`implementation_map.json` が無い:「（名前を引けない: 実装との対応表が無い）」。`glossary.json` が無い:「（名前を引けない: 辞書が無い）」。項目が無い・種類が違う・用語が未生成:「（名前は未生成）」（SpecProjector と同じ）。対応表や辞書が無いことを「未生成」と書くと、事実と違うためである。
-- **意図の候補**: `intents.json` の `commands` を `commandId` で引き、`llmText` の文に `statusMark(intentStatus)` を足す（SpecProjector の仕様書と同じ）。`intents.json` が無いか、そのシナリオの候補が無ければ「意図の候補が無い」と書く。
-- **Bounded Context・期待イベント・起動するポリシー**: 実行の報告の行の `boundedContext`・`expectedEvents`・`invokedBy` は全体マップの識別子なので、そのまま出さない。辞書の項目（種類が `BOUNDED_CONTEXT`・`EVENT`・`POLICY` で id が一致するもの）の表示名に確定の状態の印を足して出す。引けないときはシナリオの名前と同じ規則で理由を書く。
+- **意図の候補**: `intents.json` の `commands` を `commandId` で引き、`llmText` の文に `statusMark(intentStatus)` を足す（SpecProjector の仕様書と同じ）。`intents.json` が無いか、そのコマンドの候補が無ければ「意図の候補が無い」と書く。
+- **Bounded Context・期待イベント・起動するポリシー**: 実行の報告の行の `boundedContext`・`expectedEvents`・`invokedBy` は全体マップの識別子なので、そのまま出さない。辞書の項目（種類が `BOUNDED_CONTEXT`・`EVENT`・`POLICY` で id が一致するもの）の表示名に確定の状態の印を足して出す。引けないときはコマンドの名前と同じ規則で理由を書く。
 - **アクター・画面のルート**: アクターは `actor.name` を出す。画面のルートは `null` なら出さない。2026-10-31 に、起点の種類（「操作」「反応」）の行を外し、起動するポリシーの行に置き換えた（起点はコマンドだけになったため）。
   - アクターの名前は認可のコードから拾った役割の名前で、辞書の用語が無い。PdM に出してよいかは確かめている（2026-10-31）。
-- **シナリオの表の文**: 検証の列は、仕様になったシナリオだけ「論点が見つかった」「指定の範囲で、行った検査では見つからなかった」「未検証（理由）」と書く。件数の列は「論点 N 件」、曖昧さで止まったシナリオは `PdM` で「エンジニアの確認待ち: N 件」、`Eng` で「曖昧さ N 件」。途中で止まったシナリオは件数を出さない。
-- **タブの代わりに出す文**: 曖昧さで止まったシナリオは 3.2 の文。途中で止まったシナリオは「このシナリオは途中で止まったため、仕様にならなかった。」とし、`Eng` では止まった段とエラーの名前を足す。
+- **コマンドの表の文**: 検証の列は、仕様になったコマンドだけ「論点が見つかった」「指定の範囲で、行った検査では見つからなかった」「未検証（理由）」と書く。件数の列は「論点 N 件」、曖昧さで止まったコマンドは `PdM` で「エンジニアの確認待ち: N 件」、`Eng` で「曖昧さ N 件」。途中で止まったコマンドは件数を出さない。
+- **タブの代わりに出す文**: 曖昧さで止まったコマンドは 3.2 の文。途中で止まったコマンドは「このコマンドは途中で止まったため、仕様にならなかった。」とし、`Eng` では止まった段とエラーの名前を足す。
 - **起点の所在（Eng のみ）**: 対応表の `COMMAND_TARGET` の行の `implementation.locations` を、文字列にせずそのまま持つ。`PdM` では持たない（`null`）。
 - **公開する関数**: `buildCommandList(outputs, viewRole)` と `buildCommandDetails(outputs, viewRole)`（`src/viewer/commands.ts`）。どちらも `checkRunOutputs` を通った入力を受け取り、通っていない入力では例外を投げる。1.2 の `buildRunView` は、4 つの画面がそろった段階でこれらを束ねる。
 
@@ -268,18 +268,18 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 
 ### 6.7 仕様不備一覧
 - **公開する関数**: `buildIssueList(outputs, viewRole)`（`src/viewer/issues.ts`）。`checkRunOutputs` を通った入力を受け取り、通っていない入力では例外を投げる（6.5 と同じ）。
-- **論点**: 仕様になったシナリオのうち、論点が 1 件以上あるものを実行の報告の順に並べる。中身は `issueGroupsOf` の見出しごとの組（6.5 のシナリオの詳細と同じ値）で、表示の id は `issueDisplayIds` で振る。既定の並べ方（3.3「シナリオごとにまとめ、見出しに件数」）に合わせ、シナリオごとに `issueCount` を持つ。
+- **論点**: 仕様になったコマンドのうち、論点が 1 件以上あるものを実行の報告の順に並べる。中身は `issueGroupsOf` の見出しごとの組（6.5 のコマンドの詳細と同じ値）で、表示の id は `issueDisplayIds` で振る。既定の並べ方（3.3「コマンドごとにまとめ、見出しに件数」）に合わせ、コマンドごとに `issueCount` を持つ。
 - **論点から操作の一覧表の行へのリンク**: 論点カタログの `operations`（形式仕様の操作の識別子）を、`spec.json` の `operations` の中の位置に直して持つ（`operationRows`。論点の表示の id から行の位置の配列）。操作の一覧表の行は、形式仕様の操作の順に並ぶため（`render_matrix.ts`）。描く側は、詳細の操作の一覧表のブロックの表の行をこの位置で指す。
-- **曖昧さ**: 曖昧さで止まったシナリオを実行の報告の順に並べる。件数は実行の報告の行の `counts` の合計で、文はシナリオ一覧と同じ（`PdM`「エンジニアの確認待ち: N 件」、`Eng`「曖昧さ N 件」）。
+- **曖昧さ**: 曖昧さで止まったコマンドを実行の報告の順に並べる。件数は実行の報告の行の `counts` の合計で、文はコマンド一覧と同じ（`PdM`「エンジニアの確認待ち: N 件」、`Eng`「曖昧さ N 件」）。
   - `PdM` では質問・箇所・原文を持たない（`items` が `null`）。質問は実装の振る舞いについての問いで、実装の名前を含みうるため（SpecProjector の曖昧さの一覧と同じ理由）。
-  - `Eng` では、SpecProjector の曖昧さの一覧（`render_ambiguities.ts`）と同じく、`ambiguity.json` の `issues` の並びで `S-02-A-001` … と振り、種類の文（`AMBIGUITY_KIND_TEXT`）、質問の文と確定の状態の印、所在（ファイルと行）、原文（末尾の改行を除く）を持つ。`unitIds` は持たない。
-- **途中で止まったシナリオ**: 論点も曖昧さも持たないので出さない。
-- **リンクの鍵は表示の id にする**: 4 節は「鍵は内部の識別子」としていたが、ビューモデルは内部の識別子を持たず、シナリオ・論点・曖昧さを表示の id（`S-01`・`S-01-L-001`・`S-02-A-001`）で指す（シナリオ一覧と詳細も同じ。6.5）。表示の id は 1 回の実行の中で一意なので、リンクの鍵に使える。内部の識別子を描く側へ渡さないので、URL やアドレスバーに漏れることもない（4 節の後半の約束）。
-- **絞り込み**: 種類・シナリオ・論点の種類・曖昧さの種類（3.3）で絞る処理は描く側で行う。ビューモデルの値（`displayId`・`IssueGroupView.kind`・`AmbiguityItemView.kind`）だけで絞れるため、絞り込み用の値は足さない。
+  - `Eng` では、SpecProjector の曖昧さの一覧（`render_ambiguities.ts`）と同じく、`ambiguity.json` の `issues` の並びで `C-02-A-001` … と振り、種類の文（`AMBIGUITY_KIND_TEXT`）、質問の文と確定の状態の印、所在（ファイルと行）、原文（末尾の改行を除く）を持つ。`unitIds` は持たない。
+- **途中で止まったコマンド**: 論点も曖昧さも持たないので出さない。
+- **リンクの鍵は表示の id にする**: 4 節は「鍵は内部の識別子」としていたが、ビューモデルは内部の識別子を持たず、コマンド・論点・曖昧さを表示の id（`C-01`・`C-01-L-001`・`C-02-A-001`）で指す（コマンド一覧と詳細も同じ。6.5）。表示の id は 1 回の実行の中で一意なので、リンクの鍵に使える。内部の識別子を描く側へ渡さないので、URL やアドレスバーに漏れることもない（4 節の後半の約束）。
+- **絞り込み**: 種類・コマンド・論点の種類・曖昧さの種類（3.3）で絞る処理は描く側で行う。ビューモデルの値（`displayId`・`IssueGroupView.kind`・`AmbiguityItemView.kind`）だけで絞れるため、絞り込み用の値は足さない。
 
 ### 6.8 用語辞典
 - **公開する関数**: `buildGlossaryView(outputs, viewRole)`（`src/viewer/glossary.ts`）。`checkRunOutputs` を通った入力を受け取り、通っていない入力では例外を投げる（6.5 と同じ）。出すのは提示する項目（Bounded Context・コマンド・イベント・ポリシー）だけで、記録だけの項目は出さない（GlossaryBuilder 仕様 1.2）。
-- **表示の id の引き方**: 俯瞰図の JSON（`system_map.json`）のノードは表示の id（`c1`・`n1`）を持つが、辞書の項目の id を持たない（`render_system.ts` の `renderSystemJson`）。そのため、`implementation_map.json` の `BOUNDED_CONTEXT`・`COMMAND`・`EVENT`・`POLICY` の行の `glossaryEntryId` で引く。対応表は俯瞰図と同じ順で番号を振る（`implementation_map.ts` の先頭のコメント。`c` は全体マップの Bounded Context の順、`n` はイベント・コマンド・ポリシーの順）。シナリオの名前の引き方（6.5）と同じ表を使う。
+- **表示の id の引き方**: 俯瞰図の JSON（`system_map.json`）のノードは表示の id（`c1`・`n1`）を持つが、辞書の項目の id を持たない（`render_system.ts` の `renderSystemJson`）。そのため、`implementation_map.json` の `BOUNDED_CONTEXT`・`COMMAND`・`EVENT`・`POLICY` の行の `glossaryEntryId` で引く。対応表は俯瞰図と同じ順で番号を振る（`implementation_map.ts` の先頭のコメント。`c` は全体マップの Bounded Context の順、`n` はイベント・コマンド・ポリシーの順）。コマンドの名前の引き方（6.5）と同じ表を使う。
   - 対応表が無いときは表示の id を `null` にし、一覧の上に「表示の id を引けない: 実装との対応表が無い」を出す。並びは辞書の順（項目の id の辞書順）にする。対応表で番号を引けない項目が 1 つでもあるときも、辞書の順にする（番号のある項目と無い項目を混ぜて並べないため）。
 - **区切り**: Bounded Context ごとに、その Bounded Context の項目を先頭に置き、所属する項目（`contextId`）と、そこへまたいでくるポリシー（`crossesTo`）を続ける。またぐポリシーは両方の区切りに出し、所属の側では「〈Bounded Context〉へまたぐ」、またいだ先の側では「〈Bounded Context〉からまたいでくる」と書く。所属を持たない項目（全体マップのポリシー）は、最後の「所属する Bounded Context が無い」の区切りに置く。区切りを出すのは、Bounded Context が 2 つ以上あるか、所属の無い区切りがあるときだけ（3.5）。
   - Bounded Context の名前は用語の文で、用語が無ければ俯瞰図と同じく「Bounded Context c1（名前は未生成）」とする。
@@ -292,7 +292,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **用語辞典から地図 2 へのリンク**（4 節）: 項目の表示の id が俯瞰図の要素の id と同じなので、描く側はそれで地図 2 の要素を指す。どの地図 2 に出るかは、`system_map.json` の `details` のノードで描く側が引く。
 
 ### 6.9 流れ図のグラフと層の配置
-- **公開する関数**: `src/viewer/graph.ts` の `parseFlow(text)`（`flow.mmd` をグラフに戻す）、`layoutLayers(nodeCount, edges)`（層に並べる）、`buildFlowView(text)`（その 2 つを続けて行う）。シナリオの詳細の流れ図のタブ（`CommandTabsView.flow`）は `buildFlowView` で作る。全体地図（3.4）も同じ `layoutLayers` で並べる。
+- **公開する関数**: `src/viewer/graph.ts` の `parseFlow(text)`（`flow.mmd` をグラフに戻す）、`layoutLayers(nodeCount, edges)`（層に並べる）、`buildFlowView(text)`（その 2 つを続けて行う）。コマンドの詳細の流れ図のタブ（`CommandTabsView.flow`）は `buildFlowView` で作る。全体地図（3.4）も同じ `layoutLayers` で並べる。
 - **読む範囲**: `render_flow.ts` が出す行だけを読む。1 行目の「flowchart TD」、「%%」の注意の行（論点カタログが古いとき）、ノード `id["文"]`、つながり `a --> b`、空行である。ノードの識別子の形も `render_flow.ts` の振り方（起点の `s`、操作ごとに `_0`・`_1` …・`_r`）に限る。それ以外の行があれば、画面を作るのをやめずに、流れ図のタブだけを「流れ図の N 行目を読めない」の理由にする（`UNREADABLE`）。読み方を推測で広げると、SpecProjector の流れ図の書き方が変わったときに、違う図を黙って出すためである。
 - **ノードの指し方**: ノードとつながりは並びの位置（0 から）で指す。`flow.mmd` のノードの識別子は形式仕様の操作の識別子（`op1` など）を含むので、ビューモデルにも読めない理由の文にも入れない（4 節、SpecProjector 基本設計 3.2）。ノードの種類（起点・操作・条件と書き込み・結果）は識別子の形から決めて持つ。
 - **文の戻し方**: `mermaidLabel`（`escape.ts`）の `#quot;`・`#lt;`・`#gt;` を、1 回の置き換えで `"`・`<`・`>` に戻す。限界が 2 つある。`mermaidLabel` は `#` を逃がさないので、文にもともと「#quot;」と書いてあれば `"` に戻る。改行は空白にされているので戻せない。どちらも SpecProjector の側で逃がし方を変えないと直せないので、画面の側では補わない（仕様 1.2）。
@@ -314,9 +314,9 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **ポップアップ**: 要素の用語・確定の状態・意味は、用語辞典のビューモデル（6.8 の `GlossaryEntryView`）を表示の id で引いて使う。同じ文を 2 か所で作らないためである。アクター・リードモデル・アグリゲートは辞書の項目を持たないので、JSON の文だけを出す。
   - またぐポリシーは用語辞典の 2 つの区切りに違うまたぎの文で出るので、ポップアップの項目では `crossing` を `null` にし、またぎは要素の `crossing`（表示の id の組）で持つ。
   - 項目を引けないときは理由（`entryNote`）を書く。辞書が無い:「用語と意味を出せない: 辞書が無い」。対応表が無い:「用語と意味を引けない: 実装との対応表が無い」。対応表はあるが引けない（対応表に行が無いか、辞書に項目が無い）:「用語と意味を引けない: 辞書に項目が無い」。
-  - 辞書の項目の id は、対応表の行の `glossaryEntryId` を表示の id から逆に引いて得る（`glossary.ts` の `displayIdsOf` を export して使う）。引けないときは、意図の候補・シナリオの数・起点のシナリオを出さず、理由（`lookupNote`。「〜を引けない: 実装との対応表が無い」「〜に行が無い」）を書く。
-  - Bounded Context の箱には、意図の候補（`intents.json` の文と確定の状態の印。用語辞典と同じく表示の id から辞書の項目を引いて探す）と、属するシナリオの数（実行の報告の行の `boundedContext`）を持つ。
-  - コマンドとポリシーには、その要素を起点にしたシナリオの表示の id の一覧を持つ（対応表の `COMMAND_TARGET` の行の `glossaryEntryId` が起点の辞書の項目。6.5）。対応表が無ければ一覧を出さず、理由を書く。
+  - 辞書の項目の id は、対応表の行の `glossaryEntryId` を表示の id から逆に引いて得る（`glossary.ts` の `displayIdsOf` を export して使う）。引けないときは、意図の候補・コマンドの数・起点にしたコマンドの単位を出さず、理由（`lookupNote`。「〜を引けない: 実装との対応表が無い」「〜に行が無い」）を書く。
+  - Bounded Context の箱には、意図の候補（`intents.json` の文と確定の状態の印。用語辞典と同じく表示の id から辞書の項目を引いて探す）と、属するコマンドの数（実行の報告の行の `boundedContext`）を持つ。
+  - コマンドとポリシーには、その要素を起点にしたコマンドの単位の表示の id の一覧を持つ（対応表の `COMMAND_TARGET` の行の `glossaryEntryId` が起点の辞書の項目。6.5）。対応表が無ければ一覧を出さず、理由を書く。
 - **Bounded Context が 1 つ**のときは、`startWithDetail` を `true` にする（描く側は地図 2 から開く。3.4）。
 - **表示の役割**: 実装の名前と所在は、画面の役割が `Eng` で、JSON に `implementation` があるときだけ持つ。JSON は出力を作ったときの役割で書かれているので（6.4）、画面の役割が `PdM` なら JSON にあっても持たない。
 - **壊れた印**: ノードとつながりの `broken` が `null` でなければ、印を描くための `broken: true` を持つ。初回は常に `false` である（3.4）。
@@ -324,11 +324,11 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 ### 6.11 画面すべてを束ねる（`buildRunView`）
 - **公開する関数**: `buildRunView(outputs, viewRole)`（`src/viewer/run_view.ts`）。`buildCommandList`・`buildCommandDetails`・`buildIssueList`・`buildGlossaryView`・`buildMapView` を同じ入力と役割で呼び、`RunView`（`viewRole`・`commandList`・`commandDetails`・`issues`・`glossary`・`map`）にまとめる。束ねるだけで、判定や文を足さない。
 - **事前条件**: 最初に `checkRunOutputs` を呼び、破れがあれば理由（`reason` とファイル）を並べた例外を投げる。画面ごとの関数も通っていない入力で例外を投げるが、どの画面の例外か分かりにくいため、入口で先に止める。起動アプリは `buildRunView` の前に `checkRunOutputs` を呼び、破れがあれば画面を作らずに `problems` を出す（1.2）。
-- **リンクの表を持たない**: 1.2 では「画面どうしのリンクの表」を返すとしていたが、リンクの鍵を表示の id にしたので（6.7）、各ビューモデルが持つ表示の id でリンクを張れる。シナリオ一覧の行と詳細は `displayId`、論点は `S-01-L-001`、地図と用語辞典は `c1`・`n1` で対応する。同じ対応を別の表に写すと、2 か所の値がずれうるため、表は作らない。
+- **リンクの表を持たない**: 1.2 では「画面どうしのリンクの表」を返すとしていたが、リンクの鍵を表示の id にしたので（6.7）、各ビューモデルが持つ表示の id でリンクを張れる。コマンド一覧の行と詳細は `displayId`、論点は `C-01-L-001`、地図と用語辞典は `c1`・`n1` で対応する。同じ対応を別の表に写すと、2 か所の値がずれうるため、表は作らない。
 - **表示の役割**: `viewRole` は起動アプリの引数をそのまま持つ。出力を書いたときの役割（`system_map.json` の `viewRole`）との関係は、6.4 の答えを待っている。
 
 ## 7. 残っている課題
-- **横断の不備の一覧をファイルとしても出すか**: 今の出力はシナリオごとのファイルだけである。LLM に読ませる用途があるので、ファイルとして出すなら、作るのはオーケストレーターか SpecProjector になる（仕様 1.2 の「画面だけが持つ情報を作らない」）。
+- **横断の不備の一覧をファイルとしても出すか**: 今の出力はコマンドごとのファイルだけである。LLM に読ませる用途があるので、ファイルとして出すなら、作るのはオーケストレーターか SpecProjector になる（仕様 1.2 の「画面だけが持つ情報を作らない」）。
 - **画面の実行環境**: 起動アプリ（Itera OS の app）を先に作る。Node.js で使う場合（静的な HTML を書き出すなど）の形は決めていない。
 - **出力に足す必要があるもの**（仕様 1.2 により、画面の側では補わない。足すのは出力を作るモジュールとオーケストレーター）:
   - ~~**実行の報告の `basis`**~~: 2026-10-31 に足した（全体設計 2.1）。`run_report.json` は辞書の `basis` を写すので、`checkRunOutputs` は辞書・意図の候補・実装との対応表・実行の報告の 4 つがそろっていることを確かめられる（仕様 3.1）。

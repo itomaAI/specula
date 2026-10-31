@@ -217,7 +217,7 @@ async function reasonOf(promise: Promise<unknown>): Promise<string> {
   assert.fail("例外にならなかった");
 }
 
-test("対応表: 地図の要素 → シナリオごとにシナリオ・曖昧さ・状態変数・論点の順で、表示の id を振る", async () => {
+test("対応表: 地図の要素 → コマンドごとにコマンド・曖昧さ・状態変数・論点の順で、表示の id を振る", async () => {
   const glossary = await glossaryOf(MAP);
   const table = await projectImplementationMap(MAP, glossary, inputs());
   assert.deepEqual(
@@ -244,7 +244,7 @@ test("対応表: 地図の要素 → シナリオごとにシナリオ・曖昧�
   assert.deepEqual(await projectImplementationMap(MAP, glossary, inputs()), table);
 });
 
-test("対応表: 地図の要素とシナリオは辞書の項目を写し、曖昧さと論点は辞書と結び付けない", async () => {
+test("対応表: 地図の要素とコマンドは辞書の項目を写し、曖昧さと論点は辞書と結び付けない", async () => {
   const glossary = await glossaryOf(MAP);
   const table = await projectImplementationMap(MAP, glossary, inputs());
   const byId = new Map(table.entries.map((entry) => [entry.displayId, entry] as const));
@@ -304,7 +304,7 @@ test("対応表: 状態変数の表示の id は 2 桁を最小にし、100 件�
   assert.equal(ids[99], "C-01-V-100");
 });
 
-test("対応表の契約: 辞書の古さ、シナリオの食い違い、論点カタログだけがある、論点が知らない操作を指す", async () => {
+test("対応表の契約: 辞書の古さ、コマンドの食い違い、論点カタログだけがある、論点が知らない操作を指す", async () => {
   const glossary = await glossaryOf(MAP);
   assert.equal(
     await reasonOf(projectImplementationMap(MAP, { ...glossary, basis: { ...glossary.basis, mapHash: "f".repeat(64) } }, inputs())),

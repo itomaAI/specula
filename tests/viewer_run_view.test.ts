@@ -50,7 +50,7 @@ async function withOutputs(body: (out: string) => Promise<void>): Promise<void> 
   }
 }
 
-test("4 つの画面とシナリオの詳細を、画面ごとの関数と同じ値で束ねる（役割ごと）", async () => {
+test("4 つの画面とコマンドの詳細を、画面ごとの関数と同じ値で束ねる（役割ごと）", async () => {
   await withOutputs(async (out) => {
     const outputs = await readRunOutputs(fs, out);
     assert.deepEqual(checkRunOutputs(outputs), { ok: true, problems: [] });
@@ -66,7 +66,7 @@ test("4 つの画面とシナリオの詳細を、画面ごとの関数と同じ
   });
 });
 
-test("シナリオの詳細は、シナリオ一覧の行と同じ順・同じ数", async () => {
+test("コマンドの詳細は、コマンド一覧の行と同じ順・同じ数", async () => {
   await withOutputs(async (out) => {
     const outputs = await readRunOutputs(fs, out);
     const view = buildRunView(outputs, "BUSINESS");

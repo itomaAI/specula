@@ -11,7 +11,7 @@ import { SourceLoader } from "./m1/source_loader.js";
 import { UnitCollector } from "./m1/units.js";
 
 /**
- * シナリオ 1 つの事実を抜き出す。
+ * コマンド 1 つの事実を抜き出す。
  * 失敗: 起点が無ければ InletNotFoundError、たどったファイルの構文が読めなければ SyntaxExtractionError（どちらも推測で続けない）。
  */
 export async function extractContext(target: CommandTarget, deps: { fs: FileSystemPort }): Promise<RawContextModel> {
@@ -72,7 +72,7 @@ function coverageOf(target: CommandTarget): ExtractionCoverage {
     notAnalyzed: [
       {
         analyzer: "UI",
-        reason: target.readModel === undefined ? "シナリオに画面が無い" : "初回の範囲では画面の解析を作っていない",
+        reason: target.readModel === undefined ? "コマンドに画面が無い" : "初回の範囲では画面の解析を作っていない",
       },
       { analyzer: "API_ENDPOINT", reason: "初回の範囲ではルート定義の解析を作っていない" },
       { analyzer: "ASYNC_TRIGGER", reason: "初回の範囲ではトリガーの定義の解析を作っていない（イベントの発行は ASYNC_CUT として残す）" },

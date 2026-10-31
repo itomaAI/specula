@@ -87,7 +87,7 @@ export function discoverSystemContext(repo: RepositoryArtifacts): EventStormingM
   };
 }
 
-/** Stage 4: 全体マップからシナリオを切り出す。 */
+/** Stage 4: 全体マップからコマンドを切り出す。 */
 export function sliceCommands(map: EventStormingMap, selection?: CommandSelection): SliceResult {
   return slice(map, selection);
 }

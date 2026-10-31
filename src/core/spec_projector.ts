@@ -2,7 +2,7 @@
 //
 // 形式仕様正本と論点カタログから、人が読むビューを決定論的に作る。LLM は呼ばない。ファイルの読み書きもしない。
 // 流れ: ContractGuard → ViewModelBuilder（中間表現 1 つ）→ 描画（仕様書・操作の一覧表・操作の流れ図）。
-// 全体の俯瞰図は、シナリオの単位では作れない図なので、別の関数にする。
+// 全体の俯瞰図は、コマンドの単位では作れない図なので、別の関数にする。
 // 表示の役割（BUSINESS・IMPLEMENTATION）と表示の id（C-01）は request で受け取る（全体設計 2.2、設計 8.3）。
 
 import { sha256Hex } from "../lib/sha256.js";
@@ -173,7 +173,7 @@ export async function projectSystemMap(
 /**
  * 表示の id から内部の識別子と実装の名前・所在を引く対応表を作る（設計 1.2・8.5）。表示の役割に関係なく作る。
  * 契約: 辞書が別の全体マップから作られていれば GLOSSARY_STALE。形式仕様・曖昧さの報告・論点カタログが
- * そのシナリオのものでないとき、論点カタログがあるのに形式仕様が無いときは COMMAND_MISMATCH。
+ * そのコマンドのものでないとき、論点カタログがあるのに形式仕様が無いときは COMMAND_MISMATCH。
  * 論点が形式仕様に無い操作を指すときは UNKNOWN_OPERATION。
  */
 export async function projectImplementationMap(

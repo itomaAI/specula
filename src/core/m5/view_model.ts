@@ -84,12 +84,12 @@ export interface IssueGroupView {
 export interface IntentView {
   /** IntentSynthesizer の候補の文。未生成なら「未生成（理由）」。 */
   text: string;
-  /** 利用者定義のシナリオで、利用者が書いた目的。無ければ null。 */
+  /** 利用者定義のコマンドで、利用者が書いた目的。無ければ null。 */
   userIntent: string | null;
 }
 
 export interface ViewModel {
-  // シナリオの内部の識別子（CT-<ファイル>#<関数>）は持たない。起点のファイルと関数を含むので、
+  // コマンドの内部の識別子（CT-<ファイル>#<関数>）は持たない。起点のファイルと関数を含むので、
   // どのビューにも出さないため（M5 の設計 4.1・7.4・8.6）。
   /** 表示の id（"C-01"）。 */
   displayId: string;
@@ -98,7 +98,7 @@ export interface ViewModel {
   /** 題の後ろに足す併記（IMPLEMENTATION のときだけ。設計 8.3）。BUSINESS と、所在が無いときは ""。 */
   titleNote: string;
   viewRole: ViewRole;
-  /** このシナリオの意図の候補。意図の候補の一覧が無いか、このシナリオの候補が無ければ null。 */
+  /** このコマンドの意図の候補。意図の候補の一覧が無いか、このコマンドの候補が無ければ null。 */
   intent: IntentView | null;
   specSourceHash: string;
   ledgerReportId: string | null;
@@ -123,7 +123,7 @@ export const ISSUE_HEADINGS: ReadonlyArray<{ kind: FindingKind; heading: string 
 
 const DOMAIN_TEXT = { BOOL: "真偽値", ENUM: "列挙", INT: "整数" } as const;
 
-// 画面（SpecViewer）のシナリオ一覧も同じ文を出す（SpecViewer 基本設計 6.5）。
+// 画面（SpecViewer）のコマンド一覧も同じ文を出す（SpecViewer 基本設計 6.5）。
 export const UNVERIFIED_REASON_TEXT: Readonly<Record<UnverifiedReason, string>> = {
   NO_SOLVER: "検査のエンジンが用意されていない",
   UNREACHABLE: "検査のエンジンに届かなかった",
@@ -170,8 +170,8 @@ export function verificationView(spec: FormalSpecification, ledger: DomainLedger
     }
   }
 
-  // 検査の範囲（設計 8.9）。検査はシナリオごとに行い、シナリオどうしの矛盾は見ていない。
-  lines.push("検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。");
+  // 検査の範囲（設計 8.9）。検査はコマンドごとに行い、コマンドどうしの矛盾は見ていない。
+  lines.push("検査はこのコマンドだけで行った。ほかのコマンドとの矛盾は見ていない。");
 
   if (v.unexecutedChecks.length > 0) {
     lines.push(`実行しなかった検査: ${v.unexecutedChecks.map((id) => checkText(spec, id)).join("、")}`);
@@ -210,7 +210,7 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
 
 /**
  * 論点の表示の id（"C-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
- * 論点の識別子 "LEDGER-<commandId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
+ * 論点の識別子 "LEDGER-<commandId>-001" はコマンドの内部の識別子（起点のファイルと関数）を含むので、
  * ビューには出さない。内部の識別子との対応は実装との対応表（設計 8.5）に持つ。
  * 画面（SpecViewer）も同じ番号を振る（SpecViewer 基本設計 6.5）。
  */
@@ -256,7 +256,7 @@ export function titleOf(
   return { title, titleNote };
 }
 
-/** このシナリオの意図の候補（設計 4.1 の 3）。一覧が無いか、このシナリオの候補が無ければ null。 */
+/** このコマンドの意図の候補（設計 4.1 の 3）。一覧が無いか、このコマンドの候補が無ければ null。 */
 function intentOf(context: ProjectionContext): IntentView | null {
   const item = context.intents?.commands.find((candidate) => candidate.commandId === context.commandTarget.id);
   if (item === undefined) return null;

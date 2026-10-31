@@ -1,8 +1,8 @@
-// オーケストレーター（全体設計 2・2.1）。M0〜M5 をつなぎ、シナリオごとの結果を実行の報告にまとめる。
+// オーケストレーター（全体設計 2・2.1）。M0〜M5 をつなぎ、コマンドごとの結果を実行の報告にまとめる。
 // コアに属するので、ファイルには書かない（成果物と報告を値で返す。書き込みは入口が行う）。
 //
-// - シナリオは M0 の切り出しの順に 1 つずつ進める。表示の id（C-01 …）もこの順に振る（全体設計 2.2）。
-// - 各段の入力の契約のエラーだけを「その段で止まった」として残し、次のシナリオへ進む。
+// - コマンドは M0 の切り出しの順に 1 つずつ進める。表示の id（C-01 …）もこの順に振る（全体設計 2.2）。
+// - 各段の入力の契約のエラーだけを「その段で止まった」として残し、次のコマンドへ進む。
 //   それ以外の例外（環境の故障）は投げ直して、実行全体を止める。
 
 import type { AmbiguityKind } from "../types/formal.js";
@@ -74,14 +74,14 @@ async function stage<T>(name: StoppedStage, run: () => Promise<T>): Promise<T> {
 
 /**
  * 表示の id（全体設計 2.2）。切り出しの順に C-01、C-02 … と振る。
- * 桁は 2 桁を最小にし、シナリオが 100 件以上なら全体を件数の桁にそろえる（文字列で並べても順が崩れないように）。
+ * 桁は 2 桁を最小にし、コマンドが 100 件以上なら全体を件数の桁にそろえる（文字列で並べても順が崩れないように）。
  */
 export function displayIdsOf(count: number): string[] {
   const width = Math.max(2, String(count).length);
   return Array.from({ length: count }, (_, index) => `C-${String(index + 1).padStart(width, "0")}`);
 }
 
-/** 1 回の実行で共有する、シナリオの射影の入力。 */
+/** 1 回の実行で共有する、コマンドの射影の入力。 */
 interface ProjectionInputs {
   glossary: Glossary;
   intents: IntentCatalog;
@@ -122,7 +122,7 @@ export async function runPipeline(
     }
   }
 
-  // 実装との対応表は、俯瞰図と同じくシナリオごとの段の外で 1 回だけ作る。契約のエラーは実行全体を止める。
+  // 実装との対応表は、俯瞰図と同じくコマンドごとの段の外で 1 回だけ作る。契約のエラーは実行全体を止める。
   const implementationMap = await projectImplementationMap(
     map,
     glossary,
@@ -159,8 +159,8 @@ export async function runPipeline(
 }
 
 /**
- * 検査の範囲（全体設計 2.1）。検査はシナリオごと。初回は不変条件の検査をしない。
- * 検証の結果が報告に無いシナリオ（未検証・曖昧さで止まった・途中で止まった）の表示の id を、切り出しの順に並べる。
+ * 検査の範囲（全体設計 2.1）。検査はコマンドごと。初回は不変条件の検査をしない。
+ * 検証の結果が報告に無いコマンド（未検証・曖昧さで止まった・途中で止まった）の表示の id を、切り出しの順に並べる。
  */
 function inspectionScopeOf(results: readonly CommandRunResult[]): RunReport["inspectionScope"] {
   return {

@@ -1,4 +1,4 @@
-// シナリオ一覧とシナリオの詳細のビューモデルのテスト（SpecViewer 仕様 3.2・3.3、基本設計 3.1・3.2・6.5）。
+// コマンド一覧とコマンドの詳細のビューモデルのテスト（SpecViewer 仕様 3.2・3.3、基本設計 3.1・3.2・6.5）。
 // viewer_inputs.test と同じく、コマンドラインの入口で一時ディレクトリに実際の出力を書き、読み戻してから組み立てる。
 
 import { test } from "node:test";
@@ -77,11 +77,11 @@ function rowOfKind<K extends RunReport["commands"][number]["kind"]>(
   kind: K,
 ): Extract<RunReport["commands"][number], { kind: K }> {
   const found = report.commands.find((s) => s.kind === kind);
-  assert.ok(found, `${kind} のシナリオが無い`);
+  assert.ok(found, `${kind} のコマンドが無い`);
   return found as Extract<RunReport["commands"][number], { kind: K }>;
 }
 
-test("シナリオ一覧: すべてのシナリオが実行の報告の順に出て、件数の文が役割で変わる", async () => {
+test("コマンド一覧: すべてのコマンドが実行の報告の順に出て、件数の文が役割で変わる", async () => {
   await withOutputs(async (out, report) => {
     const outputs = await checkedOutputs(out);
     const completed = rowOfKind(report, "COMPLETED");
@@ -103,7 +103,7 @@ test("シナリオ一覧: すべてのシナリオが実行の報告の順に出
     assert.equal(pdmAmbiguous.verificationText, null);
     assert.equal(pdm.summary.ambiguity.byKind, null);
     assert.equal(pdm.showContextColumn, report.system.boundedContextCount > 1);
-    assert.ok(pdm.summary.inspectionScope[0]?.includes("シナリオどうしの矛盾は見ていない"));
+    assert.ok(pdm.summary.inspectionScope[0]?.includes("コマンドどうしの矛盾は見ていない"));
 
     const eng = buildCommandList(outputs, "IMPLEMENTATION");
     assert.equal(eng.rows.find((r) => r.displayId === ambiguous.displayId)!.countText, `曖昧さ ${ambiguousTotal} 件`);
@@ -140,7 +140,7 @@ test("IMPLEMENTATION では起点の所在を一覧と詳細に持つ", async ()
   });
 });
 
-test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の状態と論点を持ち、ほかは文を出す", async () => {
+test("詳細: 仕様になったコマンドは SpecProjector と同じ検証の状態と論点を持ち、ほかは文を出す", async () => {
   await withOutputs(async (out, report) => {
     const outputs = await checkedOutputs(out);
     const completed = rowOfKind(report, "COMPLETED");
@@ -160,7 +160,7 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.deepEqual(detail.issueGroups, issueGroupsOf(spec, ledger, issueDisplayIds(ledger, completed.displayId)));
     assert.equal(detail.issueCount, ledger.issues.length);
     // 検査の範囲の文（設計 3.2）は verificationView の lines に入っている。画面で別に持たない
-    assert.ok(detail.verification?.lines.includes("検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。"));
+    assert.ok(detail.verification?.lines.includes("検査はこのコマンドだけで行った。ほかのコマンドとの矛盾は見ていない。"));
     assert.equal(detail.notice, null);
     // タブ: 仕様書は題の見出しから始まり、一覧表は操作ごとに 1 行。ソースは IMPLEMENTATION だけ
     const firstBlock = detail.tabs?.document[0];
@@ -190,7 +190,7 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.equal(stopped.verification, null);
     assert.equal(stopped.issueGroups, null);
     assert.equal(stopped.tabs, null);
-    assert.equal(stopped.notice, `このシナリオは、エンジニアの確認待ちの箇所が ${total} 件あるため、形式仕様にできなかった。`);
+    assert.equal(stopped.notice, `このコマンドは、エンジニアの確認待ちの箇所が ${total} 件あるため、形式仕様にできなかった。`);
   });
 });
 

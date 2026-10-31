@@ -119,7 +119,7 @@
       const res = await MetaOS.host.showMessageBox({
         title: 'specula: 手元の PC で Alloy を動かす',
         message: `検証（M3）のために、${serverUrl} のローカルブリッジで java を実行します。`,
-        detail: `jar: ${jarPath}\njava: ${javaPath}\n\n実行は、シナリオの数と検査の数だけ繰り返します。確かめるのはこの 1 回だけです。`,
+        detail: `jar: ${jarPath}\njava: ${javaPath}\n\n実行は、コマンドの数と検査の数だけ繰り返します。確かめるのはこの 1 回だけです。`,
         type: 'question',
         buttons: [
           { label: '実行しない', value: false, style: 'normal', isCancel: true },
