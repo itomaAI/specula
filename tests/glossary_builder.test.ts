@@ -353,6 +353,24 @@ test("意味の抜粋の切り出し: 見出しの無い節は先頭の行を飛
   assert.deepEqual(meaningOf(section("d.md#A", "# A\nbody\n\nmore", true)), { text: "body", truncated: false });
 });
 
+test("意味の抜粋の切り出し: ソースコードの囲みは飛ばし、言語の名前が無い囲みと仕様の記法の囲みは残す（Q5）", () => {
+  const section = (id: string, text: string, truncated = false) => ({ section: id, document: "d.md", text, truncated });
+
+  // 囲みの中の空行で段落を切らず、囲みの終わりまで飛ばす
+  assert.deepEqual(
+    meaningOf(section("d.md#A", "# A\n\n```typescript\ninterface X {\n\n  a: string;\n}\n```\n\nthe meaning\nline 2\n\nmore")),
+    { text: "the meaning\nline 2", truncated: false },
+  );
+  // 囲みが続けば続けて飛ばす。言語の名前は大文字小文字を区別しない
+  assert.deepEqual(meaningOf(section("d.md#A", "# A\n```TS\nx\n```\n~~~python\ny\n~~~\nafter")), { text: "after", truncated: false });
+  // 言語の名前が無い囲みと、仕様の記法の囲みは飛ばさない
+  assert.deepEqual(meaningOf(section("d.md#A", "# A\n```\nplain\n```")), { text: "```\nplain\n```", truncated: false });
+  assert.deepEqual(meaningOf(section("d.md#A", "# A\n```alloy\nsig A {}\n```")), { text: "```alloy\nsig A {}\n```", truncated: false });
+  // 囲みが抜粋の末尾まで続けば null。囲みの後の段落が抜粋の末尾まで続き、抜粋が切られていれば truncated
+  assert.equal(meaningOf(section("d.md#A", "# A\n```ts\nconst a = 1;", true)), null);
+  assert.deepEqual(meaningOf(section("d.md#A", "# A\n```ts\nx\n```\nbody", true)), { text: "body", truncated: true });
+});
+
 test("所属: ポリシーは反応するイベントの Bounded Context に属し、起動するコマンドが別の Bounded Context ならまたいでいる先にする", () => {
   const at = (file: string, symbol: string) => ({ file, symbol, line: 1 });
   const map: EventStormingMap = {

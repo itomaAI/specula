@@ -15,6 +15,18 @@ export const MAX_SECTIONS = 3;
 export const EXCERPT_CHARS = 1500;
 /** 意味（資料の抜粋）の上限の字数（設計 5.3）。 */
 export const MEANING_CHARS = 400;
+/** コードの囲みの開始の行。1 つ目は囲みの印（sections.ts と同じ ``` か ~~~）、2 つ目は言語の名前（無ければ空）。 */
+const CODE_FENCE = /^ {0,3}(```|~~~)[`~]*[ \t]*([^\s`~]*)/;
+/**
+ * 意味の抜粋で飛ばすソースコードの言語の名前（小文字。Q5）。仕様の記法（alloy・mermaid・gherkin など）と、
+ * スキーマや設定の形（graphql・json・yaml など）は入れない。
+ */
+export const SOURCE_CODE_LANGUAGES: ReadonlySet<string> = new Set([
+  "typescript", "ts", "tsx", "javascript", "js", "jsx", "mjs", "cjs",
+  "python", "py", "java", "kotlin", "kt", "go", "rust", "rs",
+  "c", "cpp", "c++", "csharp", "cs", "ruby", "rb", "php", "swift", "scala",
+  "shell", "sh", "bash", "zsh", "powershell", "ps1", "sql",
+]);
 
 export interface SelectedSection {
   section: string;
@@ -102,13 +114,24 @@ export function excerptOf(text: string): { text: string; truncated: boolean } {
  * 意味の抜粋が変われば LLM の入力も変わり、記録のキーも変わる。
  * - 見出しの節（識別子が "#" で終わらない節）は、先頭の見出しの行を飛ばす。見出しの無い節とスキーマは飛ばさない。
  * - 続く空行を飛ばし、次の空行の直前までの最初の段落を取る。段落が無ければ null。
+ * - 段落がソースコードの囲み（言語の名前が SOURCE_CODE_LANGUAGES にある ``` か ~~~ の囲み）で始まるときは、
+ *   囲みの終わりまで飛ばして次の段落を取る（Q5）。言語の名前が無い囲みと、仕様の記法の囲み（alloy・mermaid など）は飛ばさない。
+ *   囲みが抜粋の末尾まで続くときは null。
  * - 先頭の MEANING_CHARS 字まで。上限で切ったとき、または段落が LLM の抜粋の末尾まで続き、その抜粋が切られていたときは truncated。
  * - 本文には何も足さない（節の本文にある文字列そのもの）。
  */
 export function meaningOf(selected: SelectedSection): { text: string; truncated: boolean } | null {
   const lines = selected.text.split("\n");
   let start = selected.section.endsWith("#") ? 0 : 1;
-  while (start < lines.length && (lines[start] ?? "").trim() === "") start += 1;
+  for (;;) {
+    while (start < lines.length && (lines[start] ?? "").trim() === "") start += 1;
+    const open = CODE_FENCE.exec(lines[start] ?? "");
+    if (open === null || !SOURCE_CODE_LANGUAGES.has((open[2] ?? "").toLowerCase())) break;
+    let close = start + 1;
+    while (close < lines.length && !(lines[close] ?? "").trimStart().startsWith(open[1] ?? "")) close += 1;
+    if (close >= lines.length) return null;
+    start = close + 1;
+  }
   let end = start;
   while (end < lines.length && (lines[end] ?? "").trim() !== "") end += 1;
   if (end === start) return null;
