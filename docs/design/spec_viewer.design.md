@@ -186,6 +186,8 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 
 - ~~鍵は内部の識別子とする。表示の id と内部の識別子の対応は `implementation_map.json` で引く（SpecProjector 基本設計 8.5）。~~ 鍵は表示の id とする（2026-10-31 に変えた。理由は 6.7）。内部の識別子は、ビューモデルを作るときに辞書・意図の候補・対応表を引くためだけに使う。リンクは 1 回の実行の中で閉じる（仕様 2.3）。
 - 内部の識別子は URL やアドレスバーにも出さない（`PdM` で実装の所在が見えてしまうため）。画面の中の位置を外に示すときは表示の id を使う。
+- **Itera での動き**（起動アプリ `itera/spec_viewer.html`）: リンクで画面を移るたびに、いまの場所を `MetaOS.nav.declare` でメインウィンドウの履歴に名乗る。host の ← → とブラウザの戻る・進むで前の画面へ戻れる。場所は `?out=…&bundle=…&viewRole=…&screen=…` に、`id`（シナリオの表示の id）・`tab`・`context`（地図 2 の Bounded Context の表示の id）・`supporting`・`glossaryTab`・`f_〈絞り込みの鍵〉` を足したもの（`viewRole` は小文字）。同じ場所は名乗り直さない。戻る・進むで host がこのアプリの場所を開き直すと `route_changed` が届くので、その引数から画面を戻す。アプリが閉じていれば host が同じ引数で起動し直し、起動の引数から同じ画面を開く。選んだ要素と強調する行は場所に入れない（戻ったときは選んでいない状態で開く）。起動の引数（`out`・`bundle`・`viewRole`）が違う場所は、開いている画面では開き直さない。
+- Standalone（HTML どうしのリンク）は、画面を HTML として書き出す機能がまだ無いので、ここでは扱わない（設計の案と見積もりを別に出す）。
 
 ---
 
