@@ -119,21 +119,24 @@ export interface ExtractionDiagnostics {
   unattributedSignals: Array<{ kind: "DB_MUTATION" | "EVENT_EMIT" | "PUBLIC_FUNCTION"; file: string; line: number; callee: string }>;
 }
 
-/** 個別シナリオ（M1 への入力）。 */
+/**
+ * コマンドの単位（M1 への入力）。全体マップのコマンドノード 1 つにつき 1 つ作る。
+ * ポリシーは単位の起点にしない。コマンドを起動するポリシーは invokedBy に補助情報として持つ（2026-10-31 T-0070）。
+ */
 export interface CommandTarget {
-  /** "CT-<起点の識別子>"。起点が複数のシナリオに分かれるときは "-<イベントの識別子>" を足す。 */
+  /** "CT-<コマンドの識別子>"。 */
   id: string;
   boundedContext: string;
   origin: "EXTRACTED" | "USER_DEFINED";
   /**
-   * 利用者定義のシナリオで、利用者が書いた目的（任意）。LLM の意図の候補（IntentSynthesizer の出力）とは別に持つ。
+   * 利用者定義の単位で、利用者が書いた目的（任意）。LLM の意図の候補（IntentSynthesizer の出力）とは別に持つ。
    * これがあっても意図は確定にならない（確定は SpecProjector の後の合意で行う）。
    */
   userIntent?: string;
-  inletType: "COMMAND" | "POLICY";
   inletTrigger: {
+    /** コマンドの識別子。 */
     id: string;
-    /** 起点の所在。M1 はここから追跡を始める。 */
+    /** コマンドのハンドラの所在。M1 はここから追跡を始める。 */
     handler: SourceLocation;
   };
   actor: Actor;
@@ -144,12 +147,15 @@ export interface CommandTarget {
     entryFile: string;
     screenshotPath?: string;
   };
-  /** 期待イベントの識別子（1 シナリオに 1 つ）。 */
-  expectedEvent: string;
+  /** 期待イベントの識別子。コマンドが発生させるイベントのすべて（全体マップの eventIds の順。1 つ以上）。 */
+  expectedEvents: string[];
+  /** このコマンドを起動するポリシー（policyId の辞書順）。利用者や API から直接呼ばれるだけのコマンドでは空。 */
+  invokedBy: Array<{ policyId: string; triggerEventId: string; listener: SourceLocation }>;
 }
 
 /**
- * シナリオの選択。起点は識別子か "ファイル#関数名" で指す（LLM の名前では照合しない）。
+ * コマンドの単位の選択。起点はコマンドの識別子か "ファイル#関数名" で指す（LLM の名前では照合しない）。
+ * ポリシーは起点にならない（指すと rejected に入る）。
  */
 export interface CommandSelection {
   filter?: { boundedContext?: string; inlets?: string[] };
@@ -158,6 +164,9 @@ export interface CommandSelection {
 
 export interface SliceResult {
   commands: CommandTarget[];
-  /** 起点が全体マップに無かった利用者定義のシナリオ。 */
+  /**
+   * 受け付けなかった指定。起点が全体マップのコマンドに無い利用者定義、同じコマンドを 2 度指した利用者定義、
+   * ルートのリードモデルが無い利用者定義、ポリシーを指した利用者定義と filter.inlets。
+   */
   rejected: Array<{ inlet: string; reason: string }>;
 }

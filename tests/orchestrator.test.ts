@@ -128,13 +128,19 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
   // シナリオの行の項目は CommandTarget の欄を写したもの（全体設計 2.1）。止まったシナリオも同じ欄を持つ。
   const targets = sliceCommands(discoverSystemContext(REPO)).commands;
   assert.deepEqual(
-    report.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.inletType, commandTarget.actor, commandTarget.route, commandTarget.expectedEvent]),
+    report.commands.map((commandTarget) => [
+      commandTarget.commandId,
+      commandTarget.actor,
+      commandTarget.route,
+      commandTarget.expectedEvents,
+      commandTarget.invokedBy,
+    ]),
     targets.map((target) => [
       target.id,
-      target.inletType,
       { id: target.actor.id, name: target.actor.name },
       target.readModel?.route ?? null,
-      target.expectedEvent,
+      target.expectedEvents,
+      target.invokedBy.map((policy) => policy.policyId),
     ]),
   );
   // 画面の無いライブラリなので、画面のルートはどれも null

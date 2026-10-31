@@ -63,7 +63,7 @@ extractContext(target: CommandTarget, deps: { fs: FileSystemPort }): Promise<Raw
   - 名前付きの最上位の関数（関数宣言と、関数を値に持つ `const`）。
   - `"default"`（`export default` の関数）。
   - `"クラス名.メソッド名"`（クラスのメソッド）。
-  - 起点がポリシー（`inletType: "POLICY"`）のときは、handler の行にあるリスナーの登録（`on`・`addEventListener` など）の 2 番目の引数を解決し、その関数から追跡する。
+  - 起点は常にコマンドのハンドラである（2026-10-31 改定。ポリシーは単位の起点にしない）。改定前は、起点がポリシーのとき、handler の行にあるリスナーの登録の 2 番目の引数を解決して、その関数から追跡していた。
   - 見つからないときは `InletNotFoundError` を投げる。別の関数を起点にしない。
 - **たどる呼び出し**: 関数本体の呼び出し式のうち、呼び出し先を AST から関数の定義まで決められるものをたどり、`CALL` のユニットを作る。
   - 同じファイルで定義された関数。
@@ -107,7 +107,7 @@ CallTracer がたどった各関数に対して動く。画面を持たないシ
 ### 2.4 TriggerAnalyzer (非同期バッチ・イベントトリガー解析)
 初回の実装では作っていない（2.6）。
 - **対象**: Cron 設定ファイル、クラウドストレージ/DBイベントトリガー定義。
-- **解析規則**: 起点がポリシー（`inletType: "POLICY"`）のとき、トリガーの起動契機（定期実行スケジュール、オブジェクト作成イベント、DBミューテーション）と、それによって呼び出されるハンドラ関数の紐付けを抽出する。
+- **解析規則**: コマンドの単位の `invokedBy` にポリシーがあるとき、トリガーの起動契機（定期実行スケジュール、オブジェクト作成イベント、DBミューテーション）と、それによって呼び出されるハンドラ関数の紐付けを抽出する（2026-10-31 改定。改定前は起点がポリシーのときだった）。
 
 ### 2.5 SchemaAnalyzer (データモデル解析)
 初回の実装では作っていない（2.6）。
@@ -208,8 +208,7 @@ interface UseCaseSlice {
 interface RawContextModel {
   commandId: string;
   inlet: {
-    kind: "COMMAND" | "POLICY";
-    handler: { file: string; symbol: string; line: number }; // 追跡を始めた関数（POLICY ではリスナーとして渡された関数）
+    handler: { file: string; symbol: string; line: number }; // 追跡を始めた関数（コマンドのハンドラ。2026-10-31 に kind を外した）
     route?: string;
   };
   units: ExtractionUnit[];         // ファイル → 行 → 列 → 種類の順

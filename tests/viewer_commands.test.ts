@@ -180,7 +180,8 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     const engSource = engDetail.tabs?.source;
     assert.ok(typeof engSource === "string" && engSource.length > 0);
     assert.ok(!/^\s*--\s*@source:/m.test(engSource));
-    assert.equal(detail.inletTypeText, completed.inletType === "COMMAND" ? "操作" : "反応");
+    assert.equal(detail.invokedBy.length, completed.invokedBy.length);
+    assert.equal(detail.expectedEvents.length, completed.expectedEvents.length);
     assert.equal(detail.actor, completed.actor.name);
     assert.equal(detail.route, completed.route);
 

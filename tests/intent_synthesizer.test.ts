@@ -137,7 +137,7 @@ test("呼ぶ順と処理の名前: Bounded Context、続いてシナリオ、そ
   assert.deepEqual(commandInlets, expected);
 });
 
-test("手がかり: シナリオの抜粋は起点の項目の節を先に、期待イベントの項目の節を続け、重複を除いて最大 3 節", async () => {
+test("手がかり: 単位の抜粋は起点の項目の節を先に、期待イベントの項目の節を続け、重複を除いて最大 3 節", async () => {
   const { repo, map, slice, glossary } = await inputsOf();
   const llm = intentLlm();
   await synthesizeIntents(map, slice, glossary, repo, { llm });
@@ -146,14 +146,21 @@ test("手がかり: シナリオの抜粋は起点の項目の節を先に、期
   for (const [index, commandTarget] of sorted.entries()) {
     const call = commandCalls[index];
     assert.ok(call !== undefined);
-    const expected = [...new Set([...sourcesOf(glossary, commandTarget.inletTrigger.id), ...sourcesOf(glossary, commandTarget.expectedEvent)])].slice(0, 3);
+    const expected = [
+      ...new Set([
+        ...sourcesOf(glossary, commandTarget.inletTrigger.id),
+        ...commandTarget.expectedEvents.flatMap((eventId) => sourcesOf(glossary, eventId)),
+      ]),
+    ].slice(0, 3);
     assert.deepEqual(sectionsOf(call), expected, commandTarget.id);
     const input = inputOf(call);
-    assert.equal(input["inletType"], commandTarget.inletType);
+    assert.equal(input["inletType"], undefined, "起点はコマンドだけなので種類を渡さない");
     assert.equal(input["actor"], commandTarget.actor.name);
     assert.equal(input["route"], null);
-    const expectedEvent = input["expectedEvent"] as { signal: { kind: string } };
-    assert.ok(["DB_MUTATION", "EVENT_EMIT", "PUBLIC_FUNCTION"].includes(expectedEvent.signal.kind));
+    const expectedEvents = input["expectedEvents"] as Array<{ signal: { kind: string } }>;
+    assert.equal(expectedEvents.length, commandTarget.expectedEvents.length);
+    for (const event of expectedEvents) assert.ok(["DB_MUTATION", "EVENT_EMIT", "PUBLIC_FUNCTION"].includes(event.signal.kind));
+    assert.equal((input["invokedBy"] as unknown[]).length, commandTarget.invokedBy.length);
   }
   // register の起点は README と docs/register.md の節を選んでいる（抜粋がある場合を通す）。
   assert.ok(commandCalls.some((call) => sectionsOf(call).includes("docs/register.md#Register")));

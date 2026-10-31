@@ -31,15 +31,15 @@ class MemoryFs implements FileSystemPort {
   }
 }
 
-function target(file: string, symbol: string, line = 1, inletType: "COMMAND" | "POLICY" = "COMMAND"): CommandTarget {
+function target(file: string, symbol: string, line = 1): CommandTarget {
   return {
     id: "CT-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
-    inletType,
     inletTrigger: { id: "CMD-1", handler: { file, symbol, line } },
     actor: { id: "Caller", name: "Caller" },
-    expectedEvent: "EVT-1",
+    expectedEvents: ["EVT-1"],
+    invokedBy: [],
   };
 }
 
@@ -90,7 +90,7 @@ test("ガード節: 出口ごとに 1 つのスライスになり、続く経路
   assert.deepEqual(model.unresolved, [
     { unitId: "src/a.ts:3:15:EXTERNAL_CALL", location: { file: "src/a.ts", line: 3, column: 15 }, reason: "CONSTRUCTOR" },
   ]);
-  assert.deepEqual(model.inlet, { kind: "COMMAND", handler: { file: "src/a.ts", symbol: "run", line: 1 } });
+  assert.deepEqual(model.inlet, { handler: { file: "src/a.ts", symbol: "run", line: 1 } });
 });
 
 test("ときどき出口に至る枝: 出口の経路だけを分け、続く経路には条件を足さない", async () => {
@@ -264,21 +264,7 @@ test("追跡しなかった呼び出しは理由つきで全部残り、コー�
   assert.deepEqual(fs.reads, ["src/a.ts"], "パッケージのファイルは読まない");
 });
 
-test("POLICY: リスナーの登録の行から、渡された関数をたどる", async () => {
-  const fs = new MemoryFs({
-    "src/listen.ts": [
-      'import { onSaved } from "./handlers.js";',
-      "export function setup(bus: { on(n: string, f: unknown): void }) {",
-      '  bus.on("saved", onSaved);',
-      "}",
-    ].join("\n"),
-    "src/handlers.ts": ["export function onSaved() {", "  return true;", "}"].join("\n"),
-  });
-  const model = await extractContext(target("src/listen.ts", "setup", 3, "POLICY"), { fs });
-  checkInvariants(model);
-  assert.deepEqual(model.inlet, { kind: "POLICY", handler: { file: "src/handlers.ts", symbol: "onSaved", line: 1 } });
-  assert.deepEqual(model.slices.map((slice) => slice.sliceId), ["CT-1#src/handlers.ts:2:3:RETURN"]);
-});
+// 2026-10-31（T-0070）: 単位の起点はコマンドだけになったので、ポリシーのリスナーの登録をたどるテストを外した。
 
 test("クラスのメソッドを起点にでき、this のフィールドは状態になる", async () => {
   const fs = new MemoryFs({

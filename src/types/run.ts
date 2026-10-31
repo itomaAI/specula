@@ -30,18 +30,19 @@ export interface PipelineOptions {
 /** 契約のエラーで止まった段。 */
 export type StoppedStage = "M1" | "M2" | "M3" | "M4" | "M5";
 
-/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は CommandTarget の欄を写したもの。 */
+/** コマンドの単位の行の 3 通りに共通する欄（全体設計 2.1）。アクターから下は CommandTarget の欄を写したもの。 */
 export interface CommandRunBase {
   commandId: string;
   /** 表示の id（"C-01"。切り出しの順。全体設計 2.2）。 */
   displayId: string;
   boundedContext: string;
-  inletType: CommandTarget["inletType"];
   actor: Actor;
-  /** 画面のルート。画面を持たないシナリオは null。 */
+  /** 画面のルート。画面を持たない単位は null。 */
   route: string | null;
-  /** 期待イベントの識別子。 */
-  expectedEvent: string;
+  /** 期待イベントの識別子（CommandTarget.expectedEvents の順）。 */
+  expectedEvents: CommandTarget["expectedEvents"];
+  /** このコマンドを起動するポリシーの識別子（CommandTarget.invokedBy の順）。直接呼ばれるだけなら空。 */
+  invokedBy: string[];
 }
 
 export type CommandRunResult =

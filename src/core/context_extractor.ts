@@ -54,7 +54,6 @@ export async function extractContext(target: CommandTarget, deps: { fs: FileSyst
   const model: RawContextModel = {
     commandId: target.id,
     inlet: {
-      kind: target.inletType,
       handler: { file: inlet.file.path, symbol: inlet.symbol, line: inlet.line },
     },
     units: sortedUnits,

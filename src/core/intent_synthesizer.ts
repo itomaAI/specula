@@ -104,18 +104,30 @@ export async function synthesizeIntents(
   const eventById = new Map(map.events.map((event) => [event.id, event] as const));
   const commands: CommandIntent[] = [];
   for (const commandTarget of [...slice.commands].sort((a, b) => compareIds(a.id, b.id))) {
-    const event = eventById.get(commandTarget.expectedEvent);
-    // シナリオは同じ全体マップから切り出しているので、期待イベントは必ずある。無ければ実装の誤りなので止める。
-    if (event === undefined) throw new Error(`IntentSynthesizer: 期待イベント ${commandTarget.expectedEvent} が全体マップに無い`);
-    const sections = [...new Set([...sourcesOf(commandTarget.inletTrigger.id), ...sourcesOf(event.id)])].slice(0, MAX_COMMAND_SECTIONS);
+    // 単位は同じ全体マップから切り出しているので、期待イベントとポリシーのきっかけのイベントは必ずある。無ければ実装の誤りなので止める。
+    const eventOf = (eventId: string) => {
+      const event = eventById.get(eventId);
+      if (event === undefined) throw new Error(`IntentSynthesizer: イベント ${eventId} が全体マップに無い`);
+      return event;
+    };
+    const events = commandTarget.expectedEvents.map(eventOf);
+    const sections = [
+      ...new Set([...sourcesOf(commandTarget.inletTrigger.id), ...events.flatMap((event) => sourcesOf(event.id))]),
+    ].slice(0, MAX_COMMAND_SECTIONS);
     const input: JsonValue = {
-      inletType: commandTarget.inletType,
       inlet: { file: commandTarget.inletTrigger.handler.file, symbol: commandTarget.inletTrigger.handler.symbol },
-      expectedEvent: {
+      expectedEvents: events.map((event) => ({
         file: event.handler.file,
         symbol: event.handler.symbol,
         signal: { kind: event.signal.kind, callee: event.signal.callee, label: event.signal.label },
-      },
+      })),
+      invokedBy: commandTarget.invokedBy.map((policy) => {
+        const trigger = eventOf(policy.triggerEventId);
+        return {
+          listener: { file: policy.listener.file, symbol: policy.listener.symbol },
+          triggerEvent: { file: trigger.handler.file, symbol: trigger.handler.symbol },
+        };
+      }),
       actor: commandTarget.actor.name,
       route: commandTarget.readModel?.route ?? null,
       excerpts: excerptsOf(sections),

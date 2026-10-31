@@ -21,8 +21,11 @@ const MAP: EventStormingMap = {
     { id: "src/order.ts#close", contextId: "src_order", handler: LOC, signal: { kind: "DB_MUTATION", callee: "db.update", label: null, line: 1 }, after: [] },
     { id: "src/order.ts#notify", contextId: "src_order", handler: LOC, signal: { kind: "EVENT_EMIT", callee: "emit", label: "notify", line: 2 }, after: ["src/order.ts#close"] },
   ],
-  commands: [{ id: "src/order.ts#closeOrder", contextId: "src_order", actorId: "Caller", eventIds: ["src/order.ts#close"], handler: LOC }],
-  policies: [{ id: "src/order.ts#onClose", triggerEventId: "src/order.ts#close", actionCommandId: "src/order.ts#closeOrder", listener: LOC }],
+  commands: [
+    { id: "src/order.ts#closeOrder", contextId: "src_order", actorId: "Caller", eventIds: ["src/order.ts#close"], handler: LOC },
+    { id: "src/order.ts#notifyCustomer", contextId: "src_order", actorId: "Caller", eventIds: ["src/order.ts#notify"], handler: LOC },
+  ],
+  policies: [{ id: "src/order.ts#onClose", triggerEventId: "src/order.ts#close", actionCommandId: "src/order.ts#notifyCustomer", listener: LOC }],
   readModels: [],
   actors: [{ id: "Caller", name: "Caller" }],
   diagnostics: { mode: "STATE_SIGNALS", entryFiles: [], parsedFileCount: 1, parseFailures: [], unattributedSignals: [] },
@@ -83,23 +86,25 @@ async function glossaryOf(map: EventStormingMap): Promise<Glossary> {
 const NOT_GENERATED: LlmText = { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" };
 
 const ORDER_ID = "CT-src/order.ts#closeOrder";
-const NOTIFY_ID = "CT-src/order.ts#onClose";
+const NOTIFY_ID = "CT-src/order.ts#notifyCustomer";
 
 const ORDER: CommandTarget = {
   id: ORDER_ID,
   boundedContext: "src_order",
   origin: "EXTRACTED",
-  inletType: "COMMAND",
   inletTrigger: { id: "src/order.ts#closeOrder", handler: { file: "src/order.ts", symbol: "closeOrder", line: 10 } },
   actor: { id: "Caller", name: "Caller" },
-  expectedEvent: "src/order.ts#close",
+  expectedEvents: ["src/order.ts#close"],
+  invokedBy: [],
 };
 
+// 2026-10-31（T-0070）: 単位の起点はコマンドだけになったので、C-02 はポリシーではなく、ポリシーが起動するコマンドの単位にした。
 const NOTIFY: CommandTarget = {
   ...ORDER,
   id: NOTIFY_ID,
-  inletType: "POLICY",
-  inletTrigger: { id: "src/order.ts#onClose", handler: { file: "src/order.ts", symbol: "onClose", line: 20 } },
+  inletTrigger: { id: "src/order.ts#notifyCustomer", handler: { file: "src/order.ts", symbol: "notifyCustomer", line: 20 } },
+  expectedEvents: ["src/order.ts#notify"],
+  invokedBy: [{ policyId: "src/order.ts#onClose", triggerEventId: "src/order.ts#close", listener: LOC }],
 };
 
 const SPEC: FormalSpecification = {
@@ -222,7 +227,8 @@ test("対応表: 地図の要素 → シナリオごとにシナリオ・曖昧�
       ["n1", "EVENT", "src/order.ts#close"],
       ["n2", "EVENT", "src/order.ts#notify"],
       ["n3", "COMMAND", "src/order.ts#closeOrder"],
-      ["n4", "POLICY", "src/order.ts#onClose"],
+      ["n4", "COMMAND", "src/order.ts#notifyCustomer"],
+      ["n5", "POLICY", "src/order.ts#onClose"],
       ["C-01", "COMMAND_TARGET", ORDER_ID],
       ["C-01-V-01", "STATE_VARIABLE", "v1"],
       ["C-01-V-02", "STATE_VARIABLE", "v2"],
@@ -247,7 +253,7 @@ test("対応表: 地図の要素とシナリオは辞書の項目を写し、曖
   assert.deepEqual(byId.get("n3")?.implementation, { names: ["closeOrder"], locations: COMMAND_LOCATIONS });
   assert.equal(byId.get("C-01")?.glossaryEntryId, "src/order.ts#closeOrder");
   assert.deepEqual(byId.get("C-01")?.implementation, { names: ["closeOrder"], locations: COMMAND_LOCATIONS });
-  assert.equal(byId.get("C-02")?.glossaryEntryId, "src/order.ts#onClose");
+  assert.equal(byId.get("C-02")?.glossaryEntryId, "src/order.ts#notifyCustomer");
 
   assert.equal(byId.get("C-02-A-001")?.glossaryEntryId, null);
   assert.deepEqual(byId.get("C-02-A-001")?.implementation, { names: [], locations: [{ file: "src/order.ts", line: 22 }] });

@@ -110,10 +110,10 @@ const COMMAND_TARGET: CommandTarget = {
   id: COMMAND_ID,
   boundedContext: "DEFAULT_CONTEXT",
   origin: "EXTRACTED",
-  inletType: "COMMAND",
   inletTrigger: { id: INLET_ID, handler: { file: "src/order.ts", symbol: "closeOrder", line: 3 } },
   actor: { id: "Caller", name: "Caller" },
-  expectedEvent: "EVT-src/order.ts#closeOrder",
+  expectedEvents: ["EVT-src/order.ts#closeOrder"],
+  invokedBy: [],
 };
 
 const BASIS = { mapHash: "a".repeat(64), documentsHash: "b".repeat(64) };

@@ -86,8 +86,8 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | 表示の id・シナリオの名前・Bounded Context | `run_report.json`・辞書 | |
 | 意図の候補 | `intents.json` | 確定の状態の印。未生成ならその理由 |
 | 利用者が書いた目的 | `userIntent` | 利用者が定義したシナリオで、目的があるときだけ |
-| 起点の種類 | `run_report.json` のシナリオの行の `inletType` | `COMMAND` は「操作」、`POLICY` は「反応」と書く |
-| アクター・画面のルート・期待イベント | `run_report.json` のシナリオの行の `actor`・`route`・`expectedEvent` | 画面を持たないシナリオでは `route` が `null` なので、画面のルートを出さない |
+| 起動するポリシー | `run_report.json` のシナリオの行の `invokedBy` | 辞書の項目（種類が `POLICY`）の表示名を 1 行に 1 つ出す。空なら「なし（ポリシーからは起動されない）」と書く（2026-10-31 に「起点の種類」から置き換えた） |
+| アクター・画面のルート・期待イベント | `run_report.json` のシナリオの行の `actor`・`route`・`expectedEvents` | 画面を持たないシナリオでは `route` が `null` なので、画面のルートを出さない。期待イベントは 1 行に 1 つ出す |
 | 検証の状態 | `ledger.json` の検証の状態 | 論点より前に置く |
 | 検査の範囲 | 検証の状態の文（`verificationView` の `lines`） | SpecProjector の仕様書と同じ「検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。」を、検証の状態の行の一つとして出す。画面で別の文を持たない（PR #32 で別に持たせたところ、同じ内容が 2 回出たので外した） |
 | 論点の件数 | `ledger.json` | 仕様不備一覧へのリンク |
@@ -139,7 +139,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **地図 1**: Bounded Context の箱と、またぐポリシーの矢印。箱を選ぶと、用語・意図の候補（確定の状態の印）・属するシナリオの数をポップアップで出し、地図 2 と、その Bounded Context で絞り込んだシナリオ一覧へのリンクを置く。Bounded Context が 1 つだけのときは、全体地図を開いたら地図 2 を出す。
 - **地図 2**: 既定はコマンド・ドメインイベント・ポリシーとそのつながり。切り替えで、アクター・リードモデル・アグリゲートを足す。切り替えは SpecProjector に地図 2 を作り直させるのではなく、SpecProjector が出した地図 2 の JSON（足す要素を含む版）の表示を切り替える。
 - 要素は用語と表示の id（`c1`・`n1`）で表す。用語が未生成の要素は「〈種類〉 〈番号〉（名前は未生成）」（SpecProjector 基本設計 8.2）。
-- 要素を選んだときのポップアップ: 用語、確定の状態、意味（資料の抜粋）、その要素を起点にしたシナリオ。1 つのコマンドがイベントを複数発生させるとシナリオはイベントごとに分かれるので（CommandExtractor 仕様 2.2）、シナリオが複数あるときは一覧から選ぶ。
+- 要素を選んだときのポップアップ: 用語、確定の状態、意味（資料の抜粋）、その要素を起点にしたシナリオ。起点になるのはコマンドだけで、コマンドノード 1 つにつきシナリオ（コマンドの単位）は 1 つである（2026-10-31 改定。CommandExtractor 仕様 2.2）。画面は一覧の形のまま残してあるので、複数あれば一覧から選ぶ。
 - 壊れた箇所の印: 地図の JSON の印の欄が空でなければ、要素とつながりに印を描く。初回は欄が常に空である。
 - 実装の名前と所在（Eng のみ）。
 
@@ -247,11 +247,11 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
   - そのために `view_model.ts` から `verificationView`・`UNVERIFIED_REASON_TEXT` を export し、`buildViewModel` の中にあった論点の番号の振り方と見出しの組み分けを `issueDisplayIds`・`issueGroupsOf` に切り出して export した（`buildViewModel` はこれを呼ぶ。振る舞いは変えていない）。どれも引数から文を作るだけで I/O を持たない。
 - **`buildViewModel` は使わない**: `buildViewModel` は `ProjectionContext.commandTarget`（`CommandTarget`）を受け取るが、出力には `CommandTarget` が無い。実行の報告の行から `CommandTarget` を作り直すと、出力に無い値（起点の識別子など）を推測で埋めることになるため、使わない。
 - **論点の表示の id**: `buildViewModel` と同じく、`ledger.json` の `issues` の並びで `S-01-L-001` … を振る（SpecProjector 基本設計 8.7）。
-- **シナリオの名前の引き方**: SpecProjector は起点の識別子で辞書を引くが（`titleOf`）、実行の報告の行には起点の識別子が無い。画面は `implementation_map.json` の `COMMAND_TARGET` の行（`displayId` が一致するもの）の `glossaryEntryId` で `glossary.json` の項目を引く。項目の種類が行の `inletType` と同じで、用語が生成されているときだけ名前にする。題の形は `titleOf` と同じ「`S-01 〈表示名〉〈確定の状態の印〉`」とする。
+- **シナリオの名前の引き方**: SpecProjector は起点の識別子で辞書を引くが（`titleOf`）、実行の報告の行には起点の識別子が無い。画面は `implementation_map.json` の `COMMAND_TARGET` の行（`displayId` が一致するもの）の `glossaryEntryId` で `glossary.json` の項目を引く。項目の種類が `COMMAND` で、用語が生成されているときだけ名前にする。題の形は `titleOf` と同じ「`S-01 〈表示名〉〈確定の状態の印〉`」とする。
   - 名前を出せないときは、理由を分けて書く。`implementation_map.json` が無い:「（名前を引けない: 実装との対応表が無い）」。`glossary.json` が無い:「（名前を引けない: 辞書が無い）」。項目が無い・種類が違う・用語が未生成:「（名前は未生成）」（SpecProjector と同じ）。対応表や辞書が無いことを「未生成」と書くと、事実と違うためである。
 - **意図の候補**: `intents.json` の `commands` を `commandId` で引き、`llmText` の文に `statusMark(intentStatus)` を足す（SpecProjector の仕様書と同じ）。`intents.json` が無いか、そのシナリオの候補が無ければ「意図の候補が無い」と書く。
-- **Bounded Context と期待イベント**: 実行の報告の行の `boundedContext`・`expectedEvent` は全体マップの識別子なので、そのまま出さない。辞書の項目（種類が `BOUNDED_CONTEXT`・`EVENT` で id が一致するもの）の表示名に確定の状態の印を足して出す。引けないときはシナリオの名前と同じ規則で理由を書く。
-- **起点の種類・アクター・画面のルート**: 起点の種類は `COMMAND` を「操作」、`POLICY` を「反応」と書く。アクターは `actor.name` を出す。画面のルートは `null` なら出さない。
+- **Bounded Context・期待イベント・起動するポリシー**: 実行の報告の行の `boundedContext`・`expectedEvents`・`invokedBy` は全体マップの識別子なので、そのまま出さない。辞書の項目（種類が `BOUNDED_CONTEXT`・`EVENT`・`POLICY` で id が一致するもの）の表示名に確定の状態の印を足して出す。引けないときはシナリオの名前と同じ規則で理由を書く。
+- **アクター・画面のルート**: アクターは `actor.name` を出す。画面のルートは `null` なら出さない。2026-10-31 に、起点の種類（「操作」「反応」）の行を外し、起動するポリシーの行に置き換えた（起点はコマンドだけになったため）。
   - アクターの名前は認可のコードから拾った役割の名前で、辞書の用語が無い。PdM に出してよいかは確かめている（2026-10-31）。
 - **シナリオの表の文**: 検証の列は、仕様になったシナリオだけ「論点が見つかった」「指定の範囲で、行った検査では見つからなかった」「未検証（理由）」と書く。件数の列は「論点 N 件」、曖昧さで止まったシナリオは `PdM` で「エンジニアの確認待ち: N 件」、`Eng` で「曖昧さ N 件」。途中で止まったシナリオは件数を出さない。
 - **タブの代わりに出す文**: 曖昧さで止まったシナリオは 3.2 の文。途中で止まったシナリオは「このシナリオは途中で止まったため、仕様にならなかった。」とし、`Eng` では止まった段とエラーの名前を足す。
