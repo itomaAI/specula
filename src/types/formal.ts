@@ -85,7 +85,7 @@ export interface Operation {
 }
 
 export interface FormalSpecification {
-  scenarioId: string;
+  commandId: string;
   /** Alloy 6 のソース。 */
   source: string;
   stateVariables: StateVariable[];
@@ -116,7 +116,7 @@ export interface AmbiguityIssue {
 }
 
 export interface AmbiguityReport {
-  scenarioId: string;
+  commandId: string;
   /** ユニットの並び順。 */
   issues: AmbiguityIssue[];
   counts: Record<AmbiguityKind, number>;
@@ -127,11 +127,11 @@ export type TranspilerResult = { kind: "SPEC"; spec: FormalSpecification } | { k
 /** M1 の契約違反（曖昧性ではない）。オーケストレーターは「M2 で止まった」と理由付きで報告に残す。 */
 export class TranspileContractError extends Error {
   constructor(
-    readonly scenarioId: string,
+    readonly commandId: string,
     readonly reason: "NO_SLICES" | "WRITE_WITHOUT_EXPRESSION" | "UNKNOWN_UNIT" | "MALFORMED_DETAILS",
     readonly detail: string,
   ) {
-    super(`M2 の入力の契約が破れている（${scenarioId}）: ${reason}: ${detail}`);
+    super(`M2 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "TranspileContractError";
   }
 }

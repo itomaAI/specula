@@ -38,15 +38,15 @@ projectSystemMap(
 projectImplementationMap(
   map: EventStormingMap,
   glossary: Glossary,
-  scenarios: ImplementationMapInput[],
+  commands: ImplementationMapInput[],
 ): Promise<ImplementationMap>;
 ```
 - `projectSpecification` は、シナリオ 1 つのビューを作る。`ledger` が `null` のときは、論点の節に「論点カタログが無い」と書く（LedgerSynthesizer を実行していないため）。
 - `projectAmbiguities` は、FormalTranspiler の `AmbiguityReport` で止まったシナリオの曖昧さの一覧を作る（8.4）。
-- `projectSystemMap` は、ScenarioExtractor の全体マップと辞書からシステム全体の俯瞰図を作る。シナリオの単位では作れない図（コマンド・イベント・ポリシーのつながり）なので、別の関数にする。
+- `projectSystemMap` は、CommandExtractor の全体マップと辞書からシステム全体の俯瞰図を作る。シナリオの単位では作れない図（コマンド・イベント・ポリシーのつながり）なので、別の関数にする。
 - `projectImplementationMap` は、表示の id から内部の識別子と実装の名前・所在を引く対応表を作る（8.5）。表示の役割に関係なく作る。
 - どれも非同期なのは、正本のソースと全体マップの SHA-256 を Web Crypto で計算するためである（3.3・8.1。全体設計 1.3 と同じ方法）。
-- 入力の契約が破れているとき（表現形式が対応外、`ledger.scenarioId` が `spec.scenarioId` と違う、論点が `spec` に無い操作や状態変数の識別子を指す、辞書が別の全体マップから作られている）は、例外 `ProjectionContractError` にする（理由の一覧は 7.7）。カタログが古いこと（3.3）は契約違反ではなく、ビューの中で知らせる。
+- 入力の契約が破れているとき（表現形式が対応外、`ledger.commandId` が `spec.commandId` と違う、論点が `spec` に無い操作や状態変数の識別子を指す、辞書が別の全体マップから作られている）は、例外 `ProjectionContractError` にする（理由の一覧は 7.7）。カタログが古いこと（3.3）は契約違反ではなく、ビューの中で知らせる。
 
 ### 1.3 構成
 ```
@@ -138,7 +138,7 @@ projectImplementationMap(
 
 ### 4.1 仕様書（DOCUMENT）
 Markdown で、次の順に節を置く。
-1. 題と、カタログが古いときの注意（3.3）。題は「〈表示の id〉 〈起点の用語〉」（例: 「S-01 注文を確定する」）とする。表示の id は `context.displayId`、起点の用語は、辞書で起点のコマンドまたはポリシーの項目（`context.scenario.inletTrigger.id` と同じ id の項目）を引いた `term.label`（8.2）。用語が未生成なら「〈表示の id〉（名前は未生成）」とする。シナリオの内部の識別子は題に出さない（全体設計 2.2）
+1. 題と、カタログが古いときの注意（3.3）。題は「〈表示の id〉 〈起点の用語〉」（例: 「S-01 注文を確定する」）とする。表示の id は `context.displayId`、起点の用語は、辞書で起点のコマンドまたはポリシーの項目（`context.commandTarget.inletTrigger.id` と同じ id の項目）を引いた `term.label`（8.2）。用語が未生成なら「〈表示の id〉（名前は未生成）」とする。シナリオの内部の識別子は題に出さない（全体設計 2.2）
 2. 検証の状態（3.4）
 3. 意図の候補: `context.intents` からこのシナリオの候補を引き、「候補」と明記して書く（IntentSynthesizer が LLM で作った推測であり、人が確かめていないため）。`context.intents` が `null` か、このシナリオの候補が無ければ「意図の候補が無い」と書く
 4. 状態: 状態変数の表（表示名、値の種類、とりうる値、初期値）と、「直前の操作の結果」も状態に含むこと
@@ -159,12 +159,12 @@ Markdown で、次の順に節を置く。
 - ノードの識別子は機械的に振る（`s`、`op1_1`、`op1_2` …）。表示する文は `["…"]` の中に置き、`"` を `#quot;` に、改行を空白に置き換える。表示名に Mermaid の記号が入っていても図が壊れないようにするためである。
 
 ### 4.4 全体の俯瞰図（SYSTEM_MERMAID・SYSTEM_JSON）
-- ScenarioExtractor の全体マップの、Bounded Context・コマンド・ドメインイベント・ポリシーと、そのつながり（コマンドが発生させるイベント、イベントの `after`、ポリシーが反応するイベントと起動するコマンド）を図にする。
+- CommandExtractor の全体マップの、Bounded Context・コマンド・ドメインイベント・ポリシーと、そのつながり（コマンドが発生させるイベント、イベントの `after`、ポリシーが反応するイベントと起動するコマンド）を図にする。
 - `SYSTEM_MERMAID` は、Bounded Context ごとに `subgraph` を作る。ノードの識別子は全体マップの並び順に `n1`・`n2` … と振り、表示する文は 4.3 と同じ規則で置き換える。`subgraph` への振り分けは要素の `contextId` で行う。
 - ノードの文は、辞書でその要素の項目を引いた `term.label` とする（8.2）。用語が未生成の要素は、全体マップの id を出さずに「〈種類〉 nN（名前は未生成）」と書く（7.6）。
 - `subgraph` の題も、辞書で `BOUNDED_CONTEXT` の項目を引いた `term.label` とする。いまの実装は `DEFAULT_CONTEXT` のような実装の名前を題に出しているので、これをやめる。用語が未生成なら「Bounded Context cN（名前は未生成）」と書く（`cN` は Bounded Context の並び順に振る）。
 - 表示の役割が Eng のときは、ノードの文の後ろに「 / 〈ファイル〉#〈関数〉」を足す（8.3）。PdM のときは足さない。
-- `SYSTEM_JSON` は `{ nodes: [{ id, kind, label, context, intent, broken, implementation }], edges: [{ from, to, kind, broken }] }` の形にする（DAG Viewer で読むため。`broken` は 2026-10-31 に足した壊れた印の欄で、初回は常に `null`。地図 1・地図 2 の形は 8.9）。`intent` は IntentSynthesizer の候補の文（`intents.contexts[].intent` が `GENERATED` のときの文）で、Bounded Context のノードだけに置く。候補が無いか未生成なら `null` にし、ほかの種類のノードには置かない。シナリオの意図の候補は俯瞰図に載せず、シナリオごとの仕様書（4.1）に書く。俯瞰図は `ScenarioTarget` を受け取らず、起点 1 つが複数のシナリオに分かれることもあるので、コマンドのノードに意図を 1 つ決められないためである（8.6）。`implementation` は表示の役割が Eng のときだけ置き（`{ names, locations }`。辞書の項目の `implementation` を写す）、PdM のときはキーごと置かない。キーの並びと配列の並びは決まった順にする。
+- `SYSTEM_JSON` は `{ nodes: [{ id, kind, label, context, intent, broken, implementation }], edges: [{ from, to, kind, broken }] }` の形にする（DAG Viewer で読むため。`broken` は 2026-10-31 に足した壊れた印の欄で、初回は常に `null`。地図 1・地図 2 の形は 8.9）。`intent` は IntentSynthesizer の候補の文（`intents.contexts[].intent` が `GENERATED` のときの文）で、Bounded Context のノードだけに置く。候補が無いか未生成なら `null` にし、ほかの種類のノードには置かない。シナリオの意図の候補は俯瞰図に載せず、シナリオごとの仕様書（4.1）に書く。俯瞰図は `CommandTarget` を受け取らず、起点 1 つが複数のシナリオに分かれることもあるので、コマンドのノードに意図を 1 つ決められないためである（8.6）。`implementation` は表示の役割が Eng のときだけ置き（`{ names, locations }`。辞書の項目の `implementation` を写す）、PdM のときはキーごと置かない。キーの並びと配列の並びは決まった順にする。
 
 ---
 
@@ -188,14 +188,14 @@ interface SystemProjectionRequest {
 }
 
 interface ProjectionContext {
-  scenario: ScenarioTarget;               // 起点と期待するイベントの、辞書の項目を引くため
+  commandTarget: CommandTarget;               // 起点と期待するイベントの、辞書の項目を引くため
   glossary: Glossary | null;              // null のときは、地図の要素をすべて「名前は未生成」として表す
   intents: IntentCatalog | null;          // null のときは「意図の候補が無い」と書く
 }
 
 interface ImplementationMapInput {
   displayId: string;
-  scenario: ScenarioTarget;
+  commandTarget: CommandTarget;
   spec: FormalSpecification | null;       // FormalTranspiler で止まったシナリオは null
   ambiguity: AmbiguityReport | null;      // 曖昧さで止まったときだけある
   ledger: DomainLedgerCatalog | null;     // 論点カタログ。LedgerSynthesizer まで進まなかったシナリオは null（8.7・8.8）
@@ -204,7 +204,7 @@ interface ImplementationMapInput {
 interface ImplementationMap {
   entries: Array<{
     displayId: string;                    // "c1"・"n1"・"S-01"・"S-01-A-001"・"S-01-V-01"・"S-01-L-001"
-    kind: "BOUNDED_CONTEXT" | "COMMAND" | "EVENT" | "POLICY" | "SCENARIO" | "AMBIGUITY" | "STATE_VARIABLE" | "LEDGER_ISSUE";
+    kind: "BOUNDED_CONTEXT" | "COMMAND" | "EVENT" | "POLICY" | "COMMAND_TARGET" | "AMBIGUITY" | "STATE_VARIABLE" | "LEDGER_ISSUE";
     internalId: string;                   // 地図の要素の id、シナリオの id、状態変数の識別子、論点の識別子など。曖昧さは最初のユニットの識別子（8.8）
     glossaryEntryId: string | null;       // 辞書の項目の id。実装の名前が辞書と一致しなければ null（8.5）
     implementation: {
@@ -216,7 +216,7 @@ interface ImplementationMap {
 }
 
 interface SpecificationView {
-  scenarioId: string | null;              // 内部の識別子。ファイルの置き場所を決めるため。全体の俯瞰図は null
+  commandId: string | null;              // 内部の識別子。ファイルの置き場所を決めるため。全体の俯瞰図は null
   displayId: string | null;               // 表示の id。全体の俯瞰図は null
   viewRole: ViewRole;
   format: "DOCUMENT" | "MATRIX" | "FLOW" | "AMBIGUITY_DOCUMENT" | "SYSTEM_MERMAID" | "SYSTEM_JSON";
@@ -230,7 +230,7 @@ interface SpecificationView {
 }
 ```
 - ビューは正本ではない。保存するのはオーケストレーターの判断だが、いつでも正本から作り直せるものとして扱う（仕様 1.2）。
-- `SpecificationView.scenarioId` は内部の識別子だが、ビューの `content` には出さない。オーケストレーターが出力のディレクトリを決めるためだけに使う（全体設計 4.1）。
+- `SpecificationView.commandId` は内部の識別子だが、ビューの `content` には出さない。オーケストレーターが出力のディレクトリを決めるためだけに使う（全体設計 4.1）。
 - `projectSystemMap` と `projectImplementationMap` の `glossary` は `null` を受け付けない。GlossaryBuilder が契約のエラーで止まったときは、パイプラインが実行を止めるためである（全体設計 2.1）。シナリオの射影の `context.glossary` が `null` になるのは、単体で呼んだときと試験のときだけである。
 
 ---
@@ -292,7 +292,7 @@ interface SpecificationView {
 | :-- | :-- |
 | `UNSUPPORTED_FORMAT` | 表現形式が関数の受け付けるものでない。`projectSpecification` は `DOCUMENT`・`MATRIX`・`FLOW`、`projectAmbiguities` は `AMBIGUITY_DOCUMENT`、`projectSystemMap` は `SYSTEM_MERMAID`・`SYSTEM_JSON`（仕様 3.1）。表示の役割が `PdM`・`Eng` のどちらでもないとき、俯瞰図の `level` が `CONTEXT_MAP`・`CONTEXT_DETAIL` のどちらでもないとき、`CONTEXT_DETAIL` 以外で `includeSupporting` が `true` のときも、この理由にする（8.9） |
 | `UNKNOWN_CONTEXT` | `projectSystemMap` の `CONTEXT_DETAIL` で、`contextId` が無いか、全体マップに無い Bounded Context を指す（8.9） |
-| `SCENARIO_MISMATCH` | `ledger.scenarioId` が `spec.scenarioId` と違う。2026-10-30 から、`context.scenario.id` が `spec.scenarioId`（曖昧さの一覧では `report.scenarioId`）と違うときも、この理由にする |
+| `COMMAND_MISMATCH` | `ledger.commandId` が `spec.commandId` と違う。2026-10-30 から、`context.commandTarget.id` が `spec.commandId`（曖昧さの一覧では `report.commandId`）と違うときも、この理由にする |
 | `UNKNOWN_OPERATION` | 論点が `spec` に無い操作の識別子を指す |
 | `UNKNOWN_STATE_VARIABLE` | 論点の実行列の値が `spec` に無い状態変数を指す。表示名を引けなくなるため（LedgerSynthesizer の契約と同じ） |
 | `GLOSSARY_STALE` | `projectSystemMap`・`projectImplementationMap` で、`glossary.basis.mapHash` が受け取った全体マップの SHA-256 と違う。別の全体マップから作った辞書では、地図の要素の id が辞書の項目と一致する保証がないため（8.1） |
@@ -333,12 +333,12 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
 - `unitIds` は出さない。ユニットの id にはファイルと行が入るためである（7.2 の `dataMutations` と同じ理由）。
 - 質問の文に実装の名前が入らないことは、FormalTranspiler の出力の検査で確かめる（全体設計 2.2）。本モジュールは文を書き換えない。
 - **実装で決めたこと（2026-10-30）**:
-  - 要求の型は `AmbiguityProjectionRequest`（`format: "AMBIGUITY_DOCUMENT"`・`viewRole`・`displayId`）として、シナリオのビューの `ProjectionRequest` と分けた。`ScenarioViewFormat` に足すと、`projectSpecification` が型の上で `AMBIGUITY_DOCUMENT` を受け付けてしまうためである。`SpecificationView.format` の和には `AMBIGUITY_DOCUMENT` を足した。
+  - 要求の型は `AmbiguityProjectionRequest`（`format: "AMBIGUITY_DOCUMENT"`・`viewRole`・`displayId`）として、シナリオのビューの `ProjectionRequest` と分けた。`CommandViewFormat` に足すと、`projectSpecification` が型の上で `AMBIGUITY_DOCUMENT` を受け付けてしまうためである。`SpecificationView.format` の和には `AMBIGUITY_DOCUMENT` を足した。
   - 形式仕様も論点カタログも無いので、`basis` の 3 つはすべて `null` にする。
   - 題は「# 〈表示の id〉 〈起点の用語〉〈Eng の併記〉 の曖昧さ」とした。用語の引き方と併記は仕様書の題と同じ関数で作る（8.3・8.7）。
   - 件数は 3 つの種類を固定の順（値が決まらない・外部への作用がある・同じ条件で別の経路に進む）に、0 件のものも書く。曖昧さが 0 件なら「曖昧さは無い。」と書く。
   - 所在は「`〈ファイル〉` L〈行〉」（列は書かない）、原文は言語の名前を付けないコードの囲みにした。
-  - 契約は、`format` が `AMBIGUITY_DOCUMENT` でない・役割が `PdM`・`Eng` でないときに `UNSUPPORTED_FORMAT`、`context.scenario.id` が `report.scenarioId` と違うときに `SCENARIO_MISMATCH`（7.7）。
+  - 契約は、`format` が `AMBIGUITY_DOCUMENT` でない・役割が `PdM`・`Eng` でないときに `UNSUPPORTED_FORMAT`、`context.commandTarget.id` が `report.commandId` と違うときに `COMMAND_MISMATCH`（7.7）。
   - オーケストレーターは、曖昧さで止まったシナリオで `projectAmbiguities` を呼び、成果物の `view` に入れる。M5 の段として呼ぶので、契約のエラーならそのシナリオは M5 で止まったことになる。ファイルへの書き出し（CLI と起動アプリ）は、まだ行っていない（`src/lib/write_outputs.ts` は `ambiguity.json` だけを書く）。
 
 ### 8.5 実装との対応表（`implementation_map.json`）
@@ -352,7 +352,7 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
 - 状態変数の表示の id（`S-01-V-01`）は対応表のキーとしてだけ使い、PdM 向けのビューには出さない。
 
 ### 8.6 既存の設計からの変更
-- 7.6 の俯瞰図のノードの文は、全体マップの `name`（LLM の結果）から辞書の `term.label` に変えた。ScenarioExtractor が名前を作らなくなったためである。
+- 7.6 の俯瞰図のノードの文は、全体マップの `name`（LLM の結果）から辞書の `term.label` に変えた。CommandExtractor が名前を作らなくなったためである。
 - `subgraph` の題を、実装の名前（`DEFAULT_CONTEXT` など）から辞書の用語に変えた（4.4）。
 - 仕様書の題と流れ図の起点から、シナリオの内部の識別子を外し、表示の id に変えた（4.1・7.4）。
 - 仕様書に意図の候補の節を足した（4.1）。俯瞰図には Bounded Context の意図の候補だけを載せる（4.4）。
@@ -381,7 +381,7 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
 - **論点の所在**: 論点に関わる操作ごとに、出口のユニット（`spec.sourceMap[operation.outcome]`）の所在だけを並べる。操作の経路の全ユニット（`spec.sourceMap[operation.id]`）は数が多く、表で引く目的に合わないためである。
 - **入力の契約**: 次のときに `ProjectionContractError` にする（7.7 の理由を使う）。
   - `glossary.basis.mapHash` が全体マップと違う、または辞書に地図の要素や起点の項目が無い（種類が違う場合を含む）: `GLOSSARY_STALE`
-  - `spec`・`ambiguity`・`ledger` の `scenarioId` が `scenario.id` と違う、または `ledger` があるのに `spec` が無い: `SCENARIO_MISMATCH`
+  - `spec`・`ambiguity`・`ledger` の `commandId` が `commandTarget.id` と違う、または `ledger` があるのに `spec` が無い: `COMMAND_MISMATCH`
   - 論点が `spec` に無い操作を指す: `UNKNOWN_OPERATION`
 - **オーケストレーター**: 対応表は、俯瞰図と同じくシナリオごとの段の外で 1 回だけ作り、`PipelineResult.implementationMap` に入れる。最後まで進んだシナリオには `spec` と `ledger` を、曖昧さで止まったシナリオには `ambiguity` を渡し、ほかの段で止まったシナリオはシナリオの項目だけになる。契約のエラーは実行全体を止める。ファイルへの書き出し（`implementation_map.json`。CLI と起動アプリ）は、まだ行っていない。
 

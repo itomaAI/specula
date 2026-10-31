@@ -1,15 +1,15 @@
-// リポジトリのディレクトリを読み、ScenarioExtractor に渡す RepositoryArtifacts を作る（Node.js の入口用。全体設計 4.1）。
-// どのファイルを解析するかは ScenarioExtractor が決める。ここではテキストのコードと設定のファイル、仕様の資料を集めるだけ。
+// リポジトリのディレクトリを読み、CommandExtractor に渡す RepositoryArtifacts を作る（Node.js の入口用。全体設計 4.1）。
+// どのファイルを解析するかは CommandExtractor が決める。ここではテキストのコードと設定のファイル、仕様の資料を集めるだけ。
 //
 // - 集める拡張子: .ts .tsx .mts .cts .js .jsx .mjs .cjs .json
-// - 仕様の資料: README・docs/ の Markdown・スキーマ定義（規則と上限は repository_documents.ts。ScenarioExtractor の設計 4.0）
+// - 仕様の資料: README・docs/ の Markdown・スキーマ定義（規則と上限は repository_documents.ts。CommandExtractor の設計 4.0）
 // - 読まないディレクトリ: node_modules・.git・dist（どの深さでも）
 // - 通常のファイルだけを読む（シンボリックリンクはたどらない）
 // - path はリポジトリのルートからの相対パス（"/" 区切り）。並びはコード単位の辞書順。
 // node: のモジュールは使うときに import する（NodeFsAdapter と同じ理由）。
 
-import type { RepositoryArtifacts } from "../types/scenario.js";
-import { readTsconfig } from "../core/scenario_extractor.js";
+import type { RepositoryArtifacts } from "../types/command.js";
+import { readTsconfig } from "../core/command_extractor.js";
 import { collectDocuments, documentKindOf } from "./repository_documents.js";
 
 // IteraRepositoryReader も同じ規則で集めるので export する。

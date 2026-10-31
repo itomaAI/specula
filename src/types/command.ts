@@ -1,11 +1,11 @@
-// M0（ScenarioExtractor）の入出力の型（M0 の設計 4.1・4.2）。
+// M0（CommandExtractor）の入出力の型（M0 の設計 4.1・4.2）。
 
 /**
  * M0 に渡すリポジトリの中身。読み込みは呼び出し元（アダプターの側）が行い、コアはファイルを読まない。
  * - files: テキストのファイルだけ。path はリポジトリのルートからの相対パス（"/" 区切り、先頭に "./" を付けない）。
  *   package.json と tsconfig.json も、ここに入っていれば読む。
- * - documents: 仕様の資料（README・docs/ の Markdown・スキーマ定義）。ScenarioExtractor は読まない。GlossaryBuilder の入力。
- *   集める規則と上限は ScenarioExtractor の設計 4.0（リーダーが同じ規則で集める）。
+ * - documents: 仕様の資料（README・docs/ の Markdown・スキーマ定義）。CommandExtractor は読まない。GlossaryBuilder の入力。
+ *   集める規則と上限は CommandExtractor の設計 4.0（リーダーが同じ規則で集める）。
  * - omittedDocuments: 合計の上限を超えたので入れなかった資料のパス（辞書順）。
  * - screenshots: 画面画像のパス（任意）。画面のルートと結び付けられるものだけをリードモデルに付ける。
  */
@@ -33,7 +33,7 @@ export interface SourceLocation {
 
 // 2026-10-30: 地図の LLM の欄（Bounded Context の intent・intentStatus、イベント・コマンド・ポリシーの name、
 // シナリオの intent・intentStatus・inletTrigger.name）を外した。名前は GlossaryBuilder の辞書、
-// 意図の候補は IntentSynthesizer の出力に持つ（ScenarioExtractor の設計 4.1・4.2）。
+// 意図の候補は IntentSynthesizer の出力に持つ（CommandExtractor の設計 4.1・4.2）。
 
 export interface BoundedContext {
   /** ルートパスから作る。単一コンテキストは "DEFAULT_CONTEXT"。 */
@@ -120,8 +120,8 @@ export interface ExtractionDiagnostics {
 }
 
 /** 個別シナリオ（M1 への入力）。 */
-export interface ScenarioTarget {
-  /** "SCN-<起点の識別子>"。起点が複数のシナリオに分かれるときは "-<イベントの識別子>" を足す。 */
+export interface CommandTarget {
+  /** "CT-<起点の識別子>"。起点が複数のシナリオに分かれるときは "-<イベントの識別子>" を足す。 */
   id: string;
   boundedContext: string;
   origin: "EXTRACTED" | "USER_DEFINED";
@@ -151,13 +151,13 @@ export interface ScenarioTarget {
 /**
  * シナリオの選択。起点は識別子か "ファイル#関数名" で指す（LLM の名前では照合しない）。
  */
-export interface ScenarioSelection {
+export interface CommandSelection {
   filter?: { boundedContext?: string; inlets?: string[] };
   userDefined?: Array<{ inlet: string; intent?: string; route?: string }>;
 }
 
 export interface SliceResult {
-  scenarios: ScenarioTarget[];
+  commands: CommandTarget[];
   /** 起点が全体マップに無かった利用者定義のシナリオ。 */
   rejected: Array<{ inlet: string; reason: string }>;
 }

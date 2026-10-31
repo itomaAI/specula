@@ -8,7 +8,7 @@ import type { Glossary } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
 import type { ImplementationMap, SpecificationView, ViewRole } from "./projection.js";
-import type { Actor, EventStormingMap, ExtractionDiagnostics, ScenarioSelection, ScenarioTarget } from "./scenario.js";
+import type { Actor, EventStormingMap, ExtractionDiagnostics, CommandSelection, CommandTarget } from "./commandTarget.js";
 import type { SolverOptions, SolverReport, UnverifiedReason } from "./solver.js";
 
 export interface PipelineDeps {
@@ -21,7 +21,7 @@ export interface PipelineDeps {
 }
 
 export interface PipelineOptions {
-  selection?: ScenarioSelection;
+  selection?: CommandSelection;
   solver?: SolverOptions;
   /** 利用者向けの出力の表示の役割（全体設計 2.2）。無ければ "BUSINESS"。 */
   viewRole?: ViewRole;
@@ -30,13 +30,13 @@ export interface PipelineOptions {
 /** 契約のエラーで止まった段。 */
 export type StoppedStage = "M1" | "M2" | "M3" | "M4" | "M5";
 
-/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は ScenarioTarget の欄を写したもの。 */
-export interface ScenarioRunBase {
-  scenarioId: string;
+/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は CommandTarget の欄を写したもの。 */
+export interface CommandRunBase {
+  commandId: string;
   /** 表示の id（"C-01"。切り出しの順。全体設計 2.2）。 */
   displayId: string;
   boundedContext: string;
-  inletType: ScenarioTarget["inletType"];
+  inletType: CommandTarget["inletType"];
   actor: Actor;
   /** 画面のルート。画面を持たないシナリオは null。 */
   route: string | null;
@@ -44,8 +44,8 @@ export interface ScenarioRunBase {
   expectedEvent: string;
 }
 
-export type ScenarioRunResult =
-  | (ScenarioRunBase & {
+export type CommandRunResult =
+  | (CommandRunBase & {
       kind: "COMPLETED";
       outcome: VerificationOutcome;
       /** 未検証の理由の種類。検査済みなら null。 */
@@ -53,11 +53,11 @@ export type ScenarioRunResult =
       findingCount: number;
       issueCount: number;
     })
-  | (ScenarioRunBase & {
+  | (CommandRunBase & {
       kind: "AMBIGUOUS";
       counts: Record<AmbiguityKind, number>;
     })
-  | (ScenarioRunBase & {
+  | (CommandRunBase & {
       kind: "STOPPED";
       stage: StoppedStage;
       /** エラーの名前（"InletNotFoundError" など）。 */
@@ -100,16 +100,16 @@ export interface RunReport {
   intents: {
     /** 候補の欄の数（Bounded Context とシナリオ）。未生成のものも数える。 */
     contextCount: number;
-    scenarioCount: number;
+    commandTargetCount: number;
     /** 候補が未生成の欄の数（理由の種類ごと。Bounded Context とシナリオの合計）。 */
     notGenerated: { UNREACHABLE: number; INVALID_OUTPUT: number };
   };
   slice: {
-    scenarioCount: number;
+    commandTargetCount: number;
     rejected: Array<{ inlet: string; reason: string }>;
   };
   /** M0 の切り出しの順。 */
-  scenarios: ScenarioRunResult[];
+  commands: CommandRunResult[];
   totals: {
     completed: number;
     ambiguous: number;
@@ -120,20 +120,20 @@ export interface RunReport {
   /** 検査の範囲（全体設計 2.1）。 */
   inspectionScope: {
     /** 検査はシナリオごとに行い、シナリオどうしの矛盾は見ていない。 */
-    unit: "PER_SCENARIO";
+    unit: "PER_COMMAND";
     /** 初回は業務上の不変条件が無いので検査しない（FormalSolver の報告と同じ値）。 */
     invariantChecks: SolverReport["invariantChecks"];
     /** 検証の結果がこの報告に無いシナリオの表示の id（切り出しの順）。未検証・曖昧さで止まった・途中で止まった。 */
-    scenariosWithoutVerification: string[];
+    commandsWithoutVerification: string[];
   };
   /** 元にした辞書の basis をそのまま写す（意図の候補・実装との対応表と同じ）。 */
   basis: Glossary["basis"];
 }
 
-/** シナリオ 1 つの成果物。報告の scenarios と同じ順・同じ id。 */
-export type ScenarioArtifacts =
+/** シナリオ 1 つの成果物。報告の commands と同じ順・同じ id。 */
+export type CommandArtifacts =
   | {
-      scenarioId: string;
+      commandId: string;
       displayId: string;
       kind: "COMPLETED";
       spec: FormalSpecification;
@@ -144,14 +144,14 @@ export type ScenarioArtifacts =
       flow: SpecificationView;
     }
   | {
-      scenarioId: string;
+      commandId: string;
       displayId: string;
       kind: "AMBIGUOUS";
       ambiguity: AmbiguityReport;
       /** 曖昧さの一覧（AMBIGUITY_DOCUMENT。SpecProjector の設計 8.4）。 */
       view: SpecificationView;
     }
-  | { scenarioId: string; displayId: string; kind: "STOPPED" };
+  | { commandId: string; displayId: string; kind: "STOPPED" };
 
 /** 俯瞰図の JSON 1 枚（SpecProjector の SYSTEM_JSON の content を読んだもの。SpecProjector の設計 4.4・8.9）。 */
 export interface SystemMapJson {
@@ -184,7 +184,7 @@ export interface PipelineResult {
   intents: IntentCatalog;
   /** mermaid は level を省いた 1 枚の図（system_map.mmd）、json は束ねた俯瞰図（system_map.json）。 */
   systemViews: { mermaid: SpecificationView; json: SystemMapBundle };
-  scenarios: ScenarioArtifacts[];
+  commands: CommandArtifacts[];
   /**
    * 実装との対応表（implementation_map.json。SpecProjector の設計 8.5）。表示の役割に関係なく作る。
    * 状態変数と論点は、最後まで進んだシナリオ（COMPLETED）の分だけ入る。

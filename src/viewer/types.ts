@@ -24,9 +24,9 @@ export type FileRead<T> =
   | { kind: "INVALID"; reason: string };
 
 /** シナリオ 1 つのファイル。読むファイルは run_report.json のシナリオの kind で決まる（設計 6.1）。 */
-export type ScenarioOutputs =
+export type CommandOutputs =
   | {
-      scenarioId: string;
+      commandId: string;
       displayId: string;
       kind: "COMPLETED";
       /** spec.json。論点と検証の状態の文を SpecProjector と同じにするために読む（設計 6.5）。 */
@@ -43,13 +43,13 @@ export type ScenarioOutputs =
       ledger: FileRead<DomainLedgerCatalog>;
     }
   | {
-      scenarioId: string;
+      commandId: string;
       displayId: string;
       kind: "AMBIGUOUS";
       /** ambiguity.json */
       ambiguity: FileRead<AmbiguityReport>;
     }
-  | { scenarioId: string; displayId: string; kind: "STOPPED" };
+  | { commandId: string; displayId: string; kind: "STOPPED" };
 
 /** 出力先から読んだファイルの中身（設計 2 節・6.1）。 */
 export interface RunOutputs {
@@ -63,8 +63,8 @@ export interface RunOutputs {
   intents: FileRead<IntentCatalog>;
   /** implementation_map.json */
   implementationMap: FileRead<ImplementationMap>;
-  /** run_report.json の scenarios の順。run_report.json が読めなければ空。 */
-  scenarios: ScenarioOutputs[];
+  /** run_report.json の commands の順。run_report.json が読めなければ空。 */
+  commands: CommandOutputs[];
 }
 
 /** 画面を作れない理由（設計 6.2）。 */
@@ -79,11 +79,11 @@ export interface RunOutputsProblem {
     // basis が run_report.json のものと違う（別の実行の出力が混ざっている）
     | "BASIS_MISMATCH"
     // run_report.json のシナリオの kind から決まるファイルが無い
-    | "SCENARIO_FILE_MISSING";
+    | "COMMAND_FILE_MISSING";
   /** 出力先の直下のファイルの名前（"glossary.json"）か、シナリオのディレクトリの中のファイルの名前（"spec.md"）。 */
   file: string;
   /** シナリオのファイルなら、そのシナリオの表示の id。内部の識別子は出さない（仕様 2.3）。 */
-  scenario: string | null;
+  commandTarget: string | null;
   detail: string;
 }
 
@@ -97,7 +97,7 @@ export interface RunOutputsCheck {
 // 文は SpecProjector と同じく、確定の状態の印を後ろに足した文字列で持つ（設計 6.5）。
 // ビューモデルには内部の識別子を入れない。シナリオは表示の id（"C-01"）で指す（設計 4 節）。
 
-export type ScenarioKind = "COMPLETED" | "AMBIGUOUS" | "STOPPED";
+export type CommandKind = "COMPLETED" | "AMBIGUOUS" | "STOPPED";
 
 /** シナリオ一覧の上部の、実行の概要（設計 3.1）。 */
 export interface RunSummaryView {
@@ -106,7 +106,7 @@ export interface RunSummaryView {
   boundedContextCount: number;
   commandCount: number;
   eventCount: number;
-  scenarioCounts: Record<ScenarioKind, number>;
+  commandTargetCounts: Record<CommandKind, number>;
   /** byKind は IMPLEMENTATION のときだけある。BUSINESS は合計だけを「エンジニアの確認待ち: N 件」と出す。 */
   ambiguity: { total: number; text: string; byKind: Array<{ kind: AmbiguityKind; text: string; count: number }> | null };
   verification: Array<{ outcome: VerificationOutcome; text: string; count: number }>;
@@ -118,11 +118,11 @@ export interface RunSummaryView {
 }
 
 /** シナリオの表の 1 行（設計 3.1）。 */
-export interface ScenarioRowView {
+export interface CommandRowView {
   displayId: string;
   /** 「C-01 〈表示名〉〈印〉」。名前を出せないときは理由（設計 6.5）。 */
   title: string;
-  kind: ScenarioKind;
+  kind: CommandKind;
   /** 「仕様になった」「曖昧さで止まった」「途中で止まった」。 */
   kindText: string;
   /** 仕様になったシナリオだけ。未検証なら理由を含む。 */
@@ -138,19 +138,19 @@ export interface ScenarioRowView {
 }
 
 /** シナリオ一覧（設計 3.1）。 */
-export interface ScenarioListView {
+export interface CommandListView {
   summary: RunSummaryView;
   /** Bounded Context が 1 つだけなら false（列を出さない）。 */
   showContextColumn: boolean;
   /** 実行の報告の順（表示の id の順）。 */
-  rows: ScenarioRowView[];
+  rows: CommandRowView[];
 }
 
 /** シナリオの詳細の冒頭と、検証の状態・論点（設計 3.2）。タブの中身（仕様書・一覧表・流れ図）は別に足す。 */
-export interface ScenarioDetailView {
+export interface CommandDetailView {
   displayId: string;
   title: string;
-  kind: ScenarioKind;
+  kind: CommandKind;
   kindText: string;
   boundedContext: string;
   intentText: string;
@@ -170,7 +170,7 @@ export interface ScenarioDetailView {
   /** 仕様になったシナリオだけ。論点の id は表示の id（"C-01-L-001"）。 */
   issueGroups: IssueGroupView[] | null;
   /** 仕様になったシナリオだけ。タブの中身（設計 3.2・6.6・6.9）。流れ図は全体地図と同じ配置の関数で層に並べる。 */
-  tabs: ScenarioTabsView | null;
+  tabs: CommandTabsView | null;
   /** 曖昧さで止まった・途中で止まったシナリオで、タブの代わりに出す文。仕様になったシナリオは null。 */
   notice: string | null;
   /** 起点の所在。IMPLEMENTATION のときだけある。 */
@@ -178,7 +178,7 @@ export interface ScenarioDetailView {
 }
 
 /** シナリオの詳細のタブ（設計 3.2・6.6）。 */
-export interface ScenarioTabsView {
+export interface CommandTabsView {
   /** 仕様書（spec.md）のブロックの並び。 */
   document: MarkdownBlock[];
   /** 操作の一覧表（matrix.md）のブロックの並び。 */
@@ -246,7 +246,7 @@ export type FlowView =
 // 画面どうしのリンクは表示の id（"C-01"・"C-01-L-001"）で指す（設計 6.7）。
 
 /** 仕様になったシナリオ 1 つの論点（設計 3.3）。論点が 1 件以上あるシナリオだけ。 */
-export interface ScenarioIssuesView {
+export interface CommandIssuesView {
   displayId: string;
   /** シナリオ一覧と同じ題。 */
   title: string;
@@ -276,7 +276,7 @@ export interface AmbiguityItemView {
 }
 
 /** 曖昧さで止まったシナリオ 1 つ（設計 3.3）。 */
-export interface ScenarioAmbiguitiesView {
+export interface CommandAmbiguitiesView {
   displayId: string;
   title: string;
   total: number;
@@ -289,10 +289,10 @@ export interface ScenarioAmbiguitiesView {
 /** 仕様不備一覧（設計 3.3）。どちらも実行の報告の順。 */
 export interface IssueListView {
   issueTotal: number;
-  scenarios: ScenarioIssuesView[];
+  commands: CommandIssuesView[];
   ambiguityTotal: number;
   /** BUSINESS ではシナリオ別の件数の表として、IMPLEMENTATION では質問の一覧として描く。 */
-  ambiguities: ScenarioAmbiguitiesView[];
+  ambiguities: CommandAmbiguitiesView[];
 }
 
 // ---- 用語辞典（設計 3.5・6.8） ----
@@ -390,10 +390,10 @@ export interface MapPopupView {
   /** Bounded Context だけ: 意図の候補の文と確定の状態の印。候補が無ければ「意図の候補が無い」。 */
   intent: string | null;
   /** Bounded Context だけ: 属するシナリオの数。 */
-  scenarioCount: number | null;
+  commandTargetCount: number | null;
   /** コマンドとポリシーだけ: その要素を起点にしたシナリオの表示の id（"C-01"）。 */
-  scenarios: string[] | null;
-  /** intent・scenarioCount・scenarios を引けなかったときの理由（実装との対応表が無いとき）。ほかは null。 */
+  commands: string[] | null;
+  /** intent・commandTargetCount・commands を引けなかったときの理由（実装との対応表が無いとき）。ほかは null。 */
   lookupNote: string | null;
 }
 
@@ -461,9 +461,9 @@ export interface RunView {
   /** 画面の表示の役割（起動アプリの引数）。 */
   viewRole: ViewRole;
   /** シナリオ一覧（設計 3.1）。Global Menu の先頭。 */
-  scenarioList: ScenarioListView;
-  /** シナリオの詳細（設計 3.2）。scenarioList.rows と同じ順・同じ数。 */
-  scenarioDetails: ScenarioDetailView[];
+  commandList: CommandListView;
+  /** シナリオの詳細（設計 3.2）。commandList.rows と同じ順・同じ数。 */
+  commandDetails: CommandDetailView[];
   /** 仕様不備一覧（設計 3.3）。 */
   issues: IssueListView;
   /** 用語辞典（設計 3.5）。 */

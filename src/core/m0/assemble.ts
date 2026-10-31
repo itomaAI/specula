@@ -24,7 +24,7 @@ import type {
   Policy,
   ReadModel,
   SourceLocation,
-} from "../../types/scenario.js";
+} from "../../types/command.js";
 import {
   type ParsedFile,
   identifierName,
@@ -59,7 +59,7 @@ interface EventDraft {
   signal: Signal;
 }
 
-/** 経過（diagnostics）は呼び出し元（scenario_extractor.ts）が足す。 */
+/** 経過（diagnostics）は呼び出し元（command_extractor.ts）が足す。 */
 export function assembleMap(input: AssembleInput): Omit<EventStormingMap, "diagnostics"> {
   const byPath = new Map(input.files.map((file) => [file.path, file] as const));
 

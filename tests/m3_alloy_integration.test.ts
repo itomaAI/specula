@@ -13,7 +13,7 @@ import { projectSpecification } from "../src/core/spec_projector.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
 import type { SolverRequest } from "../src/ports/SolverPort.js";
-import type { ScenarioTarget } from "../src/types/scenario.js";
+import type { CommandTarget } from "../src/types/command.js";
 
 const JAR = process.env.ALLOY_JAR;
 const skip = JAR === undefined || JAR === "" ? "ALLOY_JAR が無い" : false;
@@ -117,9 +117,9 @@ class MemoryFs implements FileSystemPort {
   }
 }
 
-function target(file: string, symbol: string): ScenarioTarget {
+function target(file: string, symbol: string): CommandTarget {
   return {
-    id: "SCN-1",
+    id: "CT-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
     inletType: "COMMAND",
@@ -238,7 +238,7 @@ test("M1 → M2 → M3 → M4 → M5: 本物のエンジンの結果から仕様
   const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
 
   // 辞書と意図の候補は渡さない（起点の用語は「名前は未生成」になる）。役割は BUSINESS。
-  const context = { scenario: target("src/r.ts", "read"), glossary: null, intents: null };
+  const context = { commandTarget: target("src/r.ts", "read"), glossary: null, intents: null };
   const view = await projectSpecification(result.spec, catalog, context, { format: "DOCUMENT", viewRole: "BUSINESS", displayId: "C-01" });
   const again = await projectSpecification(result.spec, catalog, context, { format: "DOCUMENT", viewRole: "BUSINESS", displayId: "C-01" });
   assert.equal(view.content, again.content);
@@ -247,7 +247,7 @@ test("M1 → M2 → M3 → M4 → M5: 本物のエンジンの結果から仕様
 
   // BUSINESS には付録（形式仕様のソース）が無いので、本文全体を見る。
   assert.ok(!view.content.includes("## 付録"));
-  assert.ok(!view.content.includes("SCN-1"));
+  assert.ok(!view.content.includes("CT-1"));
   const body = view.content;
   assert.ok(body.includes("検査済み。論点 1 件（元の反例 1 件をまとめたもの）。"));
   assert.ok(body.includes("### 到達しない操作"));

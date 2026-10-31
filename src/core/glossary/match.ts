@@ -7,7 +7,7 @@
 //   大文字小文字は区別しない。識別子を語に分けない。
 // - 選択: 一致した手がかりの種類の数が多い順、同じなら節の識別子の辞書順で上位 3 節。抜粋は先頭の 1500 字まで。
 
-import type { EventStormingMap } from "../../types/scenario.js";
+import type { EventStormingMap } from "../../types/command.js";
 import { DEFAULT_CONTEXT_ID, compareIds } from "../m0/boundary.js";
 import type { DocumentSection } from "./sections.js";
 

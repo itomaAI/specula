@@ -100,10 +100,10 @@ test("リポジトリにかけると終了コード 0 で、報告・全体マ�
       assert.ok(await isFile(join(out, name)), name);
     }
 
-    const [scenario] = report.scenarios;
-    assert.equal(scenario.kind, "COMPLETED");
-    assert.equal(scenario.unverifiedReason, "NO_SOLVER");
-    const dir = join(out, "scenarios", safeName(scenario.scenarioId));
+    const [commandTarget] = report.commands;
+    assert.equal(commandTarget.kind, "COMPLETED");
+    assert.equal(commandTarget.unverifiedReason, "NO_SOLVER");
+    const dir = join(out, "commands", safeName(commandTarget.commandId));
     for (const name of ["spec.json", "spec.als", "solver_report.json", "ledger.json", "spec.md", "matrix.md", "flow.mmd"]) {
       assert.ok(await isFile(join(dir, name)), name);
     }
@@ -111,9 +111,9 @@ test("リポジトリにかけると終了コード 0 で、報告・全体マ�
 
     // 対応表で、報告の表示の id から内部の識別子を引ける（全体設計 4.1）。
     const map = JSON.parse(await readFile(join(out, "implementation_map.json"), "utf8"));
-    const entry = map.entries.find((item: { kind: string }) => item.kind === "SCENARIO");
-    assert.equal(entry.displayId, scenario.displayId);
-    assert.equal(entry.internalId, scenario.scenarioId);
+    const entry = map.entries.find((item: { kind: string }) => item.kind === "COMMAND_TARGET");
+    assert.equal(entry.displayId, commandTarget.displayId);
+    assert.equal(entry.internalId, commandTarget.commandId);
     const glossary = JSON.parse(await readFile(join(out, "glossary.json"), "utf8"));
     assert.deepEqual(map.basis, { mapHash: glossary.basis.mapHash, documentsHash: glossary.basis.documentsHash });
 
@@ -151,9 +151,9 @@ test("--view-role が無ければ BUSINESS で付録を載せず、IMPLEMENTATIO
     assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "IMPLEMENTATION"], capture().io), 0);
 
     const report = JSON.parse(await readFile(join(root, "pdm", "run_report.json"), "utf8"));
-    const name = safeName(report.scenarios[0].scenarioId);
-    const pdm = await readFile(join(root, "pdm", "scenarios", name, "spec.md"), "utf8");
-    const eng = await readFile(join(root, "eng", "scenarios", name, "spec.md"), "utf8");
+    const name = safeName(report.commands[0].commandId);
+    const pdm = await readFile(join(root, "pdm", "commands", name, "spec.md"), "utf8");
+    const eng = await readFile(join(root, "eng", "commands", name, "spec.md"), "utf8");
     assert.ok(!pdm.includes("## 付録: 形式仕様のソース"));
     assert.ok(eng.includes("## 付録: 形式仕様のソース"));
 
@@ -171,16 +171,16 @@ test("曖昧さで止まったシナリオは ambiguity.json と曖昧さの一�
       assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "IMPLEMENTATION"], capture().io), 0);
 
       const report = JSON.parse(await readFile(join(root, "pdm", "run_report.json"), "utf8"));
-      const [scenario] = report.scenarios;
-      assert.equal(scenario.kind, "AMBIGUOUS", JSON.stringify(report.scenarios));
-      const dir = (out: string): string => join(root, out, "scenarios", safeName(scenario.scenarioId));
+      const [commandTarget] = report.commands;
+      assert.equal(commandTarget.kind, "AMBIGUOUS", JSON.stringify(report.commands));
+      const dir = (out: string): string => join(root, out, "commands", safeName(commandTarget.commandId));
       assert.ok(await isFile(join(dir("pdm"), "ambiguity.json")));
       const pdm = await readFile(join(dir("pdm"), "ambiguity.md"), "utf8");
       const eng = await readFile(join(dir("eng"), "ambiguity.md"), "utf8");
       // BUSINESS は「エンジニアの確認待ち: N 件」だけ、IMPLEMENTATION は曖昧さごとに表示の id と所在を書く（SpecProjector の設計 8.9）
       assert.ok(pdm.includes("エンジニアの確認待ち: "));
-      assert.ok(!pdm.includes(`${scenario.displayId}-A-001`));
-      assert.ok(eng.includes(`${scenario.displayId}-A-001`));
+      assert.ok(!pdm.includes(`${commandTarget.displayId}-A-001`));
+      assert.ok(eng.includes(`${commandTarget.displayId}-A-001`));
       assert.ok(!pdm.includes("src/g.ts"));
       assert.ok(eng.includes("src/g.ts"));
     },

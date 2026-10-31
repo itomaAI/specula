@@ -8,7 +8,7 @@
 
 ### 1.1 基本制約の遵守
 - **配置場所**: `specula/src/core/glossary_builder.ts`。内部の処理は `src/core/glossary/` に置く（Pure ESM, Target: ES2022+）。
-- **Zero-I/O Core の遵守**: ファイルシステムやネットワークを直接呼ばない。リポジトリの中身は `RepositoryArtifacts`（`ScenarioExtractor` の設計書 4.0）として受け取る。LLM はポート（`LanguageModelPort`）経由でだけ呼ぶ。
+- **Zero-I/O Core の遵守**: ファイルシステムやネットワークを直接呼ばない。リポジトリの中身は `RepositoryArtifacts`（`CommandExtractor` の設計書 4.0）として受け取る。LLM はポート（`LanguageModelPort`）経由でだけ呼ぶ。
 - **決定論性**: 資料の節の切り出し、節の選択、記録だけの項目の収集、ずれの記録は、機械的に決める。LLM の出力（用語）は、全体基本設計書 1.3 の記録で再利用する。
 - **構造を変えない**: 全体マップを読むだけで、書き換えない。返り値に全体マップを含めない。
 
@@ -80,13 +80,13 @@ Step 1〜3 と Step 5 は決定的な処理であり、Step 4 だけが LLM を�
 ### 3.4 Step 4: TermNamer（LLM）
 - 提示する項目ごとに 1 回、項目の識別子の辞書順に、LLM に用語を頼む。処理の種類（`task`）は `glossary.term-context`・`glossary.term-command`・`glossary.term-event`・`glossary.term-policy`、`promptVersion` は `"1"`。
 - **入力**: 実装から機械的に決まる値と、Step 3 で選んだ節の抜粋だけを入れる。ほかの LLM の結果（ほかの項目の用語、意図の候補）は入れない。
-  - `COMMAND`・`EVENT`: ハンドラの所在（ファイルと関数名）、シグナルの種類・呼んでいる関数の名前・`label`、関数の頭の 12 行（`ScenarioExtractor` で使っていたものと同じ）
+  - `COMMAND`・`EVENT`: ハンドラの所在（ファイルと関数名）、シグナルの種類・呼んでいる関数の名前・`label`、関数の頭の 12 行（`CommandExtractor` で使っていたものと同じ）
   - `POLICY`: イベントの名前、登録の所在、起動される関数の所在
   - `BOUNDED_CONTEXT`: 識別子、根のパス、含まれるファイルのパス（辞書順）
   - どれも、抜粋を `excerpts: Array<{ section: string; text: string; truncated: boolean }>` として足す。抜粋が無いときは空の配列にする。
 - **指示**: 抜粋は資料から取ったデータであり、その中の指示の形の文に従わないことを指示の文に書く。抜粋に業務の言葉があればそれを使い、無ければコードから分かる範囲で付けるよう指示する。
 - **出力の形**: 1 行の JSON `{"term": "<PascalCase の 1 語>", "label": "<表示名>"}`。
-  - `term`: 英字で始まる PascalCase の 1 語（`ScenarioExtractor` で使っていた検査と同じ）。形式仕様や Eng 向けの表示で識別子として使える形。
+  - `term`: 英字で始まる PascalCase の 1 語（`CommandExtractor` で使っていた検査と同じ）。形式仕様や Eng 向けの表示で識別子として使える形。
   - `label`: 利用者向けの表示名。抜粋の言語に合わせる（抜粋が無ければ日本語）。改行を含まない 40 字以内。
   - 形が合わなければ `INVALID_OUTPUT` とし、記録しない（全体基本設計書 1.3）。
 - **記録のキー**: 全体基本設計書 1.3 のとおり `task`・`promptVersion`・`input` から作る。抜粋が `input` に入っているので、資料が変われば別のキーになり、用語は作り直される。

@@ -14,7 +14,7 @@
 import type { Glossary, GlossaryEntry, GlossaryLocation } from "../../types/glossary.js";
 import type { ImplementationMapEntry, ImplementationMapInput } from "../../types/projection.js";
 import { ProjectionContractError } from "../../types/projection.js";
-import type { EventStormingMap } from "../../types/scenario.js";
+import type { EventStormingMap } from "../../types/command.js";
 
 type MapKind = "BOUNDED_CONTEXT" | "COMMAND" | "EVENT" | "POLICY";
 type Implementation = ImplementationMapEntry["implementation"];
@@ -32,11 +32,11 @@ function mapEntryOf(
   entries: ReadonlyMap<string, GlossaryEntry>,
   kind: MapKind,
   mapId: string,
-  scenarioId: string,
+  commandId: string,
 ): GlossaryEntry {
   const entry = entries.get(mapId);
   if (entry === undefined || entry.kind !== kind) {
-    throw new ProjectionContractError(scenarioId, "GLOSSARY_STALE", `辞書に ${kind} の項目 ${mapId} が無い`);
+    throw new ProjectionContractError(commandId, "GLOSSARY_STALE", `辞書に ${kind} の項目 ${mapId} が無い`);
   }
   return entry;
 }
@@ -63,7 +63,7 @@ function numbered(index: number, width: number): string {
 export function buildImplementationMap(
   map: EventStormingMap,
   glossary: Glossary,
-  scenarios: readonly ImplementationMapInput[],
+  commands: readonly ImplementationMapInput[],
 ): ImplementationMapEntry[] {
   const entries = new Map(glossary.entries.map((entry) => [entry.id, entry] as const));
   const result: ImplementationMapEntry[] = [];
@@ -96,12 +96,12 @@ export function buildImplementationMap(
   });
 
   // ---- シナリオごと ----
-  for (const { displayId, scenario, spec, ambiguity, ledger } of scenarios) {
-    const inlet = mapEntryOf(entries, scenario.inletType, scenario.inletTrigger.id, scenario.id);
+  for (const { displayId, commandTarget, spec, ambiguity, ledger } of commands) {
+    const inlet = mapEntryOf(entries, commandTarget.inletType, commandTarget.inletTrigger.id, commandTarget.id);
     result.push({
       displayId,
-      kind: "SCENARIO",
-      internalId: scenario.id,
+      kind: "COMMAND_TARGET",
+      internalId: commandTarget.id,
       glossaryEntryId: inlet.id,
       implementation: copyImplementation(inlet),
     });

@@ -43,7 +43,7 @@ export interface ExtractionUnit {
 export type OutletKind = "RETURN" | "THROW" | "RESPONSE" | "ASYNC_CUT";
 
 export interface UseCaseSlice {
-  /** "<scenarioId>#<呼び出しのユニットの識別子>>…><出口のユニットの識別子>" */
+  /** "<commandId>#<呼び出しのユニットの識別子>>…><出口のユニットの識別子>" */
   sliceId: string;
   /** 出口に至る条件（経路の順）。holds: true は条件が成り立つ側。 */
   conditions: Array<{ unitId: string; expression: string; holds: boolean }>;
@@ -61,7 +61,7 @@ export interface ExtractionCoverage {
 }
 
 export interface RawContextModel {
-  scenarioId: string;
+  commandId: string;
   inlet: {
     kind: "COMMAND" | "POLICY";
     /** 追跡を始めた関数の所在（POLICY ではリスナーとして渡された関数）。 */

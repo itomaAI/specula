@@ -89,7 +89,7 @@ export interface IntentView {
 }
 
 export interface ViewModel {
-  // シナリオの内部の識別子（SCN-<ファイル>#<関数>）は持たない。起点のファイルと関数を含むので、
+  // シナリオの内部の識別子（CT-<ファイル>#<関数>）は持たない。起点のファイルと関数を含むので、
   // どのビューにも出さないため（M5 の設計 4.1・7.4・8.6）。
   /** 表示の id（"C-01"）。 */
   displayId: string;
@@ -210,7 +210,7 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
 
 /**
  * 論点の表示の id（"C-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
- * 論点の識別子 "LEDGER-<scenarioId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
+ * 論点の識別子 "LEDGER-<commandId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
  * ビューには出さない。内部の識別子との対応は実装との対応表（設計 8.5）に持つ。
  * 画面（SpecViewer）も同じ番号を振る（SpecViewer 基本設計 6.5）。
  */
@@ -242,9 +242,9 @@ export function titleOf(
   context: ProjectionContext,
   request: Pick<ProjectionRequest, "displayId" | "viewRole">,
 ): { title: string; titleNote: string } {
-  const inlet = context.scenario.inletTrigger.id;
+  const inlet = context.commandTarget.inletTrigger.id;
   const entry = context.glossary?.entries.find((candidate) => candidate.id === inlet);
-  const matched = entry !== undefined && entry.kind === context.scenario.inletType ? entry : undefined;
+  const matched = entry !== undefined && entry.kind === context.commandTarget.inletType ? entry : undefined;
   const term = matched?.term;
   // 用語に確定の状態の印を足す（設計 8.9）。候補と未生成には付かない。
   const title =
@@ -258,7 +258,7 @@ export function titleOf(
 
 /** このシナリオの意図の候補（設計 4.1 の 3）。一覧が無いか、このシナリオの候補が無ければ null。 */
 function intentOf(context: ProjectionContext): IntentView | null {
-  const item = context.intents?.scenarios.find((candidate) => candidate.scenarioId === context.scenario.id);
+  const item = context.intents?.commands.find((candidate) => candidate.commandId === context.commandTarget.id);
   if (item === undefined) return null;
   return { text: `${llmText(item.intent)}${statusMark(item.intentStatus)}`, userIntent: item.userIntent ?? null };
 }

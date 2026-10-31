@@ -12,7 +12,7 @@ import type { AmbiguityReport, FormalSpecification } from "../src/types/formal.j
 import type { Glossary, GlossaryEntry, GlossaryLocation, PresentedEntryKind } from "../src/types/glossary.js";
 import type { DomainLedgerCatalog, LedgerIssue } from "../src/types/ledger.js";
 import { ProjectionContractError, type ImplementationMapInput } from "../src/types/projection.js";
-import type { EventStormingMap, ScenarioTarget } from "../src/types/scenario.js";
+import type { EventStormingMap, CommandTarget } from "../src/types/command.js";
 
 const LOC = { file: "src/order.ts", symbol: "f", line: 1 };
 const MAP: EventStormingMap = {
@@ -82,10 +82,10 @@ async function glossaryOf(map: EventStormingMap): Promise<Glossary> {
 
 const NOT_GENERATED: LlmText = { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "test" };
 
-const ORDER_ID = "SCN-src/order.ts#closeOrder";
-const NOTIFY_ID = "SCN-src/order.ts#onClose";
+const ORDER_ID = "CT-src/order.ts#closeOrder";
+const NOTIFY_ID = "CT-src/order.ts#onClose";
 
-const ORDER: ScenarioTarget = {
+const ORDER: CommandTarget = {
   id: ORDER_ID,
   boundedContext: "src_order",
   origin: "EXTRACTED",
@@ -95,7 +95,7 @@ const ORDER: ScenarioTarget = {
   expectedEvent: "src/order.ts#close",
 };
 
-const NOTIFY: ScenarioTarget = {
+const NOTIFY: CommandTarget = {
   ...ORDER,
   id: NOTIFY_ID,
   inletType: "POLICY",
@@ -103,7 +103,7 @@ const NOTIFY: ScenarioTarget = {
 };
 
 const SPEC: FormalSpecification = {
-  scenarioId: ORDER_ID,
+  commandId: ORDER_ID,
   source: "module specula_m2\n",
   stateVariables: [
     { id: "v1", unitId: "src/order.ts:3:7:STATE", name: "status", domain: "ENUM", values: ["v1_1"], valueLiterals: { v1_1: '"open"' }, initial: "v1_1" },
@@ -147,9 +147,9 @@ function issue(id: string, operations: string[]): LedgerIssue {
   };
 }
 
-function ledgerOf(issues: LedgerIssue[], scenarioId = ORDER_ID): DomainLedgerCatalog {
+function ledgerOf(issues: LedgerIssue[], commandId = ORDER_ID): DomainLedgerCatalog {
   return {
-    scenarioId,
+    commandId,
     basis: {
       reportId: "REPORT-1",
       specSourceHash: "0".repeat(64),
@@ -181,7 +181,7 @@ function ledgerOf(issues: LedgerIssue[], scenarioId = ORDER_ID): DomainLedgerCat
 const LEDGER = ledgerOf([issue(`LEDGER-${ORDER_ID}-001`, ["op1", "op2"]), issue(`LEDGER-${ORDER_ID}-002`, ["op1"])]);
 
 const AMBIGUITY: AmbiguityReport = {
-  scenarioId: NOTIFY_ID,
+  commandId: NOTIFY_ID,
   issues: [
     {
       kind: "UNDETERMINED_VALUE",
@@ -197,8 +197,8 @@ const AMBIGUITY: AmbiguityReport = {
 
 function inputs(): ImplementationMapInput[] {
   return [
-    { displayId: "C-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: LEDGER },
-    { displayId: "C-02", scenario: NOTIFY, spec: null, ambiguity: AMBIGUITY, ledger: null },
+    { displayId: "C-01", commandTarget: ORDER, spec: SPEC, ambiguity: null, ledger: LEDGER },
+    { displayId: "C-02", commandTarget: NOTIFY, spec: null, ambiguity: AMBIGUITY, ledger: null },
   ];
 }
 
@@ -223,13 +223,13 @@ test("対応表: 地図の要素 → シナリオごとにシナリオ・曖昧�
       ["n2", "EVENT", "src/order.ts#notify"],
       ["n3", "COMMAND", "src/order.ts#closeOrder"],
       ["n4", "POLICY", "src/order.ts#onClose"],
-      ["C-01", "SCENARIO", ORDER_ID],
+      ["C-01", "COMMAND_TARGET", ORDER_ID],
       ["C-01-V-01", "STATE_VARIABLE", "v1"],
       ["C-01-V-02", "STATE_VARIABLE", "v2"],
       ["C-01-V-03", "STATE_VARIABLE", "v3"],
       ["C-01-L-001", "LEDGER_ISSUE", `LEDGER-${ORDER_ID}-001`],
       ["C-01-L-002", "LEDGER_ISSUE", `LEDGER-${ORDER_ID}-002`],
-      ["C-02", "SCENARIO", NOTIFY_ID],
+      ["C-02", "COMMAND_TARGET", NOTIFY_ID],
       ["C-02-A-001", "AMBIGUITY", "src/order.ts:22:5:STATE_WRITE"],
     ],
   );
@@ -291,7 +291,7 @@ test("対応表: 状態変数の表示の id は 2 桁を最小にし、100 件�
     sourceMap: {},
   };
   const table = await projectImplementationMap(MAP, await glossaryOf(MAP), [
-    { displayId: "C-01", scenario: ORDER, spec: many, ambiguity: null, ledger: null },
+    { displayId: "C-01", commandTarget: ORDER, spec: many, ambiguity: null, ledger: null },
   ]);
   const ids = table.entries.filter((entry) => entry.kind === "STATE_VARIABLE").map((entry) => entry.displayId);
   assert.equal(ids[0], "C-01-V-001");
@@ -306,22 +306,22 @@ test("対応表の契約: 辞書の古さ、シナリオの食い違い、論点
   );
   assert.equal(
     await reasonOf(
-      projectImplementationMap(MAP, glossary, [{ displayId: "C-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([], NOTIFY_ID) }]),
+      projectImplementationMap(MAP, glossary, [{ displayId: "C-01", commandTarget: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([], NOTIFY_ID) }]),
     ),
-    "SCENARIO_MISMATCH",
+    "COMMAND_MISMATCH",
   );
   assert.equal(
-    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "C-01", scenario: NOTIFY, spec: SPEC, ambiguity: null, ledger: null }])),
-    "SCENARIO_MISMATCH",
+    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "C-01", commandTarget: NOTIFY, spec: SPEC, ambiguity: null, ledger: null }])),
+    "COMMAND_MISMATCH",
   );
   assert.equal(
-    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "C-01", scenario: ORDER, spec: null, ambiguity: null, ledger: LEDGER }])),
-    "SCENARIO_MISMATCH",
+    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "C-01", commandTarget: ORDER, spec: null, ambiguity: null, ledger: LEDGER }])),
+    "COMMAND_MISMATCH",
   );
   assert.equal(
     await reasonOf(
       projectImplementationMap(MAP, glossary, [
-        { displayId: "C-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([issue(`LEDGER-${ORDER_ID}-001`, ["op9"])]) },
+        { displayId: "C-01", commandTarget: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([issue(`LEDGER-${ORDER_ID}-001`, ["op9"])]) },
       ]),
     ),
     "UNKNOWN_OPERATION",
@@ -330,7 +330,7 @@ test("対応表の契約: 辞書の古さ、シナリオの食い違い、論点
   assert.equal(
     await reasonOf(
       projectImplementationMap(MAP, glossary, [
-        { displayId: "C-01", scenario: { ...ORDER, inletTrigger: { ...ORDER.inletTrigger, id: "src/order.ts#missing" } }, spec: null, ambiguity: null, ledger: null },
+        { displayId: "C-01", commandTarget: { ...ORDER, inletTrigger: { ...ORDER.inletTrigger, id: "src/order.ts#missing" } }, spec: null, ambiguity: null, ledger: null },
       ]),
     ),
     "GLOSSARY_STALE",

@@ -12,7 +12,7 @@
 //   シグナルにする（PUBLIC_FUNCTION）。公開されている関数は、入口から export される関数の宣言と、関数を値に持つ const。
 // - 最上位の名前付き関数の外（モジュールの最上位、クラスのメソッド）にあるシグナルは数えず、unattributed に残す。
 
-import type { SourceLocation } from "../../types/scenario.js";
+import type { SourceLocation } from "../../types/command.js";
 import {
   type AstNode,
   type ParsedFile,

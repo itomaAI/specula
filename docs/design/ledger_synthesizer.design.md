@@ -21,7 +21,7 @@ synthesizeLedger(
 ): Promise<DomainLedgerCatalog>;
 ```
 - 報告 1 つ（シナリオ 1 つ）から、カタログを 1 つ作る。
-- 入力の契約が破れているとき（`report.scenarioId` と `spec.scenarioId` が違う、`report.specSourceHash` が `spec.source` の SHA-256 と違う、`findings` が `spec` に無い操作の識別子を指す）は、例外 `LedgerContractError` にする。
+- 入力の契約が破れているとき（`report.commandId` と `spec.commandId` が違う、`report.specSourceHash` が `spec.source` の SHA-256 と違う、`findings` が `spec` に無い操作の識別子を指す）は、例外 `LedgerContractError` にする。
 
 ### 1.3 構成
 ```
@@ -79,7 +79,7 @@ synthesizeLedger(
 
 ### 3.2 並び
 - 論点は、本体の反例の `findings` の中の順（FormalSolver の設計 4.2）に並べる。
-- 論点の識別子は `LEDGER-<scenarioId>-<3 桁の連番>` とする。同じ報告からは同じ識別子になる。
+- 論点の識別子は `LEDGER-<commandId>-<3 桁の連番>` とする。同じ報告からは同じ識別子になる。
 
 ### 3.3 グルーピング
 - カタログはシナリオに 1 つなので、シナリオでのグルーピングはカタログの単位で済む。カタログの中では、本体の反例の種類で見出しを分ける（SpecProjector が表示する）。
@@ -125,7 +125,7 @@ synthesizeLedger(
 
 ```typescript
 interface DomainLedgerCatalog {
-  scenarioId: string;
+  commandId: string;
   basis: {                                    // 要約の範囲
     reportId: string;                         // 元にした SolverReport
     specSourceHash: string;                   // 元にした形式仕様正本の版
@@ -146,7 +146,7 @@ interface DomainLedgerCatalog {
 }
 
 interface LedgerIssue {
-  id: string;                                 // "LEDGER-<scenarioId>-001"
+  id: string;                                 // "LEDGER-<commandId>-001"
   kind: Finding["kind"];                      // 本体の反例の種類
   rootFinding: number;                        // 本体の反例の findings の中の位置
   dependentFindings: number[];                // 従属する反例の位置
@@ -172,7 +172,7 @@ interface LedgerIssue {
 設計の 1〜6 節に書かれていなかったことを、初回の実装（`src/core/ledger_synthesizer.ts` と `src/core/m4/`）で次のように決めた。
 
 ### 7.1 入力の契約（1.2 の補足）
-- `LedgerContractError` の理由は `SCENARIO_MISMATCH`・`SPEC_HASH_MISMATCH`・`UNKNOWN_OPERATION`・`UNKNOWN_STATE_VARIABLE` の 4 つとする。
+- `LedgerContractError` の理由は `COMMAND_MISMATCH`・`SPEC_HASH_MISMATCH`・`UNKNOWN_OPERATION`・`UNKNOWN_STATE_VARIABLE` の 4 つとする。
 - 実行列の値が形式仕様に無い状態変数を指すときも契約違反にする。SpecProjector が表示名を引けなくなるためである。
 
 ### 7.2 検証の状態の持ち方（2 節の補足）

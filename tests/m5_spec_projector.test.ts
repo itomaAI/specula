@@ -16,10 +16,10 @@ import {
   ProjectionContractError,
   type ProjectionContext,
   type ProjectionRequest,
-  type ScenarioViewFormat,
+  type CommandViewFormat,
   type ViewRole,
 } from "../src/types/projection.js";
-import type { ScenarioTarget } from "../src/types/scenario.js";
+import type { CommandTarget } from "../src/types/command.js";
 
 
 function generated(text: string): LlmText {
@@ -38,12 +38,12 @@ const SOURCE = [
   "",
 ].join("\n");
 
-// シナリオの内部の識別子は、実際には起点のファイルと関数を含む（"SCN-<ファイル>#<関数>"）。
+// シナリオの内部の識別子は、実際には起点のファイルと関数を含む（"CT-<ファイル>#<関数>"）。
 // ビューに出ないことを確かめるため、テストでもその形にする。
-const SCENARIO_ID = "SCN-src/order.ts#closeOrder";
+const COMMAND_ID = "CT-src/order.ts#closeOrder";
 
 const SPEC: FormalSpecification = {
-  scenarioId: SCENARIO_ID,
+  commandId: COMMAND_ID,
   source: SOURCE,
   stateVariables: [
     { id: "v1", unitId: "src/order.ts:3:7:STATE", name: "status", domain: "ENUM", values: ["v1_1", "v1_2", "v1_unknown"], valueLiterals: { v1_1: '"open"', v1_2: '"closed"' }, initial: "v1_1" },
@@ -106,8 +106,8 @@ const SPEC: FormalSpecification = {
 
 const INLET_ID = "CMD-src/order.ts#closeOrder";
 
-const SCENARIO: ScenarioTarget = {
-  id: SCENARIO_ID,
+const COMMAND_TARGET: CommandTarget = {
+  id: COMMAND_ID,
   boundedContext: "DEFAULT_CONTEXT",
   origin: "EXTRACTED",
   inletType: "COMMAND",
@@ -145,9 +145,9 @@ const GLOSSARY = glossaryWith({ status: "GENERATED", term: "CloseOrder", label: 
 function intentsWith(intent: LlmText, userIntent?: string): IntentCatalog {
   return {
     contexts: [],
-    scenarios: [
+    commands: [
       {
-        scenarioId: SCENARIO_ID,
+        commandId: COMMAND_ID,
         intent,
         intentStatus: intent.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED",
         ...(userIntent === undefined ? {} : { userIntent }),
@@ -158,14 +158,14 @@ function intentsWith(intent: LlmText, userIntent?: string): IntentCatalog {
 }
 
 const CONTEXT: ProjectionContext = {
-  scenario: SCENARIO,
+  commandTarget: COMMAND_TARGET,
   glossary: GLOSSARY,
   intents: intentsWith(generated("受付中の注文を締め切り、それ以上の変更を止める")),
 };
 
 function issue(overrides: Partial<LedgerIssue> = {}): LedgerIssue {
   return {
-    id: `LEDGER-${SCENARIO_ID}-001`,
+    id: `LEDGER-${COMMAND_ID}-001`,
     kind: "UNHANDLED_TRANSITION",
     rootFinding: 0,
     dependentFindings: [1],
@@ -191,7 +191,7 @@ function issue(overrides: Partial<LedgerIssue> = {}): LedgerIssue {
 
 async function catalog(overrides: Partial<DomainLedgerCatalog> = {}, issues: LedgerIssue[] = [issue()]): Promise<DomainLedgerCatalog> {
   return {
-    scenarioId: SCENARIO_ID,
+    commandId: COMMAND_ID,
     basis: {
       reportId: "REPORT-1",
       specSourceHash: await sha256Hex(SOURCE),
@@ -221,7 +221,7 @@ async function catalog(overrides: Partial<DomainLedgerCatalog> = {}, issues: Led
   };
 }
 
-function request(format: ScenarioViewFormat, viewRole: ViewRole = "BUSINESS"): ProjectionRequest {
+function request(format: CommandViewFormat, viewRole: ViewRole = "BUSINESS"): ProjectionRequest {
   return { format, viewRole, displayId: "C-01" };
 }
 
@@ -229,7 +229,7 @@ const DOCUMENT = request("DOCUMENT");
 const IDENTIFIER = /\b(?:v\d+(?:_\d+|_unknown)?|c\d+|op\d+(?:_guard)?|o\d+|m3_\w+)\b/;
 const FORBIDDEN = ["健全", "証明済み", "問題なし", "採択済み", "合意済み"];
 /** BUSINESS の出力に出てはいけない実装の名前と内部の識別子。 */
-const IMPLEMENTATION = ["SCN-", "LEDGER-", "src/order.ts", "closeOrder", "@source"];
+const IMPLEMENTATION = ["CT-", "LEDGER-", "src/order.ts", "closeOrder", "@source"];
 
 function bodyOf(markdown: string): string {
   const index = markdown.indexOf("## 付録");
@@ -243,7 +243,7 @@ test("M5: 仕様書は決定論的で、末尾は改行 1 つ", async () => {
   assert.equal(a.content, b.content);
   assert.ok(a.content.endsWith("\n") && !a.content.endsWith("\n\n"));
   assert.equal(a.mediaType, "text/markdown");
-  assert.equal(a.scenarioId, SCENARIO_ID);
+  assert.equal(a.commandId, COMMAND_ID);
   assert.equal(a.displayId, "C-01");
   assert.equal(a.viewRole, "BUSINESS");
   assert.equal(a.basis.specSourceHash, await sha256Hex(SOURCE));
@@ -307,7 +307,7 @@ test("M5: 意図の候補の節は検証の状態の後に置き、候補であ�
 
   const missing = await projectSpecification(SPEC, null, { ...CONTEXT, intents: null }, DOCUMENT);
   assert.ok(missing.content.includes("## 意図の候補\n\n意図の候補が無い。\n"));
-  const other = await projectSpecification(SPEC, null, { ...CONTEXT, intents: { ...intentsWith(NOT_GENERATED), scenarios: [] } }, DOCUMENT);
+  const other = await projectSpecification(SPEC, null, { ...CONTEXT, intents: { ...intentsWith(NOT_GENERATED), commands: [] } }, DOCUMENT);
   assert.ok(other.content.includes("意図の候補が無い。"));
 
   const notGenerated = await projectSpecification(SPEC, null, { ...CONTEXT, intents: intentsWith(NOT_GENERATED, "締め切りを強制できるようにする") }, DOCUMENT);
@@ -433,7 +433,7 @@ test("M5: 実行列は時点ごとに表示名で書く", async () => {
 });
 
 test("M5: 論点の表示の id はカタログの並びに C-01-L-001 から振る", async () => {
-  const second = issue({ id: `LEDGER-${SCENARIO_ID}-002`, kind: "DEADLOCK", operations: ["op1"] });
+  const second = issue({ id: `LEDGER-${COMMAND_ID}-002`, kind: "DEADLOCK", operations: ["op1"] });
   const view = await projectSpecification(SPEC, await catalog({}, [issue(), second]), CONTEXT, DOCUMENT);
   // 見出しは DEADLOCK が先でも、番号はカタログの並び
   assert.ok(view.content.indexOf("#### C-01-L-002") < view.content.indexOf("#### C-01-L-001"));
@@ -483,10 +483,10 @@ test("M5: 射影は入力を変えない", async () => {
 
 test("M5: 契約の違反", async () => {
   const reason = (expected: string) => (error: unknown) => error instanceof ProjectionContractError && error.reason === expected;
-  await assert.rejects(projectSpecification(SPEC, await catalog({ scenarioId: "SCN-2" }), CONTEXT, DOCUMENT), reason("SCENARIO_MISMATCH"));
+  await assert.rejects(projectSpecification(SPEC, await catalog({ commandId: "CT-2" }), CONTEXT, DOCUMENT), reason("COMMAND_MISMATCH"));
   await assert.rejects(
-    projectSpecification(SPEC, null, { ...CONTEXT, scenario: { ...SCENARIO, id: "SCN-2" } }, DOCUMENT),
-    reason("SCENARIO_MISMATCH"),
+    projectSpecification(SPEC, null, { ...CONTEXT, commandTarget: { ...COMMAND_TARGET, id: "CT-2" } }, DOCUMENT),
+    reason("COMMAND_MISMATCH"),
   );
   await assert.rejects(projectSpecification(SPEC, await catalog({}, [issue({ operations: ["op9"] })]), CONTEXT, DOCUMENT), reason("UNKNOWN_OPERATION"));
   const badTrace = issue({ trace: [{ index: 0, values: { v9: 1 }, outcome: "Idle", holds: [] }] });
@@ -546,7 +546,7 @@ test("M5: 確定と要再確認の印は、項目を定義する箇所と題・�
   const context: ProjectionContext = {
     ...CONTEXT,
     glossary: { ...GLOSSARY, entries: GLOSSARY.entries.map((entry) => ({ ...entry, termStatus: "CONFIRMED" as const })) },
-    intents: { ...intents, scenarios: intents.scenarios.map((item) => ({ ...item, intentStatus: "NEEDS_RECHECK" as const })) },
+    intents: { ...intents, commands: intents.commands.map((item) => ({ ...item, intentStatus: "NEEDS_RECHECK" as const })) },
   };
   const ledger = await catalog({}, [issue({ claimStatus: "CONFIRMED", questionStatus: "NEEDS_RECHECK" })]);
   const view = await projectSpecification(spec, ledger, context, DOCUMENT);

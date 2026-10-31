@@ -1,11 +1,11 @@
-// ScenarioExtractor のテスト（ScenarioExtractor の設計 2〜4、仕様の 2.2）。
-// 小さな偽のリポジトリを使う。ScenarioExtractor は LLM を使わない（2026-10-30 に外した）。
+// CommandExtractor のテスト（CommandExtractor の設計 2〜4、仕様の 2.2）。
+// 小さな偽のリポジトリを使う。CommandExtractor は LLM を使わない（2026-10-30 に外した）。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { discoverSystemContext, sliceScenarios, stripJsonc } from "../src/core/scenario_extractor.js";
-import type { RepositoryArtifacts } from "../src/types/scenario.js";
+import { discoverSystemContext, sliceCommands, stripJsonc } from "../src/core/command_extractor.js";
+import type { RepositoryArtifacts } from "../src/types/command.js";
 
 function repo(files: Record<string, string>, screenshots?: string[]): RepositoryArtifacts {
   return {
@@ -78,18 +78,18 @@ test("ライブラリ: 入口から公開されている関数 7 本が、それ
   assert.deepEqual(map.readModels, []);
   assert.deepEqual(map.policies, []);
 
-  const result = sliceScenarios(map);
-  assert.equal(result.scenarios.length, 7);
+  const result = sliceCommands(map);
+  assert.equal(result.commands.length, 7);
   assert.deepEqual(result.rejected, []);
-  const handlers = new Set(result.scenarios.map((s) => `${s.inletTrigger.handler.file}#${s.inletTrigger.handler.symbol}`));
+  const handlers = new Set(result.commands.map((s) => `${s.inletTrigger.handler.file}#${s.inletTrigger.handler.symbol}`));
   assert.equal(handlers.size, 7, "起点の所在がシナリオごとに違う");
-  const expected = new Set(result.scenarios.map((s) => s.expectedEvent));
+  const expected = new Set(result.commands.map((s) => s.expectedEvent));
   assert.equal(expected.size, 7, "期待イベントがシナリオごとに違う");
-  for (const scenario of result.scenarios) {
-    assert.deepEqual(scenario.actor, { id: "ACT-Caller", name: "Caller" });
-    assert.equal(scenario.readModel, undefined, "画面が無いシステムでは画面を付けない");
-    assert.equal(scenario.origin, "EXTRACTED");
-    assert.equal(scenario.inletType, "COMMAND");
+  for (const commandTarget of result.commands) {
+    assert.deepEqual(commandTarget.actor, { id: "ACT-Caller", name: "Caller" });
+    assert.equal(commandTarget.readModel, undefined, "画面が無いシステムでは画面を付けない");
+    assert.equal(commandTarget.origin, "EXTRACTED");
+    assert.equal(commandTarget.inletType, "COMMAND");
   }
 });
 
@@ -106,10 +106,10 @@ test("全体マップとシナリオは LLM の欄（name・intent・intentStatu
     assert.deepEqual(Object.keys(context).sort(), ["id", "isDefaultFallback", "name", "rootPaths"]);
   }
   for (const item of [...map.events, ...map.commands, ...map.policies]) assert.equal("name" in item, false);
-  for (const scenario of sliceScenarios(map).scenarios) {
-    assert.equal("intent" in scenario, false);
-    assert.equal("intentStatus" in scenario, false);
-    assert.deepEqual(Object.keys(scenario.inletTrigger).sort(), ["handler", "id"]);
+  for (const commandTarget of sliceCommands(map).commands) {
+    assert.equal("intent" in commandTarget, false);
+    assert.equal("intentStatus" in commandTarget, false);
+    assert.deepEqual(Object.keys(commandTarget.inletTrigger).sort(), ["handler", "id"]);
   }
 });
 
@@ -120,10 +120,10 @@ test("並びは辞書順で、2 回実行して同じ結果になる", () => {
   const sorted = (ids: string[]): string[] => [...ids].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   assert.deepEqual(first.commands.map((c) => c.id), sorted(first.commands.map((c) => c.id)));
   assert.deepEqual(first.events.map((e) => e.id), sorted(first.events.map((e) => e.id)));
-  const a = sliceScenarios(first);
-  const b = sliceScenarios(second);
+  const a = sliceCommands(first);
+  const b = sliceCommands(second);
   assert.deepEqual(a, b);
-  assert.deepEqual(a.scenarios.map((s) => s.id), sorted(a.scenarios.map((s) => s.id)));
+  assert.deepEqual(a.commands.map((s) => s.id), sorted(a.commands.map((s) => s.id)));
 });
 
 // ---------------------------------------------------------------------------
@@ -171,8 +171,8 @@ test("Next.js と Firestore: DB の書き込みがコマンドになり、使っ
   ]);
   assert.deepEqual(map.actors.map((a) => a.id), ["ACT-Caller", "ACT-admin"]);
 
-  const result = sliceScenarios(map);
-  const save = result.scenarios.find((s) => s.id === "SCN-CMD-lib/profile.ts#saveProfile");
+  const result = sliceCommands(map);
+  const save = result.commands.find((s) => s.id === "CT-CMD-lib/profile.ts#saveProfile");
   assert.ok(save !== undefined);
   assert.deepEqual(save.readModel, {
     name: "/profile",
@@ -180,7 +180,7 @@ test("Next.js と Firestore: DB の書き込みがコマンドになり、使っ
     entryFile: "app/profile/page.tsx",
     screenshotPath: "shots/profile.png",
   });
-  const remove = result.scenarios.find((s) => s.id === "SCN-CMD-lib/profile.ts#removeUser");
+  const remove = result.commands.find((s) => s.id === "CT-CMD-lib/profile.ts#removeUser");
   assert.ok(remove !== undefined);
   assert.deepEqual(remove.actor, { id: "ACT-admin", name: "admin" });
   assert.equal(remove.readModel, undefined, "画面がハンドラを使っていなければ画面を付けない");
@@ -188,20 +188,20 @@ test("Next.js と Firestore: DB の書き込みがコマンドになり、使っ
 
 test("利用者定義: 画面のルートが全体マップにあれば付け、無ければ rejected に理由を付ける", () => {
   const map = discoverSystemContext(WEB_APP);
-  const result = sliceScenarios(map, {
+  const result = sliceCommands(map, {
     userDefined: [
       { inlet: "CMD-lib/profile.ts#removeUser", route: "/admin", intent: "管理者がユーザーを消す" },
       { inlet: "lib/profile.ts#saveProfile", route: "/nowhere" },
     ],
   });
-  const remove = result.scenarios.find((s) => s.id === "SCN-CMD-lib/profile.ts#removeUser");
+  const remove = result.commands.find((s) => s.id === "CT-CMD-lib/profile.ts#removeUser");
   assert.ok(remove !== undefined);
   assert.equal(remove.origin, "USER_DEFINED");
   assert.equal(remove.userIntent, "管理者がユーザーを消す");
   assert.equal(remove.readModel?.route, "/admin");
   assert.deepEqual(result.rejected.map((r) => r.inlet), ["lib/profile.ts#saveProfile"]);
   // rejected になった起点は抽出側から出る
-  const save = result.scenarios.find((s) => s.id === "SCN-CMD-lib/profile.ts#saveProfile");
+  const save = result.commands.find((s) => s.id === "CT-CMD-lib/profile.ts#saveProfile");
   assert.equal(save?.origin, "EXTRACTED");
 });
 
@@ -225,28 +225,28 @@ test("リスナー: 発行の名前と一致するリスナーがポリシーに
   const registered = map.events.find((e) => e.id === "EVT-src/users.ts#register");
   assert.deepEqual(registered?.signal, { kind: "EVENT_EMIT", callee: "emit", label: "user.registered", line: 3 });
 
-  const result = sliceScenarios(map);
-  assert.deepEqual(result.scenarios.map((s) => [s.id, s.inletType, s.expectedEvent]), [
-    ["SCN-CMD-src/mail.ts#sendWelcome", "COMMAND", "EVT-src/mail.ts#sendWelcome"],
-    ["SCN-CMD-src/users.ts#register", "COMMAND", "EVT-src/users.ts#register"],
-    ["SCN-POL-src/wire.ts#<module>@3", "POLICY", "EVT-src/mail.ts#sendWelcome"],
+  const result = sliceCommands(map);
+  assert.deepEqual(result.commands.map((s) => [s.id, s.inletType, s.expectedEvent]), [
+    ["CT-CMD-src/mail.ts#sendWelcome", "COMMAND", "EVT-src/mail.ts#sendWelcome"],
+    ["CT-CMD-src/users.ts#register", "COMMAND", "EVT-src/users.ts#register"],
+    ["CT-POL-src/wire.ts#<module>@3", "POLICY", "EVT-src/mail.ts#sendWelcome"],
   ]);
-  const policy = result.scenarios.find((s) => s.inletType === "POLICY");
+  const policy = result.commands.find((s) => s.inletType === "POLICY");
   assert.equal(policy?.inletTrigger.handler.file, "src/wire.ts", "ポリシーの起点はリスナーの登録の場所");
 });
 
 test("選択: filter は抽出したシナリオにだけ効き、利用者定義は同じ起点の抽出を置き換える", () => {
   const map = discoverSystemContext(LISTENER);
-  const result = sliceScenarios(map, {
+  const result = sliceCommands(map, {
     filter: { inlets: ["CMD-src/users.ts#register"] },
     userDefined: [
       { inlet: "src/mail.ts#sendWelcome", intent: "歓迎メールを送る" },
       { inlet: "src/nope.ts#missing" },
     ],
   });
-  assert.deepEqual(result.scenarios.map((s) => [s.id, s.origin]), [
-    ["SCN-CMD-src/mail.ts#sendWelcome", "USER_DEFINED"],
-    ["SCN-CMD-src/users.ts#register", "EXTRACTED"],
+  assert.deepEqual(result.commands.map((s) => [s.id, s.origin]), [
+    ["CT-CMD-src/mail.ts#sendWelcome", "USER_DEFINED"],
+    ["CT-CMD-src/users.ts#register", "EXTRACTED"],
   ]);
   assert.deepEqual(result.rejected, [{ inlet: "src/nope.ts#missing", reason: "起点が全体マップに無い" }]);
 });

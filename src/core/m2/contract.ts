@@ -19,7 +19,7 @@ export interface CheckedFacts {
 
 export function checkContract(facts: RawContextModel): CheckedFacts {
   const fail = (reason: TranspileContractError["reason"], detail: string): never => {
-    throw new TranspileContractError(facts.scenarioId, reason, detail);
+    throw new TranspileContractError(facts.commandId, reason, detail);
   };
   if (facts.slices.length === 0) fail("NO_SLICES", "スライスが 0 個");
 

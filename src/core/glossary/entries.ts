@@ -12,7 +12,7 @@
 // - GraphQL: type・input・interface の <名前> { から } までの各行の、: の前の語（引数の括弧は飛ばす）。
 // - コメントの行（--・//・#）と、どれにも当たらない行は読まない。
 
-import type { EventStormingMap, RepositoryDocument } from "../../types/scenario.js";
+import type { EventStormingMap, RepositoryDocument } from "../../types/command.js";
 import type { EntryKind, GlossaryEntry, GlossaryLocation } from "../../types/glossary.js";
 import { compareIds } from "../m0/boundary.js";
 

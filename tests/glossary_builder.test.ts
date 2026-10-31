@@ -1,5 +1,5 @@
 // GlossaryBuilder のテスト（GlossaryBuilder の設計 2〜4）。
-// 全体マップは ScenarioExtractor で小さな偽のリポジトリから作り、資料と偽の LLM を渡す。
+// 全体マップは CommandExtractor で小さな偽のリポジトリから作り、資料と偽の LLM を渡す。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -10,10 +10,10 @@ import { inlineNamesOf, recordGaps } from "../src/core/glossary/gaps.js";
 import { MEANING_CHARS, containsWord, meaningOf } from "../src/core/glossary/match.js";
 import type { GlossaryEntry } from "../src/types/glossary.js";
 import { splitSections } from "../src/core/glossary/sections.js";
-import { discoverSystemContext } from "../src/core/scenario_extractor.js";
+import { discoverSystemContext } from "../src/core/command_extractor.js";
 import type { LanguageModelPort, OutputCheck } from "../src/ports/LanguageModelPort.js";
 import type { JsonValue, LlmRequest, LlmText } from "../src/types/index.js";
-import type { EventStormingMap, RepositoryArtifacts, RepositoryDocument } from "../src/types/scenario.js";
+import type { EventStormingMap, RepositoryArtifacts, RepositoryDocument } from "../src/types/command.js";
 
 class FakeLlm implements LanguageModelPort {
   readonly calls: LlmRequest[] = [];

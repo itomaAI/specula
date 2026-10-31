@@ -15,7 +15,7 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 システム全体の知識と実行単位は、Loom の基本構造に完全に一致させる：
 - **プロジェクト相当 (Bounded Context / System Root)**:
   - 終わらない意図（Why）と文脈（Event Storming 全体マップ）を保持する大域的な器。
-- **タスク相当 (Individual Scenario)**:
+- **タスク相当 (Individual Command)**:
   - 単一の明確な完了条件を持つ、アトミックな1回の因果スライス（Command/Policy ➔ Expected Event）。
 
 ### 1.3 形式仕様言語の正本化 (Single Source of Truth)
@@ -39,7 +39,7 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 
 ## 3. システムデータフローと Loom ライフサイクル (Data Flow & Workflows)
 
-システムは独立したモジュール（ScenarioExtractor・GlossaryBuilder・IntentSynthesizer・ContextExtractor・FormalTranspiler・FormalSolver・LedgerSynthesizer・SpecProjector）で構成され、Loom の 3 つの基本操作によって統制される。パイプラインが出力先に書いたファイルは、画面モジュール（SpecViewer。`spec_viewer.spec.md`）が読んで閲覧の画面にする。SpecViewer はパイプラインの段ではなく、出力を読むだけで書き込まない。モジュールは番号を持たず、それぞれ独立した道具として呼び出せる。下の図の順は、パイプラインがモジュールを呼ぶ順である。初回の実行で行うのは「置く」と、検証・論点の整理・射影までである。人間の合意を受けて行う「畳む」と「移す」は 2 回目以降の実行で行う（全体仕様 1.5）。現在の設計と実装の範囲は初回の実行である。
+システムは独立したモジュール（CommandExtractor・GlossaryBuilder・IntentSynthesizer・ContextExtractor・FormalTranspiler・FormalSolver・LedgerSynthesizer・SpecProjector）で構成され、Loom の 3 つの基本操作によって統制される。パイプラインが出力先に書いたファイルは、画面モジュール（SpecViewer。`spec_viewer.spec.md`）が読んで閲覧の画面にする。SpecViewer はパイプラインの段ではなく、出力を読むだけで書き込まない。モジュールは番号を持たず、それぞれ独立した道具として呼び出せる。下の図の順は、パイプラインがモジュールを呼ぶ順である。初回の実行で行うのは「置く」と、検証・論点の整理・射影までである。人間の合意を受けて行う「畳む」と「移す」は 2 回目以降の実行で行う（全体仕様 1.5）。現在の設計と実装の範囲は初回の実行である。
 
 ### 3.1 パイプラインの構成
 
@@ -47,8 +47,8 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 【フェーズ A: 初回の実行（現在の範囲）】
   [リポジトリ全体 (コード/Docs/画面)]
                  │
-                 ▼ (ScenarioExtractor)     【置く: プロジェクト / タスク】
-  [EventStormingMap (全体マップ。名前と意図を持たない)] ＆ [ScenarioTarget[] (個別シナリオ群)]
+                 ▼ (CommandExtractor)     【置く: プロジェクト / タスク】
+  [EventStormingMap (全体マップ。名前と意図を持たない)] ＆ [CommandTarget[] (個別シナリオ群)]
                  │
                  ▼ (GlossaryBuilder)       【のぞく: 用語・実装名との対応・資料とのずれ】
   [Glossary (ユビキタス言語辞書)]
@@ -82,7 +82,7 @@ LLMは本質的に確率的（Probabilistic）なテキスト生成器であり�
 ### 3.2 Loom 3大操作によるライフサイクル統制
 
 1. **置く（分解 / Decompose）**（初回から行う）:
-   - `ScenarioExtractor` がシステム全体から Bounded Context（プロジェクト）を同定し、個別シナリオ（タスク）をアトミックに切り出す。
+   - `CommandExtractor` がシステム全体から Bounded Context（プロジェクト）を同定し、個別シナリオ（タスク）をアトミックに切り出す。
    - `ContextExtractor` が各個別シナリオの境界（Inlet ➔ Outlet）のみをピンポイントで抽出し、`FormalTranspiler` が形式仕様コードへコンパイルする。
    - `FormalSolver` が反例を探索し、`LedgerSynthesizer` が反例を論点に整理する。この整理は反例を論点にまとめる処理であり、「畳む」には当たらない。
 2. **畳む（集約 / Fold）**（2 回目以降）:

@@ -5,7 +5,7 @@
 // - 本体は ROOT_PRIORITY の順（DEADLOCK → UNHANDLED_TRANSITION → OVERLAPPING_OPERATIONS）で選ぶ。
 //   同じ種類が 2 件以上あれば、findings の中で先のものを本体にする。
 // - UNREACHABLE_OPERATION（実行列なし）は 1 件で 1 つの論点にする。
-// - 論点は本体の findings の中の順に並べ、"LEDGER-<scenarioId>-<3 桁の連番>" の識別子を付ける。
+// - 論点は本体の findings の中の順に並べ、"LEDGER-<commandId>-<3 桁の連番>" の識別子を付ける。
 // - 状態をまたぐ依存の鎖は作らない（設計 3.1）。
 
 import { canonicalJson } from "../../lib/canonical_json.js";
@@ -21,7 +21,7 @@ export interface FindingGroup {
   operations: string[];
 }
 
-export function groupFindings(scenarioId: string, findings: Finding[]): FindingGroup[] {
+export function groupFindings(commandId: string, findings: Finding[]): FindingGroup[] {
   const buckets: number[][] = [];
   const byState = new Map<string, number[]>();
   findings.forEach((finding, index) => {
@@ -55,7 +55,7 @@ export function groupFindings(scenarioId: string, findings: Finding[]): FindingG
   groups.sort((a, b) => a.root - b.root);
 
   return groups.map((group, position) => ({
-    id: `LEDGER-${scenarioId}-${String(position + 1).padStart(3, "0")}`,
+    id: `LEDGER-${commandId}-${String(position + 1).padStart(3, "0")}`,
     ...group,
   }));
 }

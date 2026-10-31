@@ -7,7 +7,7 @@
 //   同じ識別子が 2 つ以上あれば、2 つ目から出現順に " (2)"、" (3)" を足す。
 // - 本文は見出しの行を含め、次の見出しの直前まで。
 
-import type { RepositoryDocument } from "../../types/scenario.js";
+import type { RepositoryDocument } from "../../types/command.js";
 
 export interface DocumentSection {
   id: string;

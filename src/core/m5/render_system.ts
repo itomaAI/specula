@@ -30,7 +30,7 @@
 import type { Glossary, GlossaryEntry, GlossaryLocation, PresentedEntryKind } from "../../types/glossary.js";
 import type { IntentCatalog } from "../../types/intent.js";
 import type { SystemMapLevel, ViewRole } from "../../types/projection.js";
-import type { EventStormingMap } from "../../types/scenario.js";
+import type { EventStormingMap } from "../../types/command.js";
 import { joinLines, mermaidLabel } from "./escape.js";
 import { mermaidImplementationNote } from "./implementation.js";
 

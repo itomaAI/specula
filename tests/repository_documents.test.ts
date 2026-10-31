@@ -1,4 +1,4 @@
-// 仕様の資料の選び方と上限のテスト（ScenarioExtractor の設計 4.0。repository_documents.ts）。
+// 仕様の資料の選び方と上限のテスト（CommandExtractor の設計 4.0。repository_documents.ts）。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

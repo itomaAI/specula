@@ -96,11 +96,11 @@ async function askObject(
 
 export function labelVocabulary(
   llm: LanguageModelPort | undefined,
-  scenarioId: string,
+  commandId: string,
   items: VocabularyItem[],
 ): Promise<Record<string, LlmText>> {
   const input: JsonValue = {
-    scenarioId,
+    commandId,
     items: items.map((item) => ({ id: item.id, kind: item.kind, name: item.name, expression: item.expression })),
   };
   return askObject(
@@ -118,12 +118,12 @@ export function labelVocabulary(
 
 export async function askQuestions(
   llm: LanguageModelPort | undefined,
-  scenarioId: string,
+  commandId: string,
   issues: AmbiguityDraft[],
 ): Promise<LlmText[]> {
   const keys = issues.map((_, index) => String(index + 1));
   const input: JsonValue = {
-    scenarioId,
+    commandId,
     issues: issues.map((issue, index) => ({
       number: String(index + 1),
       kind: issue.kind,

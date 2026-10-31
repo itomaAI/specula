@@ -1,9 +1,9 @@
-// 仕様の資料（RepositoryArtifacts.documents）を選んで読む規則（ScenarioExtractor の設計 4.0）。
+// 仕様の資料（RepositoryArtifacts.documents）を選んで読む規則（CommandExtractor の設計 4.0）。
 // NodeRepositoryReader と IteraRepositoryReader が同じ規則で集めるために、ここにまとめる。ファイルは読まず、読む関数を受け取る。
 //
 // - README: 名前が README・README.md・README.mdx（大文字小文字を区別しない）。リポジトリの直下か、
 //   コンテキストの根（packages/・apps/・features/・modules/・domains/ の直下のディレクトリ。どの深さでもよい）の直下。
-//   根の決め方は ScenarioExtractor の境界と同じ関数を使う（根が 1 つしか無くても README は入れる）。
+//   根の決め方は CommandExtractor の境界と同じ関数を使う（根が 1 つしか無くても README は入れる）。
 // - DOC: パスのどこかに docs/ か doc/ のディレクトリがある .md・.mdx。
 // - SCHEMA: .sql・.prisma・.graphql・.gql。
 // - 除くもの: node_modules/・tests/・__tests__/ の下、tsconfig.json の outDir の下。名前が CHANGELOG・LICENSE で始まるもの。
@@ -11,7 +11,7 @@
 // - 上限は UTF-8 のバイト数で数える。1 ファイル 64 KB（超えたら先頭だけを入れて truncated）、合計 2 MB
 //   （パスの辞書順に入れ、入れると超える資料に来たら、それと以降をすべて omittedDocuments にする）。
 
-import type { RepositoryArtifacts, RepositoryDocument } from "../types/scenario.js";
+import type { RepositoryArtifacts, RepositoryDocument } from "../types/command.js";
 import { boundaryRootOf, compareIds } from "../core/m0/boundary.js";
 
 export const DOCUMENT_FILE_LIMIT_BYTES = 64 * 1024;

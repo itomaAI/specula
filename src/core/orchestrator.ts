@@ -19,20 +19,20 @@ import {
 } from "../types/projection.js";
 import type { Glossary } from "../types/glossary.js";
 import type { IntentCatalog } from "../types/intent.js";
-import type { EventStormingMap, RepositoryArtifacts, ScenarioTarget } from "../types/scenario.js";
+import type { EventStormingMap, RepositoryArtifacts, CommandTarget } from "../types/command.js";
 import type {
   PipelineDeps,
   PipelineOptions,
   PipelineResult,
   RunReport,
-  ScenarioArtifacts,
-  ScenarioRunBase,
-  ScenarioRunResult,
+  CommandArtifacts,
+  CommandRunBase,
+  CommandRunResult,
   StoppedStage,
   SystemMapBundle,
   SystemMapJson,
 } from "../types/run.js";
-import { discoverSystemContext, sliceScenarios } from "./scenario_extractor.js";
+import { discoverSystemContext, sliceCommands } from "./command_extractor.js";
 import { buildGlossary } from "./glossary_builder.js";
 import { synthesizeIntents } from "./intent_synthesizer.js";
 import { extractContext } from "./context_extractor.js";
@@ -97,7 +97,7 @@ export async function runPipeline(
   const map = discoverSystemContext(repo);
   // 1 回の実行に 1 回だけ動く段。契約のエラーは止めずに投げ直す（全体設計 2.1）。
   const glossary = await buildGlossary(map, repo, { llm: deps.llm });
-  const sliced = sliceScenarios(map, options.selection);
+  const sliced = sliceCommands(map, options.selection);
   const intents = await synthesizeIntents(map, sliced, glossary, repo, { llm: deps.llm });
   // system_map.mmd は level を省いた 1 枚の図、system_map.json は地図 1・地図 2 を束ねたもの（全体設計 4.1）。
   const systemViews = {
@@ -106,19 +106,19 @@ export async function runPipeline(
   };
 
   const inputs: ProjectionInputs = { glossary, intents, viewRole };
-  const displayIds = displayIdsOf(sliced.scenarios.length);
-  const results: ScenarioRunResult[] = [];
-  const artifacts: ScenarioArtifacts[] = [];
-  for (const [index, target] of sliced.scenarios.entries()) {
+  const displayIds = displayIdsOf(sliced.commands.length);
+  const results: CommandRunResult[] = [];
+  const artifacts: CommandArtifacts[] = [];
+  for (const [index, target] of sliced.commands.entries()) {
     const displayId = displayIds[index]!;
     try {
-      const [result, artifact] = await runScenario(target, displayId, inputs, deps, options);
+      const [result, artifact] = await runCommand(target, displayId, inputs, deps, options);
       results.push(result);
       artifacts.push(artifact);
     } catch (error) {
       if (!(error instanceof Stopped)) throw error;
       results.push(stoppedResult(target, displayId, error));
-      artifacts.push({ scenarioId: target.id, displayId, kind: "STOPPED" });
+      artifacts.push({ commandId: target.id, displayId, kind: "STOPPED" });
     }
   }
 
@@ -126,11 +126,11 @@ export async function runPipeline(
   const implementationMap = await projectImplementationMap(
     map,
     glossary,
-    sliced.scenarios.map((target, index) => {
+    sliced.commands.map((target, index) => {
       const artifact = artifacts[index]!;
       return {
         displayId: artifact.displayId,
-        scenario: target,
+        commandTarget: target,
         spec: artifact.kind === "COMPLETED" ? artifact.spec : null,
         ambiguity: artifact.kind === "AMBIGUOUS" ? artifact.ambiguity : null,
         ledger: artifact.kind === "COMPLETED" ? artifact.ledger : null,
@@ -149,24 +149,24 @@ export async function runPipeline(
     },
     glossary: glossarySummaryOf(glossary),
     intents: intentsSummaryOf(intents),
-    slice: { scenarioCount: sliced.scenarios.length, rejected: sliced.rejected.map((item) => ({ ...item })) },
-    scenarios: results,
+    slice: { commandTargetCount: sliced.commands.length, rejected: sliced.rejected.map((item) => ({ ...item })) },
+    commands: results,
     totals: totalsOf(results),
     inspectionScope: inspectionScopeOf(results),
     basis: { ...glossary.basis },
   };
-  return { report, map, glossary, intents, systemViews, scenarios: artifacts, implementationMap };
+  return { report, map, glossary, intents, systemViews, commands: artifacts, implementationMap };
 }
 
 /**
  * 検査の範囲（全体設計 2.1）。検査はシナリオごと。初回は不変条件の検査をしない。
  * 検証の結果が報告に無いシナリオ（未検証・曖昧さで止まった・途中で止まった）の表示の id を、切り出しの順に並べる。
  */
-function inspectionScopeOf(results: readonly ScenarioRunResult[]): RunReport["inspectionScope"] {
+function inspectionScopeOf(results: readonly CommandRunResult[]): RunReport["inspectionScope"] {
   return {
-    unit: "PER_SCENARIO",
+    unit: "PER_COMMAND",
     invariantChecks: { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" },
-    scenariosWithoutVerification: results
+    commandsWithoutVerification: results
       .filter((result) => result.kind !== "COMPLETED" || result.outcome === "UNVERIFIED")
       .map((result) => result.displayId),
   };
@@ -174,10 +174,10 @@ function inspectionScopeOf(results: readonly ScenarioRunResult[]): RunReport["in
 
 function intentsSummaryOf(intents: IntentCatalog): RunReport["intents"] {
   const notGenerated = { UNREACHABLE: 0, INVALID_OUTPUT: 0 };
-  for (const item of [...intents.contexts, ...intents.scenarios]) {
+  for (const item of [...intents.contexts, ...intents.commands]) {
     if (item.intent.status === "NOT_GENERATED") notGenerated[item.intent.reason] += 1;
   }
-  return { contextCount: intents.contexts.length, scenarioCount: intents.scenarios.length, notGenerated };
+  return { contextCount: intents.contexts.length, commandTargetCount: intents.commands.length, notGenerated };
 }
 
 function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
@@ -207,10 +207,10 @@ function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
   };
 }
 
-/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は ScenarioTarget の欄を写す。 */
-function rowBaseOf(target: ScenarioTarget, displayId: string): ScenarioRunBase {
+/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は CommandTarget の欄を写す。 */
+function rowBaseOf(target: CommandTarget, displayId: string): CommandRunBase {
   return {
-    scenarioId: target.id,
+    commandId: target.id,
     displayId,
     boundedContext: target.boundedContext,
     inletType: target.inletType,
@@ -220,18 +220,18 @@ function rowBaseOf(target: ScenarioTarget, displayId: string): ScenarioRunBase {
   };
 }
 
-async function runScenario(
-  target: ScenarioTarget,
+async function runCommand(
+  target: CommandTarget,
   displayId: string,
   inputs: ProjectionInputs,
   deps: PipelineDeps,
   options: PipelineOptions,
-): Promise<[ScenarioRunResult, ScenarioArtifacts]> {
+): Promise<[CommandRunResult, CommandArtifacts]> {
   const base = rowBaseOf(target, displayId);
 
   const facts = await stage("M1", () => extractContext(target, { fs: deps.fs }));
   const transpiled = await stage("M2", () => transpileFormal(facts, { llm: deps.llm }, null));
-  const context: ProjectionContext = { scenario: target, glossary: inputs.glossary, intents: inputs.intents };
+  const context: ProjectionContext = { commandTarget: target, glossary: inputs.glossary, intents: inputs.intents };
   if (transpiled.kind === "AMBIGUITY") {
     const report = transpiled.report;
     const view = await stage("M5", () =>
@@ -239,7 +239,7 @@ async function runScenario(
     );
     return [
       { ...base, kind: "AMBIGUOUS", counts: { ...report.counts } },
-      { scenarioId: target.id, displayId, kind: "AMBIGUOUS", ambiguity: report, view },
+      { commandId: target.id, displayId, kind: "AMBIGUOUS", ambiguity: report, view },
     ];
   }
   const spec = transpiled.spec;
@@ -259,11 +259,11 @@ async function runScenario(
       findingCount: solverReport.findings.length,
       issueCount: ledger.issues.length,
     },
-    { scenarioId: target.id, displayId, kind: "COMPLETED", spec, solverReport, ledger, document, matrix, flow },
+    { commandId: target.id, displayId, kind: "COMPLETED", spec, solverReport, ledger, document, matrix, flow },
   ];
 }
 
-function stoppedResult(target: ScenarioTarget, displayId: string, stopped: Stopped): ScenarioRunResult {
+function stoppedResult(target: CommandTarget, displayId: string, stopped: Stopped): CommandRunResult {
   const error = stopped.error;
   const reason = "reason" in error && typeof error.reason === "string" ? error.reason : null;
   const detail = "detail" in error && typeof error.detail === "string" ? error.detail : error.message;
@@ -277,7 +277,7 @@ function stoppedResult(target: ScenarioTarget, displayId: string, stopped: Stopp
   };
 }
 
-function totalsOf(results: readonly ScenarioRunResult[]): RunReport["totals"] {
+function totalsOf(results: readonly CommandRunResult[]): RunReport["totals"] {
   const ambiguity = Object.fromEntries(AMBIGUITY_KINDS.map((kind) => [kind, 0])) as Record<AmbiguityKind, number>;
   const verification = Object.fromEntries(OUTCOMES.map((outcome) => [outcome, 0])) as Record<VerificationOutcome, number>;
   let completed = 0;

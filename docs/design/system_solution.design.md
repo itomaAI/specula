@@ -23,7 +23,7 @@ LLMを「計算機」ではなく、**「人間と数学的決定論的ソルバ
 
 | モジュール | LLM を使う処理 | 決定論的な処理 | 決定論性の約束 |
 | :--- | :--- | :--- | :--- |
-| ScenarioExtractor | なし | 境界のスキャン、ミューテーション・ルート・ハンドラの検出、識別子の生成、シナリオの切り出し、ソート | 再実行で一致 |
+| CommandExtractor | なし | 境界のスキャン、ミューテーション・ルート・ハンドラの検出、識別子の生成、シナリオの切り出し、ソート | 再実行で一致 |
 | GlossaryBuilder | 地図の要素（Bounded Context・コマンド・イベント・ポリシー）への用語（`term` と表示名 `label`） | 資料の節の切り出しと選択、記録だけの項目の収集、資料とコードのずれの記録 | 用語は記録して再利用する。それ以外は再実行で一致 |
 | IntentSynthesizer | Bounded Context とシナリオの**意図の候補** | 手がかりの組み立て（辞書が選んだ節の抜粋） | 候補は記録して再利用する。それ以外は再実行で一致 |
 | ContextExtractor | なし | AST による事実抽出のすべて | 再実行で一致 |
@@ -35,7 +35,7 @@ LLMを「計算機」ではなく、**「人間と数学的決定論的ソルバ
 - **記録して再利用する**: LLM の出力は、入力とプロンプトの版をキーとして保存し、再実行ではそれを使う（1.3）。記録を作り直すのは、入力かプロンプトの版が変わったとき、または人間が指示したときに限る。
 - **意図は人が確定する**: IntentSynthesizer が出す意図は候補であり、人間（PdM）が確定するまでは候補として扱う。Loom で `## 意図` を人が置くのと同じ扱いである。
 - **辞書の範囲**: 辞書（GlossaryBuilder の出力）には、リポジトリから機械的に拾える実装の名前をできるだけ載せる。ただし、LLM が用語を付け、利用者に提示して判断してもらうのは、地図の要素だけとする（2026-10-30 の中瀬古様の指示）。FormalTranspiler の表示名と LedgerSynthesizer の文は辞書の用語を使わず、これまでどおり各モジュールで作る。
-- **地図と辞書は対象を見せるだけ**: ScenarioExtractor（地図）と GlossaryBuilder（辞書）は、コードと資料をそのまま見せるためのものであり、言葉の意味に基づいて構造を変えない。概念モデル（言葉）と論理モデル（コードの構造）を擦り合わせて決めるのは、別のアプリ（インタラクションビューアー。2 章）の役目である。
+- **地図と辞書は対象を見せるだけ**: CommandExtractor（地図）と GlossaryBuilder（辞書）は、コードと資料をそのまま見せるためのものであり、言葉の意味に基づいて構造を変えない。概念モデル（言葉）と論理モデル（コードの構造）を擦り合わせて決めるのは、別のアプリ（インタラクションビューアー。2 章）の役目である。
 - **LLM の結果を別の LLM の入力にしない**: GlossaryBuilder と IntentSynthesizer の LLM の入力には、実装から機械的に決まる値と資料の抜粋だけを入れる。IntentSynthesizer が辞書の用語を入力にせず、辞書が選んだ節だけを使うのはこのためである。
 
 ### 1.3 LLM の呼び出しと出力の記録
@@ -90,11 +90,11 @@ FormalSolver は `SolverPort` 経由で Alloy 6 を呼ぶ。ソルバに届か�
                │
                ▼
 ┌────────────────────────────────────────────────────────┐
-│ ScenarioExtractor                                      │
+│ CommandExtractor                                      │
 │  - Stage 1: ContextBoundaryAnalyzer (境界同定)         │
 │  - Stage 2: EventStreamDiscoverer (事実骨格)           │
 │  - Stage 3: EventStormingAssembler ➔ EventStormingMap │ 【置く: プロジェクト】
-│  - Stage 4: ScenarioSlicerResolver ➔ ScenarioTarget[] │ 【置く: タスク】
+│  - Stage 4: CommandSlicerResolver ➔ CommandTarget[] │ 【置く: タスク】
 └──────────────────────┬─────────────────────────────────┘
                        │ EventStormingMap（＋リポジトリの資料）
                        ▼
@@ -114,7 +114,7 @@ FormalSolver は `SolverPort` 経由で Alloy 6 を呼ぶ。ソルバに届か�
 │  - 辞書の用語は入力にしない                            │
 │  ➔ IntentCatalog（すべて候補）                         │ 【候補: 意図】
 └──────────────────────┬─────────────────────────────────┘
-                       │ ScenarioTarget（ここからシナリオごとに繰り返す）
+                       │ CommandTarget（ここからシナリオごとに繰り返す）
                        ▼
 ┌────────────────────────────────────────────────────────┐
 │ ContextExtractor                                       │
@@ -161,7 +161,7 @@ FormalSolver は `SolverPort` 経由で Alloy 6 を呼ぶ。ソルバに届か�
 └────────────────────────────────────────────────────────┘
 ```
 
-- **1 回の実行に 1 回だけ動くもの**: ScenarioExtractor・GlossaryBuilder・IntentSynthesizer と、全体の俯瞰図の射影（`projectSystemMap`）は、1 回の実行で 1 回だけ動く。ContextExtractor から SpecProjector（`projectSpecification`）までは、シナリオごとに動く。
+- **1 回の実行に 1 回だけ動くもの**: CommandExtractor・GlossaryBuilder・IntentSynthesizer と、全体の俯瞰図の射影（`projectSystemMap`）は、1 回の実行で 1 回だけ動く。ContextExtractor から SpecProjector（`projectSpecification`）までは、シナリオごとに動く。
 - **辞書と意図の候補の渡り先**: `Glossary` と `IntentCatalog` を受け取るのは SpecProjector だけである（2.2）。ContextExtractor・FormalTranspiler・FormalSolver・LedgerSynthesizer は辞書と意図を使わない。
 - **インタラクションビューアー（今回は作らない）**: 辞書と地図を受け取り、利用者に提示して決断させる別のアプリとして置く。言葉（概念モデル）とコードの構造（論理モデル）の擦り合わせ、たとえば「意味が同じ 2 つのイベントを 1 つにまとめる」は、ここで人が決める。パイプラインの外にあり、入力は `EventStormingMap` と `Glossary`（あれば `IntentCatalog`）である。
 
@@ -174,17 +174,17 @@ FormalTranspiler が `AmbiguityReport` を返したシナリオは、そこで�
 - **全体マップの要約（`system`）**: 抽出のモード、読んだファイルの数、構文の解析に失敗したファイルの数、コンテキスト・コマンド・イベントの数。
 - **辞書の要約（`glossary`）**: 項目の数（提示する項目と記録だけの項目に分けて）、用語が未生成の項目の数（理由の種類ごと）、資料の数（読んだもの・先頭だけを読んだもの・読まなかったもの）、ずれの種類ごとの件数（`Glossary.gaps` の 4 つ。2026-10-31 に「Bounded Context ごとに意味が違う言葉」（`contextHomonyms`）を足すので、実装したら 5 つになる。GlossaryBuilder 基本設計 5.1）。
 - **意図の候補の要約（`intents`）**: 候補の数（Bounded Context とシナリオに分けて）と、未生成の数（理由の種類ごと）。
-- **切り出しの結果（`slice`）**: シナリオの数と、起点が全体マップに無かったため退けた利用者定義のシナリオ（ScenarioExtractor の `rejected`）。
-- **シナリオごとの結果（`scenarios`）**: シナリオの並びは ScenarioExtractor の切り出しの順とする。各シナリオは、内部の識別子と表示の id（2.2）を持ち、次の 3 通りのどれかになる。
+- **切り出しの結果（`slice`）**: シナリオの数と、起点が全体マップに無かったため退けた利用者定義のシナリオ（CommandExtractor の `rejected`）。
+- **シナリオごとの結果（`commands`）**: シナリオの並びは CommandExtractor の切り出しの順とする。各シナリオは、内部の識別子と表示の id（2.2）を持ち、次の 3 通りのどれかになる。
   - `COMPLETED`: SpecProjector まで進んだ。検証の結果（`FOUND`・`NONE_FOUND_WITHIN_SCOPE`・`UNVERIFIED`）、未検証の理由の種類、反例の数、論点の数を持つ。
   - `AMBIGUOUS`: FormalTranspiler が `AmbiguityReport` を返したので止まった。曖昧さの種類ごとの件数を持つ（中身はシナリオの成果物として別に返す）。
   - `STOPPED`: 入力の契約が破れていたので止まった。止まった段（モジュールの名前。いまのコードは `M1`〜`M5` を出しており、実装の変更で名前に揃える）、エラーの名前、理由、詳しい内容を持つ。
-  - 3 通りのどれも、シナリオの起点の種類（`inletType`。`COMMAND` か `POLICY`）、アクター（`actor`。全体マップのアクターの `id` と `name` を写す）、画面のルート（`route`。画面を持たないシナリオは `null`）、期待イベント（`expectedEvent`。イベントの識別子）を持つ。どれも `ScenarioTarget` の欄を写したもので、画面のシナリオの詳細の冒頭に出すため 2026-10-31 に足した（`spec_viewer.design.md` 3.2）。止まったシナリオでも起点は決まっているので、3 通りで同じ欄を持つ。
+  - 3 通りのどれも、シナリオの起点の種類（`inletType`。`COMMAND` か `POLICY`）、アクター（`actor`。全体マップのアクターの `id` と `name` を写す）、画面のルート（`route`。画面を持たないシナリオは `null`）、期待イベント（`expectedEvent`。イベントの識別子）を持つ。どれも `CommandTarget` の欄を写したもので、画面のシナリオの詳細の冒頭に出すため 2026-10-31 に足した（`spec_viewer.design.md` 3.2）。止まったシナリオでも起点は決まっているので、3 通りで同じ欄を持つ。
 - **合計（`totals`）**: 3 通りの件数、曖昧さの種類ごとの合計、検証の結果ごとの件数。
 - **検査の範囲（`inspectionScope`）**: 画面の実行の概要に出すため、2026-10-31 に足した（`spec_viewer.spec.md` 1.1）。次の 3 つを持つ。
-  - `unit`: 常に `"PER_SCENARIO"`。検査をシナリオごとに行い、シナリオどうしの矛盾は見ていないことを表す。
+  - `unit`: 常に `"PER_COMMAND"`。検査をシナリオごとに行い、シナリオどうしの矛盾は見ていないことを表す。
   - `invariantChecks`: 不変条件の検査をしたか。初回は業務上の不変条件が無いので、FormalSolver の報告と同じ `{ status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" }` を置く（FormalSolver 基本設計 2.2）。仕様になったシナリオが 1 つも無い実行でも同じ値にする。この実行で不変条件を検査していないことは、シナリオの結果によらないためである。
-  - `scenariosWithoutVerification`: 検証の結果がこの報告に無いシナリオの表示の id（切り出しの順）。未検証（`UNVERIFIED`）のもの、曖昧さで止まったもの、途中で止まったものを入れる。途中で止まったものは、FormalSolver より後の段（`M4`・`M5`）で止まったものも入れる。そのときソルバは動いているが、検証の結果は報告に残らないためである。
+  - `commandsWithoutVerification`: 検証の結果がこの報告に無いシナリオの表示の id（切り出しの順）。未検証（`UNVERIFIED`）のもの、曖昧さで止まったもの、途中で止まったものを入れる。途中で止まったものは、FormalSolver より後の段（`M4`・`M5`）で止まったものも入れる。そのときソルバは動いているが、検証の結果は報告に残らないためである。
 - **元にした入力（`basis`）**: 辞書の `basis`（全体マップと資料の SHA-256）をそのまま写す。意図の候補・実装との対応表と同じ写し方であり、画面は辞書・意図の候補・実装との対応表・実行の報告・俯瞰図（`system_map.json`）の `basis` がそろっていることを確かめる（`spec_viewer.spec.md` 3.1、`spec_viewer.design.md` 6.2）。2026-10-31 に足した。俯瞰図の `basis` は、オーケストレーターが `system_map.json` に束ねるときに付ける（4.1）。
 - **時刻は入れない**: 同じ入力から同じ報告ができるようにするため。実行した時刻は入口（`src/cli.ts`、Itera の起動アプリ）が扱う。
 - **LLM の生成・未生成の件数は、辞書と意図の候補のほかは、まだ数えない**: 辞書と意図の候補は出力が 1 か所にまとまっているので数える。ほかの段の LLM の項目は各段の出力に分かれており、数え方を決めていないため。
@@ -200,7 +200,7 @@ FormalTranspiler が `AmbiguityReport` を返したシナリオは、そこで�
 - **表示の役割（`viewRole`）**: `"PdM"`（既定）と `"Eng"` の 2 つ。SpecProjector の `ProjectionRequest` と `SystemProjectionRequest` に持つ。入口（コマンドラインの `--view-role`、起動アプリの引数）で選び、無ければ `"PdM"` とする。
 - **利用者向けの出力**: 仕様書・操作の一覧表・操作の流れ図・全体の俯瞰図・曖昧さの一覧を指す。`"PdM"` のときは、ファイルのパス・関数名・行番号・コードの断片を出さない。地図の要素は辞書の `term.label` で表し、用語が未生成なら「<種類> <番号>（名前は未生成）」と表す。
 - **`"Eng"` のとき**: 同じ文に、辞書の `implementation`（実装の名前と所在）を併記する。文そのものは役割で変えない。役割で変わるのは、併記があるかどうかと、仕様書の付録に形式仕様のソースを載せるかどうか（`"Eng"` のときだけ載せる。正本の `-- @source:` の行にファイルのパスが入るため）である。
-- **表示の id**: シナリオは切り出しの順に `S-01`、`S-02` … と振る。曖昧さは、そのシナリオの中の順に `S-01-A-001` … と振る。論点は、論点カタログの並びで `S-01-L-001` … と振る（2026-10-30 に足した。論点の識別子 `LEDGER-<シナリオの識別子>-NNN` は実装の所在を含むため。SpecProjector の設計 7.3・8.7）。表示の id は出力の中だけで使い、内部の識別子（`scenarioId` など）は変えない。いまは仕様書の題に内部の識別子（`SCN-CMD-<ファイル>#<関数>`）が出ている（`spec_projector` の設計 4.1・7.4）ので、表示の id に置き換える。
+- **表示の id**: シナリオは切り出しの順に `S-01`、`S-02` … と振る。曖昧さは、そのシナリオの中の順に `S-01-A-001` … と振る。論点は、論点カタログの並びで `S-01-L-001` … と振る（2026-10-30 に足した。論点の識別子 `LEDGER-<シナリオの識別子>-NNN` は実装の所在を含むため。SpecProjector の設計 7.3・8.7）。表示の id は出力の中だけで使い、内部の識別子（`commandId` など）は変えない。いまは仕様書の題に内部の識別子（`CT-CMD-<ファイル>#<関数>`）が出ている（`spec_projector` の設計 4.1・7.4）ので、表示の id に置き換える。
 - **実装との対応表（`implementation_map.json`）**: 表示の id から、内部の識別子・辞書の項目の id・`implementation` を引く表。SpecProjector が辞書と実行の結果から作る射影であり、役割に関係なく出力する。Eng 向けの併記は、この表と同じ内容を使う。
 - **状態の変数と条件**: FormalTranspiler の表示名をそのまま使う（辞書の用語は付けない。1.2 の辞書の範囲）。辞書との対応は `implementation.names` との完全一致で引き、一致したものだけを対応表に載せる。一致しないものを辞書に足さない（GlossaryBuilder の設計 4.2。2026-10-30 に中瀬古様の了承を得た。C0AF4DJJK8A 1793354518.934329）。後段が見つけた名前を辞書に取り込む処理は、状態の名前が何を指すかを実例で見てから決める今後の拡張とする。
 - **曖昧さの一覧**: FormalTranspiler の `AmbiguityReport` を、SpecProjector が曖昧さの一覧（Markdown）として射影する。所在（ファイルと行）とコードの原文は `"Eng"` のときだけ出す。LLM が書く質問の文に実装の名前が入らないように、FormalTranspiler の出力の検査で、質問の文にそのシナリオの実装の名前（`RawContextModel` から機械的に集めたファイルのパス・関数名・識別子）が入っていたら `INVALID_OUTPUT` にする（`formal_transpiler` の設計 4.2）。FormalTranspiler は辞書を受け取らない（2 節）ので、辞書にしか無い名前は照合しない。
@@ -214,8 +214,8 @@ FormalTranspiler が `AmbiguityReport` を返したシナリオは、そこで�
 本システム全体のオーケストレーションは、Loom の 3 つの基本操作をパイプライン全体に渡って適用することで駆動される。初回の実行で行うのは「置く」だけであり、「畳む」と「移す」は人間の合意の後、2 回目以降の実行で行う（全体仕様 1.5）。現在の設計と実装の範囲は初回の実行である。
 
 ### 3.1 「置く（分解 / Decompose）」のフロー（初回から行う）
-1. **マクロ置く**: ScenarioExtractor がリポジトリ全体から Bounded Context（プロジェクト）を同定し、Event Storming 全体マップ上に境界を敷く。
-2. **ミクロ置く**: ScenarioExtractor がコマンド・ポリシーを起点として個別シナリオ（タスク）をアトミックに切り出す。
+1. **マクロ置く**: CommandExtractor がリポジトリ全体から Bounded Context（プロジェクト）を同定し、Event Storming 全体マップ上に境界を敷く。
+2. **ミクロ置く**: CommandExtractor がコマンド・ポリシーを起点として個別シナリオ（タスク）をアトミックに切り出す。
 3. **事実スライス置く**: ContextExtractor が各個別シナリオの因果境界（Inlet ➔ Outlet）のみをピンポイントで切り出し、FormalTranspiler が形式仕様述語へとコンパイルする。
 
 ### 3.2 「畳む（集約 / Fold）」のフロー（2 回目以降。現在の範囲外）
@@ -264,14 +264,14 @@ FormalTranspiler が `AmbiguityReport` を返したシナリオは、そこで�
   - 限界: 依頼を 1 件ずつ出して待つので、LLM の項目が多いと時間がかかる。まとめて出すのは後の改善とする。
   - 限界: 依頼と答えのファイルは消さない（`FileSystemPort` に削除が無い）。形の合わない答えのファイルが残ると、次の実行でもそれが使われて `INVALID_OUTPUT` になる。問い直すには、その答えのファイルを消す。
 - **入口**: Node.js 用のコマンドライン（`src/cli.ts`）と、Itera OS 用の起動アプリ（`itera/`）を置く。どちらも、アダプターを組み立ててオーケストレーターに渡すだけで、解析の処理は持たない。出力の書き出しは、`FileSystemPort` を通す共通の関数にして、両方の入口から使う。
-- **リポジトリの読み方（両方の入口で共通）**: `NodeRepositoryReader`（Node.js）と `IteraRepositoryReader`（Itera OS）は、同じ拡張子と除外の規則で読む。コードと設定のファイル（`.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.mjs` `.cjs` `.json`）は `RepositoryArtifacts.files` に、仕様の資料（README・`docs/` の Markdown・スキーマ定義）は `RepositoryArtifacts.documents` に入れる。資料の集め方・除外・上限（1 ファイル 64 KB、合計 2 MB）と、上限で読まなかった資料の扱い（`omittedDocuments`）は、ScenarioExtractor の設計書 4.0 に従う。`node_modules`・`.git`・`dist` の下は読まない。どのファイルを解析するかは ScenarioExtractor が、資料をどう使うかは GlossaryBuilder が決める。
+- **リポジトリの読み方（両方の入口で共通）**: `NodeRepositoryReader`（Node.js）と `IteraRepositoryReader`（Itera OS）は、同じ拡張子と除外の規則で読む。コードと設定のファイル（`.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.mjs` `.cjs` `.json`）は `RepositoryArtifacts.files` に、仕様の資料（README・`docs/` の Markdown・スキーマ定義）は `RepositoryArtifacts.documents` に入れる。資料の集め方・除外・上限（1 ファイル 64 KB、合計 2 MB）と、上限で読まなかった資料の扱い（`omittedDocuments`）は、CommandExtractor の設計書 4.0 に従う。`node_modules`・`.git`・`dist` の下は読まない。どのファイルを解析するかは CommandExtractor が、資料をどう使うかは GlossaryBuilder が決める。
 - **起動アプリの使い方**: 引数は、解析するリポジトリ（VFS のディレクトリ）、出力先、`dist/specula.itera.js` の場所、Alloy の jar のパス、`java` のパス、表示の役割（`viewRole`。無ければ `PdM`）である。jar のパスが無ければ `SolverPort` を渡さない。画面は進み具合を出すだけにする。
 - **コマンドラインの使い方**: `node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>] [--view-role PdM|Eng]`。
   - `--alloy-jar` が無ければ `SolverPort` を渡さない（FormalSolver は `UNVERIFIED`）。
   - LLM のクライアントは、`ClaudeCodeCliAdapter` ができるまで渡さない。`RecordingLanguageModel` にクライアント無しで包んで渡すので、記録が無い項目は `NOT_GENERATED` になる。`--records` が無ければ記録の置き場所は `<出力先>/llm_records`。
   - `--view-role` が無ければ `PdM`。
   - 終了コード: 実行が最後まで回れば 0（論点や曖昧さがあっても 0）、環境の故障は 1、引数の誤りは 2。
-- **出力の置き方**: `<出力先>/run_report.json`、全体の俯瞰図 `system_map.mmd`（1 枚の図）と、地図 1・地図 2 を束ねた `system_map.json`、辞書 `glossary.json`、意図の候補 `intents.json`、実装との対応表 `implementation_map.json`、シナリオごとの `scenarios/<シナリオの内部の識別子>/`。シナリオのディレクトリには、SpecProjector まで進んだものは `spec.json`・`spec.als`・`solver_report.json`・`ledger.json`・`spec.md`・`matrix.md`・`flow.mmd` を、FormalTranspiler で止まったものは `ambiguity.json` と曖昧さの一覧 `ambiguity.md` を置く。シナリオの識別子のうち、英数字・`-`・`_`・`.` 以外の文字は `_` に置き換える。
+- **出力の置き方**: `<出力先>/run_report.json`、全体の俯瞰図 `system_map.mmd`（1 枚の図）と、地図 1・地図 2 を束ねた `system_map.json`、辞書 `glossary.json`、意図の候補 `intents.json`、実装との対応表 `implementation_map.json`、シナリオごとの `commands/<シナリオの内部の識別子>/`。シナリオのディレクトリには、SpecProjector まで進んだものは `spec.json`・`spec.als`・`solver_report.json`・`ledger.json`・`spec.md`・`matrix.md`・`flow.mmd` を、FormalTranspiler で止まったものは `ambiguity.json` と曖昧さの一覧 `ambiguity.md` を置く。シナリオの識別子のうち、英数字・`-`・`_`・`.` 以外の文字は `_` に置き換える。
   - ディレクトリの名前は、表示の id ではなく内部の識別子にする。表示の id は切り出しの順で決まるので、コードが変わると同じシナリオでも番号がずれ、2 回目以降の実行で前回の出力と突き合わせられなくなるためである。表示の id から内部の識別子は、`implementation_map.json` と `run_report.json` で引ける。
   - `system_map.json` は、SpecProjector の俯瞰図の JSON（SpecProjector 基本設計 8.9）を 1 つに束ねる。形は `{ viewRole, basis, contextMap, details: [{ context, core, supporting }] }` である。`contextMap` は地図 1（`CONTEXT_MAP`）、`details` は Bounded Context ごとの地図 2（`CONTEXT_DETAIL`）で、`core` は足す要素なし、`supporting` は `includeSupporting: true` の版である。`context` は Bounded Context の表示の id（`c1` …）で、`details` は全体マップの Bounded Context の順に並ぶ。`basis` は辞書の `basis` を写す（実行の報告・意図の候補・実装との対応表と同じ）。SpecProjector の俯瞰図の JSON は元にした全体マップと資料のハッシュを持たないので、オーケストレーターが束ねるときに付ける。
     - ファイルを分けずに束ねる理由: 画面は 1 つのファイルを読めば地図 1 と地図 2 を切り替えられる。鍵は表示の id でよい。俯瞰図へのリンクは 1 回の実行の中で閉じ（SpecViewer 仕様 2.3）、表示の id から内部の識別子は `implementation_map.json` で引けるためである。シナリオのように内部の識別子でディレクトリを作ると、Bounded Context の識別子をファイル名に出すことになる。
@@ -305,7 +305,7 @@ FormalTranspiler が `AmbiguityReport` を返したシナリオは、そこで�
   │   ├── index.ts          # ライブラリとしての入口（Node.js と Itera OS の bundle の両方）
   │   ├── cli.ts            # Node.js の入口
   │   └── core/             # Zero-I/O コアパイプライン
-  │       ├── scenario_extractor.ts   # シナリオ同定・イベントストーミング（LLM を使わない）
+  │       ├── command_extractor.ts   # シナリオ同定・イベントストーミング（LLM を使わない）
   │       ├── glossary_builder.ts     # ユビキタス言語辞書（用語と実装名の対応・ずれの記録）
   │       ├── glossary/               # 辞書の内部の処理（節の切り出し sections.ts は IntentSynthesizer と共有）
   │       ├── intent_synthesizer.ts   # 意図の候補

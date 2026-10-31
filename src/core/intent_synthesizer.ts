@@ -8,9 +8,9 @@
 // - LLM が無ければ、すべての候補を NOT_GENERATED（UNREACHABLE）にする。機械的に作った文で埋めない。
 
 import type { ConfirmationStatus, JsonValue, LlmText } from "../types/index.js";
-import type { EventStormingMap, RepositoryArtifacts, SliceResult } from "../types/scenario.js";
+import type { EventStormingMap, RepositoryArtifacts, SliceResult } from "../types/command.js";
 import type { Glossary } from "../types/glossary.js";
-import type { ContextIntent, IntentCatalog, ScenarioIntent } from "../types/intent.js";
+import type { ContextIntent, IntentCatalog, CommandIntent } from "../types/intent.js";
 import { IntentContractError } from "../types/intent.js";
 import type { LanguageModelPort, OutputCheck } from "../ports/LanguageModelPort.js";
 import { compareIds } from "./m0/boundary.js";
@@ -24,9 +24,9 @@ export const INTENT_PROMPT_VERSION = "1";
 export const MAX_INTENT_CHARS = 200;
 
 /** シナリオの抜粋の節の数の上限（起点の項目の節を先に）。 */
-export const MAX_SCENARIO_SECTIONS = 3;
+export const MAX_COMMAND_SECTIONS = 3;
 
-/** 出力の検査: 1 行、空でない、200 字以内（ScenarioExtractor の m0.context-intent で使っていたものと同じ）。 */
+/** 出力の検査: 1 行、空でない、200 字以内（CommandExtractor の m0.context-intent で使っていたものと同じ）。 */
 export const intentCheck: OutputCheck = (text) => {
   const trimmed = text.trim();
   if (trimmed === "") return { ok: false, detail: "空" };
@@ -48,7 +48,7 @@ const TASKS = {
     task: "intent.context",
     what: "Write what this part of the code is responsible for in the business (why it exists).",
   },
-  scenario: {
+  commandTarget: {
     task: "intent.scenario",
     what: "Write what the person who performs this operation (or the caller) wants to achieve with it.",
   },
@@ -102,35 +102,35 @@ export async function synthesizeIntents(
   }
 
   const eventById = new Map(map.events.map((event) => [event.id, event] as const));
-  const scenarios: ScenarioIntent[] = [];
-  for (const scenario of [...slice.scenarios].sort((a, b) => compareIds(a.id, b.id))) {
-    const event = eventById.get(scenario.expectedEvent);
+  const commands: CommandIntent[] = [];
+  for (const commandTarget of [...slice.commands].sort((a, b) => compareIds(a.id, b.id))) {
+    const event = eventById.get(commandTarget.expectedEvent);
     // シナリオは同じ全体マップから切り出しているので、期待イベントは必ずある。無ければ実装の誤りなので止める。
-    if (event === undefined) throw new Error(`IntentSynthesizer: 期待イベント ${scenario.expectedEvent} が全体マップに無い`);
-    const sections = [...new Set([...sourcesOf(scenario.inletTrigger.id), ...sourcesOf(event.id)])].slice(0, MAX_SCENARIO_SECTIONS);
+    if (event === undefined) throw new Error(`IntentSynthesizer: 期待イベント ${commandTarget.expectedEvent} が全体マップに無い`);
+    const sections = [...new Set([...sourcesOf(commandTarget.inletTrigger.id), ...sourcesOf(event.id)])].slice(0, MAX_COMMAND_SECTIONS);
     const input: JsonValue = {
-      inletType: scenario.inletType,
-      inlet: { file: scenario.inletTrigger.handler.file, symbol: scenario.inletTrigger.handler.symbol },
+      inletType: commandTarget.inletType,
+      inlet: { file: commandTarget.inletTrigger.handler.file, symbol: commandTarget.inletTrigger.handler.symbol },
       expectedEvent: {
         file: event.handler.file,
         symbol: event.handler.symbol,
         signal: { kind: event.signal.kind, callee: event.signal.callee, label: event.signal.label },
       },
-      actor: scenario.actor.name,
-      route: scenario.readModel?.route ?? null,
+      actor: commandTarget.actor.name,
+      route: commandTarget.readModel?.route ?? null,
       excerpts: excerptsOf(sections),
     };
-    const text = await ask(deps.llm, "scenario", input);
-    const intent: ScenarioIntent = {
-      scenarioId: scenario.id,
+    const text = await ask(deps.llm, "commandTarget", input);
+    const intent: CommandIntent = {
+      commandId: commandTarget.id,
       intent: text,
       intentStatus: statusOf(text),
     };
-    if (scenario.userIntent !== undefined) intent.userIntent = scenario.userIntent;
-    scenarios.push(intent);
+    if (commandTarget.userIntent !== undefined) intent.userIntent = commandTarget.userIntent;
+    commands.push(intent);
   }
 
-  return { contexts, scenarios, basis: { mapHash: glossary.basis.mapHash, documentsHash: glossary.basis.documentsHash } };
+  return { contexts, commands, basis: { mapHash: glossary.basis.mapHash, documentsHash: glossary.basis.documentsHash } };
 }
 
 async function ask(llm: LanguageModelPort | undefined, kind: keyof typeof TASKS, input: JsonValue): Promise<LlmText> {

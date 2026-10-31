@@ -34,7 +34,7 @@ export type { IteraLlmOptions, IteraLlmRequestFile, PostTask } from "./adapters/
 export { readIteraRepository } from "./adapters/IteraRepositoryReader.js";
 export type { RepositorySource } from "./adapters/IteraRepositoryReader.js";
 
-// M0（ScenarioExtractor）
+// M0（CommandExtractor）
 export type {
   Actor,
   BoundedContext,
@@ -46,12 +46,12 @@ export type {
   ReadModel,
   RepositoryArtifacts,
   RepositoryDocument,
-  ScenarioSelection,
-  ScenarioTarget,
+  CommandSelection,
+  CommandTarget,
   SliceResult,
   SourceLocation,
-} from "./types/scenario.js";
-export { discoverSystemContext, sliceScenarios } from "./core/scenario_extractor.js";
+} from "./types/command.js";
+export { discoverSystemContext, sliceCommands } from "./core/command_extractor.js";
 
 // GlossaryBuilder（ユビキタス言語辞書）
 export type {
@@ -66,7 +66,7 @@ export type {
 export { buildGlossary } from "./core/glossary_builder.js";
 
 // IntentSynthesizer（意図の候補）
-export type { ContextIntent, IntentCatalog, ScenarioIntent } from "./types/intent.js";
+export type { ContextIntent, IntentCatalog, CommandIntent } from "./types/intent.js";
 export { IntentContractError } from "./types/intent.js";
 export { INTENT_PROMPT_VERSION, synthesizeIntents } from "./core/intent_synthesizer.js";
 
@@ -138,7 +138,7 @@ export type {
   ImplementationMapInput,
   ProjectionContext,
   ProjectionRequest,
-  ScenarioViewFormat,
+  CommandViewFormat,
   SpecificationView,
   SystemMapLevel,
   SystemProjectionRequest,
@@ -154,9 +154,9 @@ export type {
   PipelineOptions,
   PipelineResult,
   RunReport,
-  ScenarioArtifacts,
-  ScenarioRunBase,
-  ScenarioRunResult,
+  CommandArtifacts,
+  CommandRunBase,
+  CommandRunResult,
   StoppedStage,
   SystemMapBundle,
   SystemMapJson,
@@ -196,17 +196,17 @@ export type {
   RunOutputsProblem,
   RunSummaryView,
   RunView,
-  ScenarioAmbiguitiesView,
-  ScenarioDetailView,
-  ScenarioIssuesView,
-  ScenarioKind,
-  ScenarioListView,
-  ScenarioOutputs,
-  ScenarioRowView,
-  ScenarioTabsView,
+  CommandAmbiguitiesView,
+  CommandDetailView,
+  CommandIssuesView,
+  CommandKind,
+  CommandListView,
+  CommandOutputs,
+  CommandRowView,
+  CommandTabsView,
 } from "./viewer/types.js";
 export { checkRunOutputs } from "./viewer/check.js";
-export { buildScenarioDetails, buildScenarioList } from "./viewer/scenarios.js";
+export { buildCommandDetails, buildCommandList } from "./viewer/commands.js";
 export { buildIssueList } from "./viewer/issues.js";
 export { buildGlossaryView } from "./viewer/glossary.js";
 export { buildMapView } from "./viewer/map.js";

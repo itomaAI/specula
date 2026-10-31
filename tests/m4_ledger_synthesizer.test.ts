@@ -37,7 +37,7 @@ function generated(text: string): LlmText {
 }
 
 const SPEC: FormalSpecification = {
-  scenarioId: "SCN-1",
+  commandId: "CT-1",
   source: "module order\n// テスト用の形式仕様（中身は M4 では読まない）\n",
   stateVariables: [
     { id: "v1", unitId: "U-1", name: "status", domain: "ENUM", values: ["v1_1", "v1_2"], valueLiterals: { v1_1: '"open"', v1_2: '"closed"' }, initial: "v1_1" },
@@ -94,7 +94,7 @@ function trace(lastV1: string, lastV2 = 0): TraceStep[] {
 async function report(findings: Finding[], overrides: Partial<SolverReport> = {}): Promise<SolverReport> {
   return {
     reportId: "REPORT-1",
-    scenarioId: "SCN-1",
+    commandId: "CT-1",
     specSourceHash: await sha256Hex(SPEC.source),
     status: "CHECKED",
     reason: null,
@@ -160,7 +160,7 @@ test("M4: 同じ状態の未定義遷移とデッドロックは、デッドロ�
   const catalog = await synthesizeLedger(await report([COVER, DEADLOCK]), SPEC, { llm: new FakeLlm() });
   assert.equal(catalog.issues.length, 1);
   const issue = catalog.issues[0];
-  assert.equal(issue?.id, "LEDGER-SCN-1-001");
+  assert.equal(issue?.id, "LEDGER-CT-1-001");
   assert.equal(issue?.kind, "DEADLOCK");
   assert.equal(issue?.rootFinding, 1);
   assert.deepEqual(issue?.dependentFindings, [0]);
@@ -174,9 +174,9 @@ test("M4: 到達できない操作は単独、同じ状態の重なり 2 件は 
   assert.deepEqual(
     catalog.issues.map((issue) => [issue.id, issue.kind, issue.rootFinding, issue.dependentFindings]),
     [
-      ["LEDGER-SCN-1-001", "OVERLAPPING_OPERATIONS", 1, [2]],
-      ["LEDGER-SCN-1-002", "UNREACHABLE_OPERATION", 3, []],
-      ["LEDGER-SCN-1-003", "DEADLOCK", 4, [0]],
+      ["LEDGER-CT-1-001", "OVERLAPPING_OPERATIONS", 1, [2]],
+      ["LEDGER-CT-1-002", "UNREACHABLE_OPERATION", 3, []],
+      ["LEDGER-CT-1-003", "DEADLOCK", 4, [0]],
     ],
   );
   assert.deepEqual(catalog.issues[0]?.operations, ["op1", "op2", "op3"]);
@@ -270,7 +270,7 @@ test("M4: 文が空、400 文字を超える、JSON でないときも INVALID_O
 
 test("M4: 入力の契約が破れていれば LedgerContractError", async () => {
   const cases: Array<[SolverReport, LedgerContractError["reason"]]> = [
-    [await report([], { scenarioId: "SCN-2" }), "SCENARIO_MISMATCH"],
+    [await report([], { commandId: "CT-2" }), "COMMAND_MISMATCH"],
     [await report([], { specSourceHash: "0".repeat(64) }), "SPEC_HASH_MISMATCH"],
     [await report([{ ...UNREACH, operations: ["op9"] }]), "UNKNOWN_OPERATION"],
     [await report([{ ...COVER, trace: [{ index: 0, values: { v9: 1 }, outcome: "Idle", holds: [] }] }]), "UNKNOWN_STATE_VARIABLE"],

@@ -18,7 +18,7 @@
    - **保持情報**:
      - `## 意図`: システムおよび各ドメイン境界の存在理由・責務。
      - `## 文脈`: ドメインイベントの連鎖（Event Storming 全体マップ）、外部との境界。
-2. **タスク相当 (Individual Scenario)**:
+2. **タスク相当 (Individual Command)**:
    - **性質**: 単一の明確な完了条件を持つ、1本のアトミックな仕事（状態遷移・因果スライス）。
    - **保持情報**:
      - `## 依頼`: 単一の起点（Command または Policy）と実行主体（Actor）。
@@ -53,7 +53,7 @@
 ### 2.1 システムコマンド一覧
 1. **`DiscoverSystemContext(repo: RepositoryArtifacts) -> EventStormingMap`**
    - リポジトリ構造から Bounded Context を同定し、ドメインイベント・コマンド・ポリシー・リードモデルを束ねた全体マップを出力する（プロジェクトの構築）。全体マップは名前と意図を持たず、要素・つながり・識別子・実装の所在だけを持つ。
-2. **`SliceScenarios(map: EventStormingMap, selection?: ScenarioSelection) -> SliceResult`**（切り出したシナリオ `ScenarioTarget[]` と、受け付けなかった利用者定義のシナリオ）
+2. **`SliceCommands(map: EventStormingMap, selection?: CommandSelection) -> SliceResult`**（切り出したシナリオ `CommandTarget[]` と、受け付けなかった利用者定義のシナリオ）
    - 全体マップから、コマンドまたはポリシーを起点とする個別シナリオ群をアトミックに切り出す（タスクの分解・配置）。
    - `selection` は、切り出す範囲の絞り込み条件（`filter`）と、利用者が定義したシナリオ（`userDefined`）のどちらか、または両方を持つ。省略した場合は、全体マップから抽出できるシナリオをすべて切り出す。
    - 出力する各シナリオは、出どころ `origin` を持つ。全体マップから抽出したものは `EXTRACTED`、利用者が定義したものは `USER_DEFINED` とする。利用者が定義したシナリオは、全体マップに起点が存在することを確かめたうえで、抽出したシナリオと同じ形に正規化して出力する。起点が全体マップに無いシナリオは出力せず、理由を付けて呼び出し元へ返す。起点は識別子かハンドラの所在で指定し、LLM が付けた名前では照合しない。
@@ -62,7 +62,7 @@
    - 資料に記述が無い要素、どの項目にも対応しない資料の名前などのずれは、記録して見せるだけにする。
 4. **`SynthesizeIntents(map: EventStormingMap, slice: SliceResult, glossary: Glossary, repo: RepositoryArtifacts) -> IntentCatalog`**
    - Bounded Context とシナリオの意図の候補を書く。意図はすべて候補であり、人間が確定するまでは候補として扱う。
-5. **`ExtractContext(target: ScenarioTarget, sources: SourceArtifacts) -> RawContextModel`**
+5. **`ExtractContext(target: CommandTarget, sources: SourceArtifacts) -> RawContextModel`**
    - 単一の個別シナリオを起点とし、開始境界（Inlet）から終了境界（Outlet）までの因果チェーンのみを非同期境界を跨がずにピンポイントで垂直抽出する。
 6. **`TranspileFormal(facts: RawContextModel, previous?: FormalSpec) -> FormalSpec | AmbiguityReport`**
    - 事実モデルの状態変数（真偽値・列挙・整数）と、スライスごとの出口（分岐の結果）から状態と操作を組み立て、Alloy 6 の形式仕様正本へ決定論的に変換する。正本の識別子は機械的に付け（`v1`・`op1` など）、実装の変数名は正本の公開識別子に出さない。ドメインの語による表示名は LLM が付け、正本とは別の `labels` に持つ（LLM に届かなければ「未生成」）。そのため、正本のソースは LLM の結果によらない。
@@ -100,7 +100,7 @@
    - 利用者向けの表示（役割 `PdM`）には、ファイルのパス・関数名・行番号・コードの断片を出さない。実装との対応は、ユビキタス言語辞書と、そこから作る実装との対応表に持つ。役割 `Eng` の表示は、この対応を引いて実装の名前と所在を併記してよい。
    - 原本との対応を逆引きするための出どころ注釈（例: `@source`）は、形式仕様正本の中に保持してよい。これは公開識別子ではなく、射影ビューと論点カタログを作るときに必ず取り除く（役割 `Eng` の付録に正本のソースを載せるときを除く）。
 2. **決定論性（担当ごとに約束を分ける）**:
-   - **決定論的な処理**（ScenarioExtractor の全体マップの作成とシナリオの切り出し、ContextExtractor の事実抽出、FormalSolver の検証、SpecProjector の射影、および GlossaryBuilder・IntentSynthesizer・FormalTranspiler のうち機械的な処理）: 同一の入力から、いつ何度実行しても完全一致（差分ゼロ）の出力を返すこと。FormalSolver は「同一の実行条件（エンジンの版、SAT ソルバ、スコープ、分割の仕方）のもとで」一致する。
+   - **決定論的な処理**（CommandExtractor の全体マップの作成とシナリオの切り出し、ContextExtractor の事実抽出、FormalSolver の検証、SpecProjector の射影、および GlossaryBuilder・IntentSynthesizer・FormalTranspiler のうち機械的な処理）: 同一の入力から、いつ何度実行しても完全一致（差分ゼロ）の出力を返すこと。FormalSolver は「同一の実行条件（エンジンの版、SAT ソルバ、スコープ、分割の仕方）のもとで」一致する。
    - **LLM を使う処理**（GlossaryBuilder の用語、IntentSynthesizer の意図の候補、FormalTranspiler のドメイン語彙への言い換え、LedgerSynthesizer の自然言語化）: 一度出した結果を記録し、再実行ではその記録を使うことで一致させること。記録を作り直すのは、入力が変わったとき、または人間が指示したときに限る。
    - どの処理が LLM を使うかは、全体基本設計書（`system_solution.design.md`）の「LLM の担当範囲」に一覧する。
 3. **フォールバック保証**: Bounded Context の境界が曖昧な場合でも処理を停止させず、単一コンテキストとして一貫性を維持してモデル化すること。

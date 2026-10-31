@@ -1,5 +1,5 @@
-// M0（ScenarioExtractor）の公開する 2 つの関数（M0 の設計 2）。
-// discoverSystemContext = Stage 1〜3、sliceScenarios = Stage 4。コアはファイルを読まず、渡された中身だけを使う。
+// M0（CommandExtractor）の公開する 2 つの関数（M0 の設計 2）。
+// discoverSystemContext = Stage 1〜3、sliceCommands = Stage 4。コアはファイルを読まず、渡された中身だけを使う。
 //
 // 決めたこと（初回）:
 // - 読むファイル: コードのファイル（.d.ts を除く）のうち、node_modules/・tests/・__tests__/ の下、*.test.*・*.spec.*、
@@ -14,9 +14,9 @@ import type {
   EventStormingMap,
   ExtractionDiagnostics,
   RepositoryArtifacts,
-  ScenarioSelection,
+  CommandSelection,
   SliceResult,
-} from "../types/scenario.js";
+} from "../types/command.js";
 import { type ParsedFile, isCodeFile, parseSource } from "./m0/ast.js";
 import { assembleMap, findReadModels } from "./m0/assemble.js";
 import { analyzeBoundaries, compareIds } from "./m0/boundary.js";
@@ -88,7 +88,7 @@ export function discoverSystemContext(repo: RepositoryArtifacts): EventStormingM
 }
 
 /** Stage 4: 全体マップからシナリオを切り出す。 */
-export function sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection): SliceResult {
+export function sliceCommands(map: EventStormingMap, selection?: CommandSelection): SliceResult {
   return slice(map, selection);
 }
 

@@ -31,8 +31,8 @@
 ### 2.1 入力情報 (Inputs)
 | 入力情報 | 内容 | 必須/任意 |
 | :--- | :--- | :--- |
-| **全体マップ (`EventStormingMap`)** | `ScenarioExtractor` の出力 1 | 必須 |
-| **シナリオ (`SliceResult`)** | `ScenarioExtractor` の出力 2 | 必須 |
+| **全体マップ (`EventStormingMap`)** | `CommandExtractor` の出力 1 | 必須 |
+| **シナリオ (`SliceResult`)** | `CommandExtractor` の出力 2 | 必須 |
 | **辞書 (`Glossary`)** | `GlossaryBuilder` の出力。各要素について選ばれた資料の節を使う | 必須 |
 | **リポジトリの中身 (`RepositoryArtifacts`)** | 関数の頭の数行と、選ばれた節の本文を取り出すために使う | 必須 |
 

@@ -66,7 +66,7 @@ export interface Finding {
 export interface SolverReport {
   /** specSourceHash・検査の一覧・conditions を正準化した JSON の SHA-256（M3 の設計 4.2）。 */
   reportId: string;
-  scenarioId: string;
+  commandId: string;
   /** M2 のソースの SHA-256。 */
   specSourceHash: string;
   status: "CHECKED" | "UNVERIFIED";
@@ -84,11 +84,11 @@ export interface SolverReport {
 /** M2 の契約違反。オーケストレーターは「M3 で止まった」と理由付きで報告に残す。 */
 export class SolverContractError extends Error {
   constructor(
-    readonly scenarioId: string,
+    readonly commandId: string,
     readonly reason: "NO_OPERATIONS" | "MISSING_GUARD_PREDICATE" | "MISSING_STATE_VARIABLE" | "INVALID_IDENTIFIER",
     readonly detail: string,
   ) {
-    super(`M3 の入力の契約が破れている（${scenarioId}）: ${reason}: ${detail}`);
+    super(`M3 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "SolverContractError";
   }
 }

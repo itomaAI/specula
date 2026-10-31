@@ -29,19 +29,19 @@ export async function writeOutputs(fs: FileSystemPort, outDir: string, result: P
   await put(at("glossary.json"), json(result.glossary));
   await put(at("intents.json"), json(result.intents));
   await put(at("implementation_map.json"), json(result.implementationMap));
-  for (const scenario of result.scenarios) {
-    const dir = at("scenarios", safeName(scenario.scenarioId));
-    if (scenario.kind === "COMPLETED") {
-      await put(`${dir}/spec.json`, json(scenario.spec));
-      await put(`${dir}/spec.als`, scenario.spec.source.endsWith("\n") ? scenario.spec.source : scenario.spec.source + "\n");
-      await put(`${dir}/solver_report.json`, json(scenario.solverReport));
-      await put(`${dir}/ledger.json`, json(scenario.ledger));
-      await put(`${dir}/spec.md`, scenario.document.content);
-      await put(`${dir}/matrix.md`, scenario.matrix.content);
-      await put(`${dir}/flow.mmd`, scenario.flow.content);
-    } else if (scenario.kind === "AMBIGUOUS") {
-      await put(`${dir}/ambiguity.json`, json(scenario.ambiguity));
-      await put(`${dir}/ambiguity.md`, scenario.view.content);
+  for (const commandTarget of result.commands) {
+    const dir = at("commands", safeName(commandTarget.commandId));
+    if (commandTarget.kind === "COMPLETED") {
+      await put(`${dir}/spec.json`, json(commandTarget.spec));
+      await put(`${dir}/spec.als`, commandTarget.spec.source.endsWith("\n") ? commandTarget.spec.source : commandTarget.spec.source + "\n");
+      await put(`${dir}/solver_report.json`, json(commandTarget.solverReport));
+      await put(`${dir}/ledger.json`, json(commandTarget.ledger));
+      await put(`${dir}/spec.md`, commandTarget.document.content);
+      await put(`${dir}/matrix.md`, commandTarget.matrix.content);
+      await put(`${dir}/flow.mmd`, commandTarget.flow.content);
+    } else if (commandTarget.kind === "AMBIGUOUS") {
+      await put(`${dir}/ambiguity.json`, json(commandTarget.ambiguity));
+      await put(`${dir}/ambiguity.md`, commandTarget.view.content);
     }
   }
   return written;

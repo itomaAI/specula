@@ -14,7 +14,7 @@ import type { RawContextModel } from "../src/types/context.js";
 import type { FormalSpecification, Operation, TranspilerResult } from "../src/types/formal.js";
 import { TranspileContractError } from "../src/types/formal.js";
 import type { LlmRequest, LlmText } from "../src/types/index.js";
-import type { ScenarioTarget } from "../src/types/scenario.js";
+import type { CommandTarget } from "../src/types/command.js";
 
 class MemoryFs implements FileSystemPort {
   constructor(private readonly files: Record<string, string>) {}
@@ -57,9 +57,9 @@ function politeAnswer(request: LlmRequest): string {
   return "```json\n" + JSON.stringify(out) + "\n```";
 }
 
-function target(file: string, symbol: string, line = 1): ScenarioTarget {
+function target(file: string, symbol: string, line = 1): CommandTarget {
   return {
-    id: "SCN-1",
+    id: "CT-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
     inletType: "COMMAND",
@@ -408,8 +408,8 @@ test("同じ入力からは 1 バイトも違わないソースが出る", async
 test("specula 自身の公開関数を M1 → M2 に通すと、例外なしで SPEC か AMBIGUITY が返る", async () => {
   const fs = withRoot(new NodeFsAdapter(), process.cwd());
   const inlets: Array<[string, string]> = [
-    ["src/core/scenario_extractor.ts", "discoverSystemContext"],
-    ["src/core/scenario_extractor.ts", "sliceScenarios"],
+    ["src/core/command_extractor.ts", "discoverSystemContext"],
+    ["src/core/command_extractor.ts", "sliceCommands"],
     ["src/core/context_extractor.ts", "extractContext"],
   ];
   for (const [file, symbol] of inlets) {

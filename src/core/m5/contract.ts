@@ -1,7 +1,7 @@
 // M5 の入力の契約を確かめる（M5 の設計 1.2・7.7、仕様 3.1）。破れていれば ProjectionContractError。
 //
 // - 表現形式が DOCUMENT・MATRIX・FLOW のどれかで、表示の役割が BUSINESS・IMPLEMENTATION のどちらかであること。
-// - context.scenario と論点カタログのシナリオが、形式仕様のシナリオと同じであること。
+// - context.commandTarget と論点カタログのシナリオが、形式仕様のシナリオと同じであること。
 // - 論点が指す操作と、論点の実行列の状態変数が、形式仕様にあること（表示名を引けなくならないように）。
 // カタログが古いこと（ソースの SHA-256 が違うこと）は契約違反ではない。ビューの先頭で知らせる（設計 3.3）。
 
@@ -15,7 +15,7 @@ import {
   type ViewRole,
 } from "../../types/projection.js";
 
-const SCENARIO_FORMATS: readonly string[] = ["DOCUMENT", "MATRIX", "FLOW"];
+const COMMAND_FORMATS: readonly string[] = ["DOCUMENT", "MATRIX", "FLOW"];
 const VIEW_ROLES: readonly string[] = ["BUSINESS", "IMPLEMENTATION"] satisfies readonly ViewRole[];
 
 /** 表示の役割が BUSINESS・IMPLEMENTATION のどちらかであること。俯瞰図の射影からも使う。 */
@@ -30,24 +30,24 @@ export function checkProjectionContract(
   request: ProjectionRequest,
 ): void {
   const fail = (reason: ProjectionContractError["reason"], detail: string): never => {
-    throw new ProjectionContractError(spec.scenarioId, reason, detail);
+    throw new ProjectionContractError(spec.commandId, reason, detail);
   };
 
-  if (!SCENARIO_FORMATS.includes(request.format)) {
+  if (!COMMAND_FORMATS.includes(request.format)) {
     fail("UNSUPPORTED_FORMAT", String(request.format));
   }
   if (!isViewRole(request.viewRole)) {
     fail("UNSUPPORTED_FORMAT", `表示の役割: ${String(request.viewRole)}`);
   }
 
-  if (context.scenario.id !== spec.scenarioId) {
-    fail("SCENARIO_MISMATCH", `context のシナリオは ${context.scenario.id}、形式仕様は ${spec.scenarioId}`);
+  if (context.commandTarget.id !== spec.commandId) {
+    fail("COMMAND_MISMATCH", `context のシナリオは ${context.commandTarget.id}、形式仕様は ${spec.commandId}`);
   }
 
   if (ledger === null) return;
 
-  if (ledger.scenarioId !== spec.scenarioId) {
-    fail("SCENARIO_MISMATCH", `カタログは ${ledger.scenarioId}、形式仕様は ${spec.scenarioId}`);
+  if (ledger.commandId !== spec.commandId) {
+    fail("COMMAND_MISMATCH", `カタログは ${ledger.commandId}、形式仕様は ${spec.commandId}`);
   }
 
   const operations = new Set(spec.operations.map((operation) => operation.id));
@@ -74,7 +74,7 @@ export function checkAmbiguityContract(
   request: AmbiguityProjectionRequest,
 ): void {
   const fail = (reason: ProjectionContractError["reason"], detail: string): never => {
-    throw new ProjectionContractError(report.scenarioId, reason, detail);
+    throw new ProjectionContractError(report.commandId, reason, detail);
   };
 
   if (request.format !== "AMBIGUITY_DOCUMENT") {
@@ -83,7 +83,7 @@ export function checkAmbiguityContract(
   if (!isViewRole(request.viewRole)) {
     fail("UNSUPPORTED_FORMAT", `表示の役割: ${String(request.viewRole)}`);
   }
-  if (context.scenario.id !== report.scenarioId) {
-    fail("SCENARIO_MISMATCH", `context のシナリオは ${context.scenario.id}、曖昧さの報告は ${report.scenarioId}`);
+  if (context.commandTarget.id !== report.commandId) {
+    fail("COMMAND_MISMATCH", `context のシナリオは ${context.commandTarget.id}、曖昧さの報告は ${report.commandId}`);
   }
 }
