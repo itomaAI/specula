@@ -202,7 +202,7 @@ export interface GraphEdge {
 export interface GraphLayout {
   /** ノードごとの層（0 が最も上）。 */
   layerOf: number[];
-  /** ノードごとの、層の中の並びの位置（0 が最も左）。 */
+  /** ノードごとの列（0 が最も左）。上のノードの列を引き継ぐので、層の中で左から増えるが、番号は飛ぶことがある。 */
   orderOf: number[];
   /** 層ごとの、左から順のノードの並びの位置。 */
   layers: number[][];

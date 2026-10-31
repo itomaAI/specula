@@ -318,7 +318,8 @@
         y += Math.max(30, ...layer.map((i) => heights[i])) + gap;
       }
       boxes.forEach((b, i) => { b.style.top = `${tops[layout.layerOf[i]]}px`; });
-      const width = Math.max(1, ...layout.layers.map((l) => l.length)) * colWidth;
+      // 列は番号が飛ぶことがあるので、層のノードの数ではなく最も右の列で幅を決める
+      const width = Math.max(1, ...layout.orderOf.map((c) => c + 1)) * colWidth;
       wrap.style.height = `${y}px`;
       wrap.style.width = `${width}px`;
       const ns = 'http://www.w3.org/2000/svg';
