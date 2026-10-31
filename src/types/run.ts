@@ -8,7 +8,7 @@ import type { Glossary } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog, VerificationOutcome } from "./ledger.js";
 import type { ImplementationMap, SpecificationView, ViewRole } from "./projection.js";
-import type { Actor, EventStormingMap, ExtractionDiagnostics, CommandSelection, CommandTarget } from "./commandTarget.js";
+import type { Actor, EventStormingMap, ExtractionDiagnostics, CommandSelection, CommandTarget } from "./command.js";
 import type { SolverOptions, SolverReport, UnverifiedReason } from "./solver.js";
 
 export interface PipelineDeps {

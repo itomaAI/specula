@@ -4,7 +4,7 @@ import type { AmbiguityReport, FormalSpecification } from "./formal.js";
 import type { Glossary, GlossaryLocation } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog } from "./ledger.js";
-import type { CommandTarget } from "./commandTarget.js";
+import type { CommandTarget } from "./command.js";
 
 /** シナリオ 1 つのビューの形式。 */
 export type CommandViewFormat = "DOCUMENT" | "MATRIX" | "FLOW";
