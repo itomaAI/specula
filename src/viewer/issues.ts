@@ -1,7 +1,7 @@
 // 仕様不備一覧のビューモデル（SpecViewer 基本設計 3.3・6.7）。
 // 純粋な関数。checkRunOutputs を通った RunOutputs を受け取る（通っていない入力では例外を投げる）。
 // 論点は SpecProjector の issueGroupsOf で作り、曖昧さの文は SpecProjector の曖昧さの一覧（render_ambiguities.ts）と同じにする。
-// PdM には曖昧さの質問・箇所・原文を出さず、シナリオごとの件数だけにする（仕様 3.2、設計 3.3）。
+// BUSINESS には曖昧さの質問・箇所・原文を出さず、シナリオごとの件数だけにする（仕様 3.2、設計 3.3）。
 // ビューモデルには内部の識別子を入れない。シナリオ・論点・曖昧さは表示の id で指す（設計 6.7）。
 
 import { statusMark } from "../core/m5/labels.js";
@@ -61,7 +61,7 @@ export function buildIssueList(outputs: RunOutputs, viewRole: ViewRole): IssueLi
       countText: ambiguityCountText(total, viewRole),
       // 並びと番号は SpecProjector の曖昧さの一覧と同じ（report.issues の並び。S-02-A-001 …）。
       items:
-        viewRole === "Eng"
+        viewRole === "IMPLEMENTATION"
           ? report.issues.map(
               (issue, index): AmbiguityItemView => ({
                 id: `${row.displayId}-A-${String(index + 1).padStart(3, "0")}`,

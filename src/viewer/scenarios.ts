@@ -96,7 +96,7 @@ function titleOf(sources: Sources, row: ScenarioRunResult): string {
 }
 
 function inletLocationsOf(sources: Sources, row: ScenarioRunResult, viewRole: ViewRole): GlossaryLocation[] | null {
-  if (viewRole !== "Eng") return null;
+  if (viewRole !== "IMPLEMENTATION") return null;
   return scenarioMapRow(sources, row.displayId)?.implementation.locations ?? [];
 }
 
@@ -111,9 +111,9 @@ function ambiguityTotal(counts: Record<AmbiguityKind, number>): number {
   return AMBIGUITY_KINDS.reduce((sum, kind) => sum + counts[kind], 0);
 }
 
-/** 曖昧さの件数の文。PdM は「エンジニアの確認待ち」だけ（設計 3.1・3.3）。 */
+/** 曖昧さの件数の文。BUSINESS は「エンジニアの確認待ち」だけ（設計 3.1・3.3）。 */
 function ambiguityCountText(total: number, viewRole: ViewRole): string {
-  return viewRole === "PdM" ? `エンジニアの確認待ち: ${total} 件` : `曖昧さ ${total} 件`;
+  return viewRole === "BUSINESS" ? `エンジニアの確認待ち: ${total} 件` : `曖昧さ ${total} 件`;
 }
 
 function verificationTextOf(row: ScenarioRunResult): string | null {
@@ -150,7 +150,7 @@ function summaryOf(report: RunReport, viewRole: ViewRole): RunSummaryView {
       total,
       text: ambiguityCountText(total, viewRole),
       byKind:
-        viewRole === "Eng"
+        viewRole === "IMPLEMENTATION"
           ? AMBIGUITY_KINDS.map((kind) => ({ kind, text: AMBIGUITY_KIND_TEXT[kind], count: report.totals.ambiguity[kind] }))
           : null,
     },
@@ -225,7 +225,7 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
           document: parseMarkdown(document),
           matrix: parseMarkdown(matrix),
           // SpecProjector の付録と同じく、`-- @source:` の行を除く（設計 6.6）。
-          source: viewRole === "Eng" ? stripSourceComments(source).replace(/\n+$/, "") : null,
+          source: viewRole === "IMPLEMENTATION" ? stripSourceComments(source).replace(/\n+$/, "") : null,
           // 流れ図は flow.mmd を読み、全体地図と同じ配置の関数で層に並べる（設計 6.9）。
           flow: buildFlowView(flow),
         },
@@ -236,7 +236,7 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
     const notice =
       row.kind === "AMBIGUOUS"
         ? `このシナリオは、エンジニアの確認待ちの箇所が ${ambiguityTotal(row.counts)} 件あるため、形式仕様にできなかった。`
-        : viewRole === "Eng"
+        : viewRole === "IMPLEMENTATION"
           ? `このシナリオは途中で止まったため、仕様にならなかった（${row.stage} で止まった: ${row.error}）。`
           : "このシナリオは途中で止まったため、仕様にならなかった。";
     return { ...base, verification: null, issueCount: null, issueGroups: null, tabs: null, notice };

@@ -76,17 +76,17 @@ const REPORT: AmbiguityReport = {
 
 const CONTEXT: ProjectionContext = { scenario: SCENARIO, glossary: GLOSSARY, intents: null };
 
-function request(viewRole: ViewRole = "PdM"): AmbiguityProjectionRequest {
+function request(viewRole: ViewRole = "BUSINESS"): AmbiguityProjectionRequest {
   return { format: "AMBIGUITY_DOCUMENT", viewRole, displayId: "S-02" };
 }
 
-test("M5 曖昧さ: PdM には「エンジニアの確認待ち: N 件」と合計だけを書き、質問・種類・所在・原文を出さない（設計 8.9）", async () => {
+test("M5 曖昧さ: BUSINESS には「エンジニアの確認待ち: N 件」と合計だけを書き、質問・種類・所在・原文を出さない（設計 8.9）", async () => {
   const view = await projectAmbiguities(REPORT, CONTEXT, request());
   assert.equal(view.format, "AMBIGUITY_DOCUMENT");
   assert.equal(view.mediaType, "text/markdown");
   assert.equal(view.scenarioId, SCENARIO_ID);
   assert.equal(view.displayId, "S-02");
-  assert.equal(view.viewRole, "PdM");
+  assert.equal(view.viewRole, "BUSINESS");
   assert.deepEqual(view.basis, { specSourceHash: null, ledgerReportId: null, ledgerIsStale: null });
 
   const content = view.content;
@@ -113,9 +113,9 @@ test("M5 曖昧さ: PdM には「エンジニアの確認待ち: N 件」と合�
   assert.ok(content.endsWith("\n") && !content.endsWith("\n\n"));
 });
 
-test("M5 曖昧さ: Eng のときは題に所在を併記し、種類ごとの件数・質問・所在・原文を書く", async () => {
-  const view = await projectAmbiguities(REPORT, CONTEXT, request("Eng"));
-  assert.equal(view.viewRole, "Eng");
+test("M5 曖昧さ: IMPLEMENTATION のときは題に所在を併記し、種類ごとの件数・質問・所在・原文を書く", async () => {
+  const view = await projectAmbiguities(REPORT, CONTEXT, request("IMPLEMENTATION"));
+  assert.equal(view.viewRole, "IMPLEMENTATION");
   assert.ok(view.content.startsWith("# S-02 支払いの請求（`src/pay.ts#charge` L2） の曖昧さ\n"), view.content);
   assert.ok(view.content.includes("- 値が決まらない: 1 件\n- 外部への作用がある: 1 件\n- 同じ条件で別の経路に進む: 0 件\n"));
   assert.ok(view.content.includes("### S-02-A-001\n\n- 種類: 値が決まらない\n- 質問: 請求額はどう決まりますか。\n"));
@@ -127,7 +127,7 @@ test("M5 曖昧さ: Eng のときは題に所在を併記し、種類ごとの�
   assert.ok(!view.content.includes("compute を含む詳細"));
 });
 
-test("M5 曖昧さ: Eng の質問の文に、確定と要再確認の印を付ける。候補と未生成には付けない（設計 8.9）", async () => {
+test("M5 曖昧さ: IMPLEMENTATION の質問の文に、確定と要再確認の印を付ける。候補と未生成には付けない（設計 8.9）", async () => {
   const [first, second] = REPORT.issues;
   const report: AmbiguityReport = {
     ...REPORT,
@@ -136,17 +136,17 @@ test("M5 曖昧さ: Eng の質問の文に、確定と要再確認の印を付�
       { ...second!, question: { status: "GENERATED", text: "保存先はどこですか。", recordKey: "q-2" }, questionStatus: "NEEDS_RECHECK" },
     ],
   };
-  const view = await projectAmbiguities(report, CONTEXT, request("Eng"));
+  const view = await projectAmbiguities(report, CONTEXT, request("IMPLEMENTATION"));
   assert.ok(view.content.includes("- 質問: 請求額はどう決まりますか。（確定）\n"));
   assert.ok(view.content.includes("- 質問: 保存先はどこですか。（要再確認）\n"));
 
-  const plain = await projectAmbiguities(REPORT, CONTEXT, request("Eng"));
+  const plain = await projectAmbiguities(REPORT, CONTEXT, request("IMPLEMENTATION"));
   assert.ok(!plain.content.includes("（確定）") && !plain.content.includes("（要再確認）") && !plain.content.includes("（候補）"));
 });
 
 test("M5 曖昧さ: 辞書が無いか用語が未生成なら「名前は未生成」、曖昧さが 0 件ならそう書く", async () => {
   const empty: AmbiguityReport = { ...REPORT, issues: [], counts: { UNDETERMINED_VALUE: 0, EXTERNAL_EFFECT: 0, CONFLICTING_SLICES: 0 } };
-  const view = await projectAmbiguities(empty, { ...CONTEXT, glossary: null }, request("Eng"));
+  const view = await projectAmbiguities(empty, { ...CONTEXT, glossary: null }, request("IMPLEMENTATION"));
   assert.ok(view.content.startsWith("# S-02（名前は未生成） の曖昧さ\n"), view.content);
   assert.ok(view.content.includes("## 曖昧さ\n\n曖昧さは無い。\n"));
 
@@ -180,7 +180,7 @@ test("M5 曖昧さ: 入力の契約（表現形式・表示の役割・シナリ
 });
 
 test("M5 曖昧さ: 同じ入力から同じ出力になる", async () => {
-  const first = await projectAmbiguities(REPORT, CONTEXT, request("Eng"));
-  const second = await projectAmbiguities(REPORT, CONTEXT, request("Eng"));
+  const first = await projectAmbiguities(REPORT, CONTEXT, request("IMPLEMENTATION"));
+  const second = await projectAmbiguities(REPORT, CONTEXT, request("IMPLEMENTATION"));
   assert.equal(second.content, first.content);
 });

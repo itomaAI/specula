@@ -197,18 +197,18 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   assert.equal(ambiguous.view.format, "AMBIGUITY_DOCUMENT");
   assert.equal(ambiguous.view.displayId, "S-02");
   assert.ok(ambiguous.view.content.startsWith("# S-02"), ambiguous.view.content);
-  // PdM の曖昧さの一覧は合計だけ（SpecProjector の設計 8.9）。表示の id は対応表に残る（下）
+  // BUSINESS の曖昧さの一覧は合計だけ（SpecProjector の設計 8.9）。表示の id は対応表に残る（下）
   assert.ok(ambiguous.view.content.includes("エンジニアの確認待ち: 3 件"), ambiguous.view.content);
   assert.ok(!ambiguous.view.content.includes("src/g.ts"));
 
   assert.equal(result.systemViews.mermaid.mediaType, "text/vnd.mermaid");
   // system_map.json: 地図 1 と、Bounded Context ごとの地図 2（足す要素なし・あり）を束ね、辞書の basis を写す（全体設計 4.1）。
   const maps = result.systemViews.json;
-  assert.equal(maps.viewRole, "PdM");
+  assert.equal(maps.viewRole, "BUSINESS");
   assert.deepEqual(maps.basis, result.glossary.basis);
   const projected = async (request: Omit<SystemProjectionRequest, "format" | "viewRole">): Promise<unknown> =>
     JSON.parse(
-      (await projectSystemMap(result.map, result.glossary, result.intents, { format: "SYSTEM_JSON", viewRole: "PdM", ...request })).content,
+      (await projectSystemMap(result.map, result.glossary, result.intents, { format: "SYSTEM_JSON", viewRole: "BUSINESS", ...request })).content,
     );
   assert.deepEqual(maps.contextMap, await projected({ level: "CONTEXT_MAP" }));
   assert.deepEqual(maps.details.map((detail) => detail.context), ["c1"]);
@@ -319,23 +319,23 @@ test("表示の id を切り出しの順に S-01 … と振り、報告と成果
   assert.ok(completed?.kind === "COMPLETED");
   for (const view of [completed.document, completed.matrix, completed.flow]) {
     assert.equal(view.displayId, "S-01");
-    assert.equal(view.viewRole, "PdM");
+    assert.equal(view.viewRole, "BUSINESS");
     assert.ok(view.content.includes("S-01"), view.format);
     assert.ok(!view.content.includes(completed.scenarioId), view.format);
   }
 });
 
-test("既定の役割は PdM で仕様書に付録が無く、Eng を渡すと付録が付く", async () => {
+test("既定の役割は BUSINESS で仕様書に付録が無く、IMPLEMENTATION を渡すと付録が付く", async () => {
   const pdm = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
-  const eng = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null }, { viewRole: "Eng" });
+  const eng = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null }, { viewRole: "IMPLEMENTATION" });
   const a = pdm.scenarios[0];
   const b = eng.scenarios[0];
   assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");
   assert.ok(!a.document.content.includes("## 付録"));
   assert.ok(b.document.content.includes("## 付録: 形式仕様のソース"));
-  assert.equal(b.document.viewRole, "Eng");
-  assert.equal(pdm.systemViews.json.viewRole, "PdM");
-  assert.equal(eng.systemViews.json.viewRole, "Eng");
+  assert.equal(b.document.viewRole, "IMPLEMENTATION");
+  assert.equal(pdm.systemViews.json.viewRole, "BUSINESS");
+  assert.equal(eng.systemViews.json.viewRole, "IMPLEMENTATION");
 });
 
 test("選択で絞っても、表示の id は回したシナリオの中で S-01 から振る", async () => {

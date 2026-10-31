@@ -13,11 +13,12 @@ export type ScenarioViewFormat = "DOCUMENT" | "MATRIX" | "FLOW";
 export type SystemViewFormat = "SYSTEM_MERMAID" | "SYSTEM_JSON";
 
 /**
- * 表示の役割（全体設計 2.2、SpecProjector の設計 8.3）。既定は PdM。
- * - PdM: ファイルのパス・関数名・行番号・コードの断片を出さない。
- * - Eng: 文は PdM と同じにし、実装の名前と所在を併記する。仕様書に形式仕様のソースの付録を載せる。
+ * 表示の役割（全体設計 2.2、SpecProjector の設計 8.3、全体仕様 4.5）。既定は BUSINESS。画面の表示名は「業務／実装」。
+ * - BUSINESS: ファイルのパス・関数名・行番号・コードの断片を出さない。
+ * - IMPLEMENTATION: 文は BUSINESS と同じにし、実装の名前と所在を併記する。仕様書に形式仕様のソースの付録を載せる。
+ * URL や CLI では小文字で受け取ってよく、読むときに大文字へ戻す。列挙に無い値はエラーにする。
  */
-export type ViewRole = "PdM" | "Eng";
+export type ViewRole = "BUSINESS" | "IMPLEMENTATION";
 
 export interface ProjectionRequest {
   format: ScenarioViewFormat;
@@ -134,7 +135,7 @@ export class ProjectionContractError extends Error {
       | "SCENARIO_MISMATCH"
       | "UNKNOWN_OPERATION"
       | "UNKNOWN_STATE_VARIABLE"
-      // 表現形式が関数の受け付けるものでない。表示の役割が PdM・Eng のどちらでもないときも、この理由にする
+      // 表現形式が関数の受け付けるものでない。表示の役割が BUSINESS・IMPLEMENTATION のどちらでもないときも、この理由にする
       | "UNSUPPORTED_FORMAT"
       // 辞書の basis.mapHash が、受け取った全体マップのハッシュと違う（SpecProjector の設計 7.7・8.1）
       | "GLOSSARY_STALE"

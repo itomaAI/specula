@@ -95,7 +95,7 @@ export interface ViewModel {
   displayId: string;
   /** 題: 「S-01 〈起点の用語〉」、用語が未生成なら「S-01（名前は未生成）」（設計 4.1）。 */
   title: string;
-  /** 題の後ろに足す併記（Eng のときだけ。設計 8.3）。PdM と、所在が無いときは ""。 */
+  /** 題の後ろに足す併記（IMPLEMENTATION のときだけ。設計 8.3）。BUSINESS と、所在が無いときは ""。 */
   titleNote: string;
   viewRole: ViewRole;
   /** このシナリオの意図の候補。意図の候補の一覧が無いか、このシナリオの候補が無ければ null。 */
@@ -236,7 +236,7 @@ export function issueGroupsOf(
 /**
  * 題（設計 4.1）。起点のコマンドまたはポリシーの項目を辞書で引く（設計 8.2）。
  * 項目が無いか、種類が起点の種類と違うか、用語が未生成なら「名前は未生成」とする。
- * 併記は Eng のときだけ、項目の implementation.locations から作る（設計 8.3）。
+ * 併記は IMPLEMENTATION のときだけ、項目の implementation.locations から作る（設計 8.3）。
  */
 export function titleOf(
   context: ProjectionContext,
@@ -252,7 +252,7 @@ export function titleOf(
       ? `${request.displayId} ${term.label}${statusMark(matched?.termStatus)}`
       : `${request.displayId}（名前は未生成）`;
   const titleNote =
-    request.viewRole === "Eng" && matched !== undefined ? markdownImplementationNote(matched.implementation.locations) : "";
+    request.viewRole === "IMPLEMENTATION" && matched !== undefined ? markdownImplementationNote(matched.implementation.locations) : "";
   return { title, titleNote };
 }
 

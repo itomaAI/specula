@@ -237,15 +237,15 @@ test("M1 → M2 → M3 → M4 → M5: 本物のエンジンの結果から仕様
   const report = await verifySpecification(result.spec, { solver: adapter() }, { maxSteps: 3 });
   const catalog = await synthesizeLedger(report, result.spec, { llm: NO_LLM });
 
-  // 辞書と意図の候補は渡さない（起点の用語は「名前は未生成」になる）。役割は PdM。
+  // 辞書と意図の候補は渡さない（起点の用語は「名前は未生成」になる）。役割は BUSINESS。
   const context = { scenario: target("src/r.ts", "read"), glossary: null, intents: null };
-  const view = await projectSpecification(result.spec, catalog, context, { format: "DOCUMENT", viewRole: "PdM", displayId: "S-01" });
-  const again = await projectSpecification(result.spec, catalog, context, { format: "DOCUMENT", viewRole: "PdM", displayId: "S-01" });
+  const view = await projectSpecification(result.spec, catalog, context, { format: "DOCUMENT", viewRole: "BUSINESS", displayId: "S-01" });
+  const again = await projectSpecification(result.spec, catalog, context, { format: "DOCUMENT", viewRole: "BUSINESS", displayId: "S-01" });
   assert.equal(view.content, again.content);
   assert.equal(view.basis.ledgerIsStale, false);
   assert.equal(view.basis.ledgerReportId, report.reportId);
 
-  // PdM には付録（形式仕様のソース）が無いので、本文全体を見る。
+  // BUSINESS には付録（形式仕様のソース）が無いので、本文全体を見る。
   assert.ok(!view.content.includes("## 付録"));
   assert.ok(!view.content.includes("SCN-1"));
   const body = view.content;
@@ -258,7 +258,7 @@ test("M1 → M2 → M3 → M4 → M5: 本物のエンジンの結果から仕様
   assert.doesNotMatch(body.replace(/[A-Za-z0-9_]+（表示名は未生成）/g, ""), M5_IDENTIFIER);
 
   for (const format of ["MATRIX", "FLOW"] as const) {
-    const other = await projectSpecification(result.spec, catalog, context, { format, viewRole: "PdM", displayId: "S-01" });
+    const other = await projectSpecification(result.spec, catalog, context, { format, viewRole: "BUSINESS", displayId: "S-01" });
     assert.ok(!other.content.includes("src/r.ts"), format);
   }
 });

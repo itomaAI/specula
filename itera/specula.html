@@ -24,7 +24,7 @@
 //   jar        （任意）手元の PC での Alloy の jar のパス。無ければ検証（M3）をしない（NO_SOLVER）
 //   java       （任意）手元の PC での java のコマンド。既定は "java"
 //   connection （任意）ローカルブリッジの接続の名前（設定 local_bridge の connections[].name）。無ければ有効な最初の接続
-//   viewRole   （任意）利用者向けの出力の表示の役割。"PdM"（既定）か "Eng"（実装の名前と所在を併記する。全体設計 2.2）
+//   viewRole   （任意）利用者向けの出力の表示の役割。"BUSINESS"（既定）か "IMPLEMENTATION"（実装の名前と所在を併記する。全体設計 2.2）
 //
 // - LLM の依頼は、この Itera OS の AI エージェントに内部のタスク（MetaOS.ai.task）として渡し、答えをファイルで受け取る（IteraLlmAdapter）。
 //   依頼と答えは <out>/llm_exchange、記録は <out>/llm_records に置く。記録があれば、次の実行ではタスクを出さずに記録を使う。
@@ -53,9 +53,10 @@
       return;
     }
     // 役割の誤りは実行の前に止める（そのまま渡すと俯瞰図の射影が契約のエラーを投げ、環境の故障と区別できないため）。
-    const viewRole = String(args.viewRole || '').trim() || 'PdM';
-    if (viewRole !== 'PdM' && viewRole !== 'Eng') {
-      log(`引数の誤り: viewRole は PdM か Eng（${viewRole} を受け取った）`, 'error');
+    // 小文字で受け取ってよく、読むときに大文字へ戻す（全体仕様 4.5）。列挙に無い値はエラーにする。
+    const viewRole = (String(args.viewRole || '').trim() || 'BUSINESS').toUpperCase();
+    if (viewRole !== 'BUSINESS' && viewRole !== 'IMPLEMENTATION') {
+      log(`引数の誤り: viewRole は BUSINESS か IMPLEMENTATION（${viewRole} を受け取った）`, 'error');
       return;
     }
 

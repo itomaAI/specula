@@ -66,7 +66,7 @@ test("実際の出力: 俯瞰図の要素と文をそのまま使い、地図 2 
     const outputs = await checkedOutputs(out);
     assert.ok(outputs.systemMap.kind === "OK");
     const bundle = outputs.systemMap.value;
-    const view = buildMapView(outputs, "PdM");
+    const view = buildMapView(outputs, "BUSINESS");
     assert.ok(view.kind === "OK", JSON.stringify(view));
 
     assert.equal(view.startWithDetail, bundle.contextMap.nodes.length === 1);
@@ -104,7 +104,7 @@ test("実際の出力: 俯瞰図の要素と文をそのまま使い、地図 2 
     assert.ok(starts.length > 0, "起点のシナリオが 1 つも引けない");
     for (const id of starts) assert.ok(known.has(id), id);
 
-    // PdM では実装の名前と所在を持たない
+    // BUSINESS では実装の名前と所在を持たない
     assert.ok(!JSON.stringify(view).includes("src/a.ts"));
   });
 });
@@ -219,7 +219,7 @@ function withSynthetic(outputs: RunOutputs, options: { map: boolean; implementat
 
 test("地図 1 と地図 2: またぐポリシーのつながり、箱のポップアップ、起点のシナリオ、壊れた印", async () => {
   await withOutputs(async (out, report) => {
-    const view = buildMapView(withSynthetic(await checkedOutputs(out), { map: true, implementation: true }), "PdM");
+    const view = buildMapView(withSynthetic(await checkedOutputs(out), { map: true, implementation: true }), "BUSINESS");
     assert.ok(view.kind === "OK", JSON.stringify(view));
     assert.equal(view.startWithDetail, false);
 
@@ -264,7 +264,7 @@ test("地図 1 と地図 2: またぐポリシーのつながり、箱のポッ�
       ],
     );
 
-    // PdM: JSON に実装の名前と所在があっても持たない。内部の識別子も出ない
+    // BUSINESS: JSON に実装の名前と所在があっても持たない。内部の識別子も出ない
     assert.equal(command!.implementation, null);
     const text = JSON.stringify(view);
     assert.ok(!text.includes("impl_"));
@@ -272,15 +272,15 @@ test("地図 1 と地図 2: またぐポリシーのつながり、箱のポッ�
   });
 });
 
-test("Eng: JSON に実装の名前と所在があるときだけ持つ", async () => {
+test("IMPLEMENTATION: JSON に実装の名前と所在があるときだけ持つ", async () => {
   await withOutputs(async (out) => {
     const outputs = await checkedOutputs(out);
-    const withIt = buildMapView(withSynthetic(outputs, { map: true, implementation: true }), "Eng");
+    const withIt = buildMapView(withSynthetic(outputs, { map: true, implementation: true }), "IMPLEMENTATION");
     assert.ok(withIt.kind === "OK");
     assert.deepEqual(withIt.details[1]!.core.nodes[0]!.implementation, { names: ["impl_cmdB"], locations: [{ file: "src/x.ts", line: 1 }] });
     assert.equal(withIt.details[1]!.core.nodes[1]!.implementation, null);
 
-    const without = buildMapView(withSynthetic(outputs, { map: true, implementation: false }), "Eng");
+    const without = buildMapView(withSynthetic(outputs, { map: true, implementation: false }), "IMPLEMENTATION");
     assert.ok(without.kind === "OK");
     assert.equal(without.details[1]!.core.nodes[0]!.implementation, null);
   });
@@ -288,7 +288,7 @@ test("Eng: JSON に実装の名前と所在があるときだけ持つ", async (
 
 test("実装との対応表が無いとき: 用語・意図の候補・起点のシナリオを引けない理由を書く", async () => {
   await withOutputs(async (out) => {
-    const view = buildMapView(withSynthetic(await checkedOutputs(out), { map: false, implementation: false }), "PdM");
+    const view = buildMapView(withSynthetic(await checkedOutputs(out), { map: false, implementation: false }), "BUSINESS");
     assert.ok(view.kind === "OK");
     const c2 = view.contextMap.nodes[1]!;
     assert.equal(c2.popup.entry, null);
@@ -312,13 +312,13 @@ test("俯瞰図が無いとき・形が違うとき: 全体地図だけを理由
     const bundle = synthetic.systemMap.value;
     const withMap = (value: unknown): RunOutputs => ({ ...synthetic, systemMap: { kind: "OK", value: value as SystemMapBundle } });
 
-    assert.deepEqual(buildMapView({ ...synthetic, systemMap: { kind: "MISSING" } }, "PdM"), {
+    assert.deepEqual(buildMapView({ ...synthetic, systemMap: { kind: "MISSING" } }, "BUSINESS"), {
       kind: "UNAVAILABLE",
       reason: "全体地図を出せない: 俯瞰図が無い",
     });
 
     const badKind = withMap({ ...bundle, contextMap: { ...bundle.contextMap, nodes: [{ ...bundle.contextMap.nodes[0], kind: "FOO" }] } });
-    assert.deepEqual(buildMapView(badKind, "PdM"), {
+    assert.deepEqual(buildMapView(badKind, "BUSINESS"), {
       kind: "UNAVAILABLE",
       reason: "全体地図を出せない: 俯瞰図の形が違う（地図 1 の 1 番目のノード: kind）",
     });
@@ -328,13 +328,13 @@ test("俯瞰図が無いとき・形が違うとき: 全体地図だけを理由
       ...bundle,
       details: [bundle.details[0], { ...bundle.details[1], core: { ...core, edges: [{ from: "n2", to: "n9", kind: "INVOKES", broken: null }] } }],
     });
-    assert.deepEqual(buildMapView(danglingEdge, "PdM"), {
+    assert.deepEqual(buildMapView(danglingEdge, "BUSINESS"), {
       kind: "UNAVAILABLE",
       reason: "全体地図を出せない: 俯瞰図の形が違う（地図 2（c2）の 1 番目のつながり: 地図に無いノードを指している）",
     });
 
     const reordered = withMap({ ...bundle, details: [bundle.details[1], bundle.details[0]] });
-    assert.deepEqual(buildMapView(reordered, "PdM"), {
+    assert.deepEqual(buildMapView(reordered, "BUSINESS"), {
       kind: "UNAVAILABLE",
       reason: "全体地図を出せない: 俯瞰図の形が違う（地図 2: Bounded Context の並びが地図 1 と違う）",
     });
@@ -345,6 +345,6 @@ test("全体地図: 事前条件を通っていない入力では例外を投げ
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
-    assert.throws(() => buildMapView(outputs, "PdM"), /checkRunOutputs/);
+    assert.throws(() => buildMapView(outputs, "BUSINESS"), /checkRunOutputs/);
   });
 });

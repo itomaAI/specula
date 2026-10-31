@@ -23,7 +23,7 @@ export interface PipelineDeps {
 export interface PipelineOptions {
   selection?: ScenarioSelection;
   solver?: SolverOptions;
-  /** 利用者向けの出力の表示の役割（全体設計 2.2）。無ければ "PdM"。 */
+  /** 利用者向けの出力の表示の役割（全体設計 2.2）。無ければ "BUSINESS"。 */
   viewRole?: ViewRole;
 }
 

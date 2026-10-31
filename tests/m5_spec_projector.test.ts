@@ -221,14 +221,14 @@ async function catalog(overrides: Partial<DomainLedgerCatalog> = {}, issues: Led
   };
 }
 
-function request(format: ScenarioViewFormat, viewRole: ViewRole = "PdM"): ProjectionRequest {
+function request(format: ScenarioViewFormat, viewRole: ViewRole = "BUSINESS"): ProjectionRequest {
   return { format, viewRole, displayId: "S-01" };
 }
 
 const DOCUMENT = request("DOCUMENT");
 const IDENTIFIER = /\b(?:v\d+(?:_\d+|_unknown)?|c\d+|op\d+(?:_guard)?|o\d+|m3_\w+)\b/;
 const FORBIDDEN = ["健全", "証明済み", "問題なし", "採択済み", "合意済み"];
-/** PdM の出力に出てはいけない実装の名前と内部の識別子。 */
+/** BUSINESS の出力に出てはいけない実装の名前と内部の識別子。 */
 const IMPLEMENTATION = ["SCN-", "LEDGER-", "src/order.ts", "closeOrder", "@source"];
 
 function bodyOf(markdown: string): string {
@@ -245,7 +245,7 @@ test("M5: 仕様書は決定論的で、末尾は改行 1 つ", async () => {
   assert.equal(a.mediaType, "text/markdown");
   assert.equal(a.scenarioId, SCENARIO_ID);
   assert.equal(a.displayId, "S-01");
-  assert.equal(a.viewRole, "PdM");
+  assert.equal(a.viewRole, "BUSINESS");
   assert.equal(a.basis.specSourceHash, await sha256Hex(SOURCE));
   assert.equal(a.basis.ledgerReportId, "REPORT-1");
   assert.equal(a.basis.ledgerIsStale, false);
@@ -268,7 +268,7 @@ test("M5: 仕様書に状態変数・命題・操作・論点がすべて表示�
   assert.ok(body.includes("従属する反例: 1 件"));
 });
 
-test("M5: PdM の仕様書・一覧表・流れ図に、実装の名前と内部の識別子が出ない（全体設計 2.2）", async () => {
+test("M5: BUSINESS の仕様書・一覧表・流れ図に、実装の名前と内部の識別子が出ない（全体設計 2.2）", async () => {
   const ledger = await catalog();
   for (const format of ["DOCUMENT", "MATRIX", "FLOW"] as const) {
     const view = await projectSpecification(SPEC, ledger, CONTEXT, request(format));
@@ -316,22 +316,22 @@ test("M5: 意図の候補の節は検証の状態の後に置き、候補であ�
   assert.ok(!notGenerated.content.includes("op1 を含む詳細"));
 });
 
-test("M5: Eng のときは題に所在を併記し、付録を載せる（設計 8.3）", async () => {
-  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "Eng"));
-  assert.equal(view.viewRole, "Eng");
+test("M5: IMPLEMENTATION のときは題に所在を併記し、付録を載せる（設計 8.3）", async () => {
+  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "IMPLEMENTATION"));
+  assert.equal(view.viewRole, "IMPLEMENTATION");
   assert.ok(view.content.startsWith("# 仕様書: S-01 注文の締め（`src/order.ts#closeOrder` L3）\n"));
   assert.ok(view.content.includes("## 付録: 形式仕様のソース"));
-  const matrix = await projectSpecification(SPEC, null, CONTEXT, request("MATRIX", "Eng"));
+  const matrix = await projectSpecification(SPEC, null, CONTEXT, request("MATRIX", "IMPLEMENTATION"));
   assert.ok(matrix.content.startsWith("# 操作の一覧表: S-01 注文の締め（`src/order.ts#closeOrder` L3）\n"));
   // 本文の文は役割で変えない
   const pdm = await projectSpecification(SPEC, null, CONTEXT, DOCUMENT);
-  // 題の行を除き、末尾の空行をそろえる（Eng は付録の見出しの前に空行が 1 つ入る）
+  // 題の行を除き、末尾の空行をそろえる（IMPLEMENTATION は付録の見出しの前に空行が 1 つ入る）
   const strip = (text: string): string => bodyOf(text).split("\n").slice(1).join("\n").replace(/\n+$/, "\n");
   assert.equal(strip(view.content), strip(pdm.content));
 });
 
 test("M5: 付録のソースは @source の行を除き、囲みはバッククォートの並びより長い", async () => {
-  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "Eng"));
+  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "IMPLEMENTATION"));
   const appendix = view.content.slice(view.content.indexOf("## 付録"));
   assert.ok(appendix.includes("`````alloy\n"));
   assert.ok(appendix.includes("pred op1_guard"));

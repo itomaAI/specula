@@ -126,8 +126,8 @@ export function renderDocument(model: ViewModel): string {
     }
   }
 
-  // 付録は Eng のときだけ（設計 2 節・4.1・8.3）。正本のソースは識別子を含むため、PdM には出さない。
-  if (model.viewRole === "Eng") {
+  // 付録は IMPLEMENTATION のときだけ（設計 2 節・4.1・8.3）。正本のソースは識別子を含むため、BUSINESS には出さない。
+  if (model.viewRole === "IMPLEMENTATION") {
     lines.push("## 付録: 形式仕様のソース", "");
     const source = stripSourceComments(model.source).replace(/\n+$/, "");
     const fence = fenceFor(source);

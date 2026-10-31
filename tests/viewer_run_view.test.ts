@@ -54,7 +54,7 @@ test("4 つの画面とシナリオの詳細を、画面ごとの関数と同じ
   await withOutputs(async (out) => {
     const outputs = await readRunOutputs(fs, out);
     assert.deepEqual(checkRunOutputs(outputs), { ok: true, problems: [] });
-    for (const viewRole of ["PdM", "Eng"] as const) {
+    for (const viewRole of ["BUSINESS", "IMPLEMENTATION"] as const) {
       const view = buildRunView(outputs, viewRole);
       assert.equal(view.viewRole, viewRole);
       assert.deepEqual(view.scenarioList, buildScenarioList(outputs, viewRole));
@@ -69,7 +69,7 @@ test("4 つの画面とシナリオの詳細を、画面ごとの関数と同じ
 test("シナリオの詳細は、シナリオ一覧の行と同じ順・同じ数", async () => {
   await withOutputs(async (out) => {
     const outputs = await readRunOutputs(fs, out);
-    const view = buildRunView(outputs, "PdM");
+    const view = buildRunView(outputs, "BUSINESS");
     assert.ok(view.scenarioList.rows.length > 0);
     assert.deepEqual(
       view.scenarioDetails.map((d) => d.displayId),
@@ -83,6 +83,6 @@ test("事前条件を満たさない入力（実行の報告が無い）では�
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
     assert.equal(checkRunOutputs(outputs).ok, false);
-    assert.throws(() => buildRunView(outputs, "PdM"), /画面を作れない（事前条件の破れ）: REPORT_MISSING run_report\.json/);
+    assert.throws(() => buildRunView(outputs, "BUSINESS"), /画面を作れない（事前条件の破れ）: REPORT_MISSING run_report\.json/);
   });
 });

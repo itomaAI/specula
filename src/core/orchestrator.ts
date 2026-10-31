@@ -93,7 +93,7 @@ export async function runPipeline(
   deps: PipelineDeps,
   options: PipelineOptions = {},
 ): Promise<PipelineResult> {
-  const viewRole: ViewRole = options.viewRole ?? "PdM";
+  const viewRole: ViewRole = options.viewRole ?? "BUSINESS";
   const map = discoverSystemContext(repo);
   // 1 回の実行に 1 回だけ動く段。契約のエラーは止めずに投げ直す（全体設計 2.1）。
   const glossary = await buildGlossary(map, repo, { llm: deps.llm });

@@ -15,7 +15,7 @@ function model(ledgerIsStale: boolean | null): ViewModel {
     displayId: "S-01",
     title: "S-01 開く",
     titleNote: "",
-    viewRole: "PdM",
+    viewRole: "BUSINESS",
     intent: null,
     specSourceHash: "h",
     ledgerReportId: null,

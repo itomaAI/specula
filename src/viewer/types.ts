@@ -107,7 +107,7 @@ export interface RunSummaryView {
   commandCount: number;
   eventCount: number;
   scenarioCounts: Record<ScenarioKind, number>;
-  /** byKind は Eng のときだけある。PdM は合計だけを「エンジニアの確認待ち: N 件」と出す。 */
+  /** byKind は IMPLEMENTATION のときだけある。BUSINESS は合計だけを「エンジニアの確認待ち: N 件」と出す。 */
   ambiguity: { total: number; text: string; byKind: Array<{ kind: AmbiguityKind; text: string; count: number }> | null };
   verification: Array<{ outcome: VerificationOutcome; text: string; count: number }>;
   /** 検査の範囲の文（実行の報告の inspectionScope から）。 */
@@ -133,7 +133,7 @@ export interface ScenarioRowView {
   intentText: string;
   /** Bounded Context の表示名（印付き）。 */
   boundedContext: string;
-  /** 起点の所在。Eng のときだけある。 */
+  /** 起点の所在。IMPLEMENTATION のときだけある。 */
   inletLocations: GlossaryLocation[] | null;
 }
 
@@ -173,7 +173,7 @@ export interface ScenarioDetailView {
   tabs: ScenarioTabsView | null;
   /** 曖昧さで止まった・途中で止まったシナリオで、タブの代わりに出す文。仕様になったシナリオは null。 */
   notice: string | null;
-  /** 起点の所在。Eng のときだけある。 */
+  /** 起点の所在。IMPLEMENTATION のときだけある。 */
   inletLocations: GlossaryLocation[] | null;
 }
 
@@ -183,7 +183,7 @@ export interface ScenarioTabsView {
   document: MarkdownBlock[];
   /** 操作の一覧表（matrix.md）のブロックの並び。 */
   matrix: MarkdownBlock[];
-  /** 形式仕様のソース（spec.als から `-- @source:` の行を除いたもの）。Eng のときだけ。 */
+  /** 形式仕様のソース（spec.als から `-- @source:` の行を除いたもの）。IMPLEMENTATION のときだけ。 */
   source: string | null;
   /** 操作の流れ図（flow.mmd を層に並べたもの。設計 6.9）。 */
   flow: FlowView;
@@ -260,7 +260,7 @@ export interface ScenarioIssuesView {
   operationRows: Record<string, number[]>;
 }
 
-/** 曖昧さ 1 件（Eng のみ。設計 3.3）。 */
+/** 曖昧さ 1 件（IMPLEMENTATION のみ。設計 3.3）。 */
 export interface AmbiguityItemView {
   /** "S-02-A-001"。 */
   id: string;
@@ -280,9 +280,9 @@ export interface ScenarioAmbiguitiesView {
   displayId: string;
   title: string;
   total: number;
-  /** PdM は「エンジニアの確認待ち: N 件」、Eng は「曖昧さ N 件」。 */
+  /** BUSINESS は「エンジニアの確認待ち: N 件」、IMPLEMENTATION は「曖昧さ N 件」。 */
   countText: string;
-  /** Eng のときだけ。PdM では null（質問・箇所・原文を出さない）。 */
+  /** IMPLEMENTATION のときだけ。BUSINESS では null（質問・箇所・原文を出さない）。 */
   items: AmbiguityItemView[] | null;
 }
 
@@ -291,7 +291,7 @@ export interface IssueListView {
   issueTotal: number;
   scenarios: ScenarioIssuesView[];
   ambiguityTotal: number;
-  /** PdM ではシナリオ別の件数の表として、Eng では質問の一覧として描く。 */
+  /** BUSINESS ではシナリオ別の件数の表として、IMPLEMENTATION では質問の一覧として描く。 */
   ambiguities: ScenarioAmbiguitiesView[];
 }
 
@@ -325,7 +325,7 @@ export interface GlossaryEntryView {
   sources: GlossarySourceView[];
   /** またぐポリシーだけ。「〈Bounded Context〉へまたぐ」または「〈Bounded Context〉からまたいでくる」。ほかは null。 */
   crossing: string | null;
-  /** 実装の名前と所在。Eng のときだけある。 */
+  /** 実装の名前と所在。IMPLEMENTATION のときだけある。 */
   implementation: { names: string[]; locations: GlossaryLocation[] } | null;
 }
 
@@ -408,7 +408,7 @@ export interface MapNodeView {
   crossing: { from: string; to: string } | null;
   /** 壊れた印（JSON の broken が null でなければ true）。初回は常に false。 */
   broken: boolean;
-  /** 実装の名前と所在。画面の役割が Eng で、JSON にあるときだけ。 */
+  /** 実装の名前と所在。画面の役割が IMPLEMENTATION で、JSON にあるときだけ。 */
   implementation: { names: string[]; locations: GlossaryLocation[] } | null;
   popup: MapPopupView;
 }
