@@ -34,6 +34,24 @@ const NO_CONTEXT = "所属する Bounded Context が無い";
 const STATUS_NOTE =
   "この辞書の用語と意味は、人が確かめていない候補である。人が確定したものには「（確定）」、確定のあとで元の資料やコードが変わったものには「（要再確認）」を付けた。";
 
+/** BUSINESS の意味の抜粋で、コードのパスの代わりに置く文（Q6）。 */
+const HIDDEN_PATH = "（コードのパス）";
+const INLINE_CODE = /`([^`\n]+)`/g;
+/** インラインコードの中身が、パスの区切りに src/ を含むか。 */
+const SRC_IN_CODE = /(?:^|[\s/])src\//;
+/** 囲まれていないパス。英字・数字・_・.・-・/ の続きで、区切りに src/ を含むもの。 */
+const BARE_SRC_PATH = /(?<![\w./-])(?:[\w.-]+\/)*src\/[\w./-]*/g;
+
+/**
+ * 意味の抜粋から、資料が書いたコードのパス（区切りに src/ を含むもの）を HIDDEN_PATH に置き換える（Q6。BUSINESS だけ）。
+ * パスを含むインラインコードは囲みごと置き換える。パスを含まないインラインコード（関数名など）は残す。
+ */
+export function hideSourcePaths(text: string): string {
+  return text
+    .replace(INLINE_CODE, (whole: string, code: string) => (SRC_IN_CODE.test(code) ? HIDDEN_PATH : whole))
+    .replace(BARE_SRC_PATH, HIDDEN_PATH);
+}
+
 type Presented = GlossaryEntry & { kind: PresentedEntryKind };
 
 function isPresented(entry: GlossaryEntry): entry is Presented {
@@ -107,7 +125,10 @@ export function buildGlossaryView(outputs: RunOutputs, viewRole: ViewRole): Glos
     kindText: KIND_TEXT[entry.kind],
     term: labelOfEntry(glossary, entry.id, entry.kind).text,
     termStatus: entry.termStatus ?? "NOT_GENERATED",
-    meaning: entry.excerpt === null ? NO_MEANING : `${entry.excerpt.text}${statusMark(entry.excerpt.status)}`,
+    meaning:
+      entry.excerpt === null
+        ? NO_MEANING
+        : `${viewRole === "BUSINESS" ? hideSourcePaths(entry.excerpt.text) : entry.excerpt.text}${statusMark(entry.excerpt.status)}`,
     meaningTruncated: entry.excerpt?.truncated ?? false,
     sources: entry.sources.map((id) => sourceOf(id, documents)),
     crossing,
@@ -160,13 +181,17 @@ export function buildGlossaryView(outputs: RunOutputs, viewRole: ViewRole): Glos
       entries: item.entries.map((entry) => ({ ...ref(entry.entryId), context: contextName(entry.contextId) })),
     })),
     multiSource: glossary.gaps.multiSourceEntries.map((item) => ({ ...ref(item.entryId), documents: [...item.documents] })),
-    unmatchedDocumentNames: {
-      count: glossary.gaps.unmatchedDocumentNames.length,
-      items: glossary.gaps.unmatchedDocumentNames.map((item) => ({
-        name: item.name,
-        sources: item.sections.map((id) => sourceOf(id, documents)),
-      })),
-    },
+    // 資料のインラインコードの名前は実装の側の情報なので、IMPLEMENTATION だけに出す（Q8）。
+    unmatchedDocumentNames:
+      viewRole === "IMPLEMENTATION"
+        ? {
+            count: glossary.gaps.unmatchedDocumentNames.length,
+            items: glossary.gaps.unmatchedDocumentNames.map((item) => ({
+              name: item.name,
+              sources: item.sections.map((id) => sourceOf(id, documents)),
+            })),
+          }
+        : null,
   };
 
   return {

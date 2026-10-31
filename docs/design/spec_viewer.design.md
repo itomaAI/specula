@@ -166,7 +166,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | 資料に記述が無い要素 | 一覧で出す |
 | 同義と多義の候補（同じ Bounded Context の中） | 一覧で出す |
 | Bounded Context ごとに意味が違う言葉 | 一覧で出す。ずれではなく別の区分として見せる |
-| 項目に対応しない資料の名前 | 件数だけを出し、開くと一覧が見える形にする（件数が多くなりやすいため） |
+| 項目に対応しない資料の名前 | `IMPLEMENTATION` だけに出す。件数だけを出し、開くと一覧が見える形にする（件数が多くなりやすいため）。`BUSINESS` では出さない（Q8） |
 
 ---
 
@@ -186,6 +186,8 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 
 - ~~鍵は内部の識別子とする。表示の id と内部の識別子の対応は `implementation_map.json` で引く（SpecProjector 基本設計 8.5）。~~ 鍵は表示の id とする（2026-10-31 に変えた。理由は 6.7）。内部の識別子は、ビューモデルを作るときに辞書・意図の候補・対応表を引くためだけに使う。リンクは 1 回の実行の中で閉じる（仕様 2.3）。
 - 内部の識別子は URL やアドレスバーにも出さない（`PdM` で実装の所在が見えてしまうため）。画面の中の位置を外に示すときは表示の id を使う。
+- **Itera での動き**（起動アプリ `itera/spec_viewer.html`）: リンクで画面を移るたびに、いまの場所を `MetaOS.nav.declare` でメインウィンドウの履歴に名乗る。host の ← → とブラウザの戻る・進むで前の画面へ戻れる。場所は `?out=…&bundle=…&viewRole=…&screen=…` に、`id`（シナリオの表示の id）・`tab`・`context`（地図 2 の Bounded Context の表示の id）・`supporting`・`glossaryTab`・`f_〈絞り込みの鍵〉` を足したもの（`viewRole` は小文字）。同じ場所は名乗り直さない。戻る・進むで host がこのアプリの場所を開き直すと `route_changed` が届くので、その引数から画面を戻す。アプリが閉じていれば host が同じ引数で起動し直し、起動の引数から同じ画面を開く。選んだ要素と強調する行は場所に入れない（戻ったときは選んでいない状態で開く）。起動の引数（`out`・`bundle`・`viewRole`）が違う場所は、開いている画面では開き直さない。
+- Standalone（HTML どうしのリンク）は、画面を HTML として書き出す機能がまだ無いので、ここでは扱わない（設計の案と見積もりを別に出す）。
 
 ---
 
@@ -284,7 +286,8 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **項目の文**: 用語は 6.5 の名前と同じ形（`labelOfEntry`。表示名と確定の状態の印、未生成なら「（名前は未生成）」）。種類の文は俯瞰図（`render_system.ts` の `KIND_TEXT`）に合わせて「Bounded Context」「コマンド」「イベント」「ポリシー」とする（3.5 の表の「ドメインイベント」は、同じ要素を画面ごとに違う語で呼ばないよう「イベント」にした）。意味は抜粋の本文に確定の状態の印を足し、上限で切ったかを `meaningTruncated` で持つ。抜粋が無ければ「資料に記述が無い」。
 - **確定の状態の説明**: `statusMark` は候補に印を付けない（`labels.ts`）。SpecProjector の仕様書が冒頭に説明を 1 回だけ書くのと同じく（`render_document.ts`）、用語辞典も一覧の上に 1 回だけ説明の文（`statusNote`）を出す。絞り込み用に、項目ごとの `termStatus` も持つ。
 - **用語の出どころ**: 節の識別子（`<資料のパス>#<見出しの並び>`、GlossaryBuilder 設計 2 節）を資料と見出しに分ける（`sourceOf`）。資料のパスに `#` があっても誤らないよう、辞書の `documents` の `read`・`truncated` のうち最も長く一致するパスで分け、一致しなければ最初の `#` で分ける。
-- **資料とコードのずれ**: 辞書の `gaps` を、表示の id と用語の文に直して持つ（内部の識別子を描く側へ渡さない。4 節）。項目に対応しない資料の名前は、件数と、開いたときの一覧を持つ（3.5）。
+- **資料とコードのずれ**: 辞書の `gaps` を、表示の id と用語の文に直して持つ（内部の識別子を描く側へ渡さない。4 節）。項目に対応しない資料の名前は、`IMPLEMENTATION` のときだけ件数と開いたときの一覧を持ち、`BUSINESS` では `null` にする（3.5。資料のインラインコードの名前は実装の側の情報のため。Q8）。
+- **意味のコードのパス**: `BUSINESS` のときは、意味（資料の抜粋）の中で資料が書いたコードのパス（区切りに `src/` を含むもの）を「（コードのパス）」に置き換える（`hideSourcePaths`。Q6）。パスを含むインラインコードは囲みごと置き換え、関数名だけのインラインコードは残す。`IMPLEMENTATION` では抜粋をそのまま出す。辞書の `excerpt` は書き換えない（画面の側だけで置き換える）。
 - **実装の名前と所在**: `Eng` のときだけ、辞書の項目の `implementation` を写して持つ。`PdM` では `null`。
 - **用語辞典から地図 2 へのリンク**（4 節）: 項目の表示の id が俯瞰図の要素の id と同じなので、描く側はそれで地図 2 の要素を指す。どの地図 2 に出るかは、`system_map.json` の `details` のノードで描く側が引く。
 
@@ -304,7 +307,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **公開する関数**: `buildMapView(outputs, viewRole)`（`src/viewer/map.ts`）。`checkRunOutputs` を通った入力を受け取り、通っていない入力では例外を投げる（6.5 と同じ）。
 - **元にするもの**: `system_map.json`（`SystemMapBundle`）の `contextMap`（地図 1）と、`details` の Bounded Context ごとの `core`・`supporting`（地図 2）。要素の文は JSON の `label` をそのまま使う（SpecProjector の俯瞰図と同じ文。種類の前置きが入っている）。俯瞰図が無ければ「全体地図を出せない: 俯瞰図が無い」の理由だけを持つ（仕様 2.1 で任意のため）。
 - **JSON の欄を確かめて読む**: `SystemMapJson` のノードとつながりは型の上では `Record<string, unknown>` なので、使う欄（`id`・`kind`・`label`・`crossing`・`broken`・`implementation`、つながりの `from`・`to`・`kind`・`policy`・`label`・`broken`）の型を確かめてから読む。形が違えば、全体地図だけを「俯瞰図の形が違う（〈場所〉: 〈欄〉）」の理由にする（画面全体は止めない。6.9 と同じ考え方）。場所は地図の番号と並びの位置、表示の id だけで書く。
-  - 確かめること: id は Bounded Context なら `c`、ほかは `n` で始まる番号。kind は俯瞰図の種類。つながりは同じ地図のノードを指す。地図 1 のつながりはまたぐポリシー（`kind` が `POLICY` で `policy` と `label` を持つ）だけ。地図 2 は先頭が `context` の Bounded Context で、2 つ目の Bounded Context を持たない。地図 2 の並びは地図 1 の Bounded Context の並びと同じ（全体設計 4.1）。
+  - 確かめること: id は Bounded Context なら `c`、ほかは `n` で始まる番号。kind は俯瞰図の種類。つながりは同じ地図のノードを指す。地図 1 のつながりはまたぐポリシー（`kind` が `POLICY` で `policy` と `label` を持つ）だけ。地図 2 は先頭が `context` の Bounded Context で、2 つ目の Bounded Context を持たない。地図 2 は地図 1 の Bounded Context ごとに 1 つずつある（全体設計 4.1）。並びが地図 1 と違うときは形の違いにせず、地図 1 の並びに並べ替えて読む。地図 2 が足りない・同じ Bounded Context が 2 つある・地図 1 に無い Bounded Context があるときは形の違いにする。
   - JSON のノードの `intent`（意図の候補の文）は使わない。確定の状態の印が無いので、意図の候補は `intents.json` から作る（下のポップアップ）。
 - **つながりの文**: 地図 2 は俯瞰図の Mermaid と同じ文（「発生させる」など）にするため、`render_system.ts` の `EDGE_TEXT` を export して使う。地図 1 はまたぐポリシーの文（JSON の `label`）を使い、そのポリシーの表示の id（`policy`）を持つ。
 - **配置**: 地図 1・地図 2 とも、ノードとつながりを並びの位置に直し、6.9 の `layoutLayers` で層に並べる。地図 2 の `core` と `supporting` は別々に並べ、描く側が切り替える（3.4）。地図 2 の Bounded Context のノード（JSON の先頭）は、箱の題として別に持ち、層には入れない。

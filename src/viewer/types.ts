@@ -202,7 +202,7 @@ export interface GraphEdge {
 export interface GraphLayout {
   /** ノードごとの層（0 が最も上）。 */
   layerOf: number[];
-  /** ノードごとの、層の中の並びの位置（0 が最も左）。 */
+  /** ノードごとの列（0 が最も左）。上のノードの列を引き継ぐので、層の中で左から増えるが、番号は飛ぶことがある。 */
   orderOf: number[];
   /** 層ごとの、左から順のノードの並びの位置。 */
   layers: number[][];
@@ -348,8 +348,8 @@ export interface GlossaryGapsView {
   contextHomonyms: Array<{ term: string; entries: Array<{ displayId: string | null; term: string; context: string }> }>;
   /** 2 つ以上の資料から節が選ばれた項目。 */
   multiSource: Array<{ displayId: string | null; term: string; documents: string[] }>;
-  /** 項目に対応しない資料の名前。件数と、開いたときの一覧。 */
-  unmatchedDocumentNames: { count: number; items: Array<{ name: string; sources: GlossarySourceView[] }> };
+  /** 項目に対応しない資料の名前。件数と、開いたときの一覧。IMPLEMENTATION だけが持ち、BUSINESS では null（Q8）。 */
+  unmatchedDocumentNames: { count: number; items: Array<{ name: string; sources: GlossarySourceView[] }> } | null;
 }
 
 /** 用語辞典（設計 3.5）。辞書が無ければ unavailable に理由を入れ、ほかは空にする。 */

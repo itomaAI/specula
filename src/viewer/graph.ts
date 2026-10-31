@@ -95,8 +95,9 @@ export function parseFlow(text: string): FlowGraphRead {
  *    自分へのつながりは、層を決めるのに使わない（reversed は false のまま）。
  * 2. 層: 逆向きのつながりを向きを変えて数え、各ノードを、上の層から届く最も長い道の長さの層に置く。
  *    逆向きでないつながりは、必ず上の層から下の層へ向かう。
- * 3. 層の中の並び: 上の層から順に、上の層にあるつながりの元の並びの位置の平均で並べる。
+ * 3. 層の中の並びと列: 上の層から順に、上の層にあるつながりの元の列の平均で並べる。
  *    つながりの元が無いノードは後ろに置き、同じ値どうしはノードの並びの順にする。
+ *    列は上のノードの列を引き継ぎ、空いた列を詰めない（列の番号は飛ぶことがある）。
  * 層をまたぐつながりに中継の点は置かない（描く側は端どうしを結ぶ）。
  */
 export function layoutLayers(nodeCount: number, edges: readonly GraphEdge[]): GraphLayout {
@@ -174,9 +175,15 @@ export function layoutLayers(nodeCount: number, edges: readonly GraphEdge[]): Gr
       keyed.push({ node, key });
     }
     keyed.sort((a, b) => (a.key === b.key ? a.node - b.node : a.key - b.key));
-    keyed.forEach((item, order) => {
-      orderOf[item.node] = order;
-    });
+    // 列は、つながりの元の列の平均を丸めた値と、左隣の列 + 1 の大きいほう。上のノードの列を引き継ぎ、空いた列を詰めない
+    // （先の枝が終わっても、後ろの枝のノードが左の列へずれない）。つながりの元が無いノードは次の空いた列に置く。
+    let next = 0;
+    for (const item of keyed) {
+      const wanted = Number.isFinite(item.key) ? Math.round(item.key) : next;
+      const column = Math.max(wanted, next);
+      orderOf[item.node] = column;
+      next = column + 1;
+    }
     layers.push(keyed.map((item) => item.node));
   }
   return { layerOf, orderOf, layers, reversed };

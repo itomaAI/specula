@@ -100,6 +100,11 @@
   // グラフの配置（renderGraph）は、画面を DOM に入れたあとに高さを測って決める（render が呼ぶ）。
   let pendingLayouts = [];
   let state = { screen: 'scenarios', id: null, tab: 'document', filter: {}, mapContext: null, mapSupporting: false, selected: null, glossaryTab: 'entries' };
+  // メインウィンドウの履歴（下の「メインウィンドウの履歴」）。起動の処理より前に置く（render が読むため）。
+  const SCREENS = ['scenarios', 'detail', 'map', 'issues', 'glossary'];
+  const FILTER_PREFIX = 'f_';
+  let launch = null; // { out, bundle, viewRole }（起動の引数）
+  let declared = null; // 最後に名乗った場所（同じ場所を名乗り直して履歴に同じ段を積まないため）
 
   try {
     const args = (await MetaOS.system.getArgs()) || {};
@@ -131,7 +136,10 @@
       return;
     }
     view = specula.buildRunView(outputs, viewRole);
-    if (view.map.kind === 'OK' && view.map.startWithDetail && view.map.details.length > 0) state.mapContext = 0;
+    launch = { out: outDir, bundle: bundlePath, viewRole };
+    // 起動の引数に場所（screen など）があれば、そこから開く（host が履歴から開き直したとき）。
+    state = stateFromArgs(args);
+    if (MetaOS.system.on) MetaOS.system.on('route_changed', onRouteChanged);
     render();
   } catch (error) {
     fail([`画面を作れなかった（環境の故障）: ${messageOf(error)}`]);
@@ -143,6 +151,84 @@
 
   function go(patch) {
     state = { ...state, selected: null, highlightRows: null, ...patch };
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  // ---- メインウィンドウの履歴（Itera の内部リンク） ----
+  // 画面を移るたびに、いまの場所を MetaOS.nav.declare で host に名乗る（host の ← → とブラウザの戻る・進むに載る）。
+  // 場所は起動の引数（out・bundle・viewRole）と、screen・id・tab・context・supporting・glossaryTab・f_〈絞り込みの鍵〉。
+  // 鍵は表示の id（S-01・c1 など。設計 4 節）。選んだ要素（selected）と強調する行（highlightRows）は場所に入れない。
+  // 戻る・進むで host がこのアプリの場所を開き直すと route_changed が届くので、その args から画面を戻す。
+  // 使う変数（SCREENS・FILTER_PREFIX・launch・declared）は state の隣で宣言している。
+
+  function routeOf(s) {
+    const p = new URLSearchParams();
+    p.set('out', launch.out);
+    p.set('bundle', launch.bundle);
+    p.set('viewRole', launch.viewRole.toLowerCase()); // URL では小文字（全体仕様 4.5）
+    p.set('screen', s.screen);
+    if (s.screen === 'detail' && s.id) { p.set('id', s.id); p.set('tab', s.tab); }
+    if (s.screen === 'map' && s.mapContext !== null && view.map.kind === 'OK') {
+      const detail = view.map.details[s.mapContext];
+      if (detail) {
+        p.set('context', detail.context.displayId);
+        if (s.mapSupporting) p.set('supporting', 'true');
+      }
+    }
+    if (s.screen === 'glossary' && s.glossaryTab !== 'entries') p.set('glossaryTab', s.glossaryTab);
+    for (const [key, value] of Object.entries(s.filter || {})) if (value) p.set(FILTER_PREFIX + key, value);
+    return `?${p.toString()}`;
+  }
+
+  // 引数から画面の状態を作る。知らない値は既定に戻す（知らない id は詳細の画面が「無い」と出す）。
+  function stateFromArgs(args) {
+    const text = (key) => (typeof args[key] === 'string' ? args[key] : '');
+    const screen = SCREENS.includes(text('screen')) ? text('screen') : 'scenarios';
+    const filter = {};
+    for (const [key, value] of Object.entries(args)) {
+      if (key.startsWith(FILTER_PREFIX) && typeof value === 'string' && value !== '') filter[key.slice(FILTER_PREFIX.length)] = value;
+    }
+    let mapContext = null;
+    if (view.map.kind === 'OK') {
+      const at = view.map.details.findIndex((d) => d.context.displayId === text('context'));
+      if (at >= 0) mapContext = at;
+      else if (view.map.startWithDetail && view.map.details.length > 0) mapContext = 0;
+    }
+    return {
+      screen,
+      id: screen === 'detail' && text('id') !== '' ? text('id') : null,
+      tab: text('tab') || 'document',
+      filter,
+      mapContext,
+      mapSupporting: text('supporting') === 'true',
+      selected: null,
+      highlightRows: null,
+      glossaryTab: text('glossaryTab') === 'gaps' ? 'gaps' : 'entries',
+    };
+  }
+
+  function declareRoute() {
+    if (launch === null || !MetaOS.nav || typeof MetaOS.nav.declare !== 'function') return;
+    const route = routeOf(state);
+    if (route === declared) return;
+    declared = route;
+    try {
+      Promise.resolve(MetaOS.nav.declare(route)).catch(() => {});
+    } catch (_) {}
+  }
+
+  // 戻る・進むで届いた場所へ画面を戻す。起動の引数が違う場所（別の出力・別の役割）は、この画面では開き直さない。
+  function onRouteChanged(payload) {
+    const args = payload && payload.args;
+    if (!args || view === null || launch === null) return;
+    const role = String(args.viewRole || 'BUSINESS').toUpperCase();
+    if (trim(args.out) !== launch.out || trim(args.bundle) !== launch.bundle || role !== launch.viewRole) return;
+    const next = stateFromArgs(args);
+    const route = routeOf(next);
+    if (route === declared) return;
+    state = next;
+    declared = route;
     render();
     window.scrollTo(0, 0);
   }
@@ -166,6 +252,7 @@
     const layouts = pendingLayouts;
     pendingLayouts = [];
     for (const layout of layouts) layout();
+    declareRoute();
   }
 
   // ---- シナリオ一覧（設計 3.1） ----
@@ -318,7 +405,8 @@
         y += Math.max(30, ...layer.map((i) => heights[i])) + gap;
       }
       boxes.forEach((b, i) => { b.style.top = `${tops[layout.layerOf[i]]}px`; });
-      const width = Math.max(1, ...layout.layers.map((l) => l.length)) * colWidth;
+      // 列は番号が飛ぶことがあるので、層のノードの数ではなく最も右の列で幅を決める
+      const width = Math.max(1, ...layout.orderOf.map((c) => c + 1)) * colWidth;
       wrap.style.height = `${y}px`;
       wrap.style.width = `${width}px`;
       const ns = 'http://www.w3.org/2000/svg';
@@ -527,7 +615,7 @@
       el('ul', {}, gaps.contextHomonyms.map((x) => el('li', { text: `${x.term}: ${x.entries.map((e) => `${name(e)}（${e.context}）`).join('、')}` }))),
       el('h3', { text: `2 つ以上の資料から節を選んだ項目（${gaps.multiSource.length} 件）` }),
       el('ul', {}, gaps.multiSource.map((x) => el('li', { text: `${name(x)}: ${x.documents.join('、')}` }))),
-      el('details', {}, el('summary', { text: `項目に対応しない資料の名前（${gaps.unmatchedDocumentNames.count} 件）` }),
+      gaps.unmatchedDocumentNames === null ? null : el('details', {}, el('summary', { text: `項目に対応しない資料の名前（${gaps.unmatchedDocumentNames.count} 件）` }),
         el('ul', {}, gaps.unmatchedDocumentNames.items.map((x) => el('li', { text: `${x.name}（${x.sources.map((s) => s.document).join('、')}）` })))),
     );
   }

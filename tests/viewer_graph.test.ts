@@ -98,15 +98,30 @@ test("流れ図の配置は決定論的で、つながりは上の層から下�
   // 起点だけが最も上の層にあり、操作は 2 段目に並びの順で並ぶ
   assert.deepEqual(view.layout.layers[0], [0]);
   assert.deepEqual(view.layout.layers[1], [1, 5]);
-  // 層と並びの位置の配列は、layers と食い違わない
+  // 層と列の配列は、layers と食い違わない（層の中で、列は左から増える）
   view.layout.layers.forEach((members, layer) => {
     members.forEach((node, order) => {
       assert.equal(view.layout.layerOf[node], layer);
-      assert.equal(view.layout.orderOf[node], order);
+      if (order > 0) assert.ok((view.layout.orderOf[node] ?? 0) > (view.layout.orderOf[members[order - 1] ?? 0] ?? 0));
     });
   });
   // ビューモデルには flow.mmd のノードの識別子（形式仕様の操作の識別子）が入らない
   assert.ok(!JSON.stringify(view).includes("op1"));
+});
+
+test("先の枝が終わっても、後ろの枝のノードは上のノードの列を引き継ぐ（左の列へずれない）", () => {
+  // 0 → 1 → 3 と 0 → 2 → 4 → 5。左の枝は 3 で終わる
+  const edges: GraphEdge[] = [
+    { from: 0, to: 1 },
+    { from: 0, to: 2 },
+    { from: 1, to: 3 },
+    { from: 2, to: 4 },
+    { from: 4, to: 5 },
+  ];
+  const layout = layoutLayers(6, edges);
+  assert.deepEqual(layout.layerOf, [0, 1, 1, 2, 2, 3]);
+  assert.deepEqual(layout.orderOf, [0, 0, 1, 0, 1, 1]);
+  assert.deepEqual(layout.layers[3], [5]);
 });
 
 test("閉路があるときは、戻るつながりを逆向きにして層に並べる", () => {
