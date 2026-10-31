@@ -68,7 +68,7 @@
 // 引数（spawn の属性）:
 //   out      （必須）specula の出力先の VFS のディレクトリ
 //   bundle   （必須）specula.itera.js の VFS のパス
-//   viewRole （任意）"PdM"（既定）か "Eng"
+//   viewRole （任意）"BUSINESS"（既定）か "IMPLEMENTATION"
 (async () => {
   const MetaOS = window.MetaOS;
   const mainEl = document.getElementById('main');
@@ -107,12 +107,13 @@
     const bundlePath = trim(args.bundle);
     const missing = [['out', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
     if (missing.length > 0) {
-      fail([`引数が足りない: ${missing.join(', ')}`, '使い方: spawn の属性に out（specula の出力先）・bundle（specula.itera.js）を渡す。viewRole（PdM か Eng）は任意。']);
+      fail([`引数が足りない: ${missing.join(', ')}`, '使い方: spawn の属性に out（specula の出力先）・bundle（specula.itera.js）を渡す。viewRole（BUSINESS か IMPLEMENTATION）は任意。']);
       return;
     }
-    const viewRole = String(args.viewRole || '').trim() || 'PdM';
-    if (viewRole !== 'PdM' && viewRole !== 'Eng') {
-      fail([`引数の誤り: viewRole は PdM か Eng（${viewRole} を受け取った）`]);
+    // 小文字で受け取ってよく、読むときに大文字へ戻す（全体仕様 4.5）。列挙に無い値はエラーにする。
+    const viewRole = (String(args.viewRole || '').trim() || 'BUSINESS').toUpperCase();
+    if (viewRole !== 'BUSINESS' && viewRole !== 'IMPLEMENTATION') {
+      fail([`引数の誤り: viewRole は BUSINESS か IMPLEMENTATION（${viewRole} を受け取った）`]);
       return;
     }
 
@@ -205,7 +206,7 @@
       const countOf = (r) => { const m = /(\d+) 件/.exec(r.countText || ''); return m ? Number(m[1]) : -1; };
       rows = [...rows].sort((a, b) => countOf(b) - countOf(a));
     }
-    const eng = view.viewRole === 'Eng';
+    const eng = view.viewRole === 'IMPLEMENTATION';
     const head = ['表示の id', 'シナリオ', '状態', '検証', '件数', '意図の候補', ...(list.showContextColumn ? ['Bounded Context'] : []), ...(eng ? ['起点の所在'] : [])];
     const table = el('table', {},
       el('tr', {}, head.map((h) => el('th', { text: h }))),
@@ -223,9 +224,9 @@
     return [el('h2', { text: 'シナリオ一覧' }), summary, filters, textLine(`${rows.length} 件`, 'muted'), table];
   }
 
-  // 曖昧さで止まったシナリオは、Eng では仕様不備一覧（そのシナリオで絞り込み）へ（設計 4 節）。
+  // 曖昧さで止まったシナリオは、IMPLEMENTATION では仕様不備一覧（そのシナリオで絞り込み）へ（設計 4 節）。
   function openScenario(displayId, kind) {
-    if (kind === 'AMBIGUOUS' && view.viewRole === 'Eng') go({ screen: 'issues', filter: { scenario: displayId } });
+    if (kind === 'AMBIGUOUS' && view.viewRole === 'IMPLEMENTATION') go({ screen: 'issues', filter: { scenario: displayId } });
     else go({ screen: 'detail', id: displayId, tab: 'document' });
   }
 
@@ -256,7 +257,7 @@
     }
     if (d.notice !== null) {
       out.push(el('div', { class: 'box' }, textLine(d.notice)));
-      if (d.kind === 'AMBIGUOUS' && view.viewRole === 'Eng') out.push(link('仕様不備一覧（このシナリオ）', () => go({ screen: 'issues', filter: { scenario: d.displayId } })));
+      if (d.kind === 'AMBIGUOUS' && view.viewRole === 'IMPLEMENTATION') out.push(link('仕様不備一覧（このシナリオ）', () => go({ screen: 'issues', filter: { scenario: d.displayId } })));
     }
     if (d.tabs) out.push(...renderTabs(d));
     return out;
@@ -440,10 +441,10 @@
       }
     }
     if (f.type !== 'issue') {
-      out.push(el('h3', { text: view.viewRole === 'PdM' ? 'エンジニアの確認待ち' : '曖昧さ' }));
+      out.push(el('h3', { text: view.viewRole === 'BUSINESS' ? 'エンジニアの確認待ち' : '曖昧さ' }));
       const shown = v.ambiguities.filter((a) => pick(a.displayId));
       if (shown.length === 0) out.push(textLine('曖昧さで止まったシナリオは無い', 'muted'));
-      else if (view.viewRole === 'PdM') {
+      else if (view.viewRole === 'BUSINESS') {
         out.push(el('table', {}, el('tr', {}, el('th', { text: 'シナリオ' }), el('th', { text: '件数' })),
           shown.map((a) => el('tr', { class: 'link', onclick: () => go({ screen: 'detail', id: a.displayId }) }, el('td', { text: a.title }), el('td', { text: a.countText })))));
       } else {
@@ -482,7 +483,7 @@
     if (state.glossaryTab === 'gaps') return [...out, renderGaps(g.gaps)];
     if (g.statusNote) out.push(textLine(g.statusNote, 'muted'));
     if (g.displayIdNote) out.push(textLine(g.displayIdNote, 'warn'));
-    const eng = view.viewRole === 'Eng';
+    const eng = view.viewRole === 'IMPLEMENTATION';
     const head = ['表示の id', '用語', '種類', '意味', '用語の出どころ', 'またぎ', ...(eng ? ['実装'] : [])];
     for (const section of g.sections) {
       if (g.showContextSections) out.push(el('h3', { text: `${section.displayId ? `${section.displayId} ` : ''}${section.title}` }));

@@ -61,7 +61,7 @@ const SPEC: FormalSpecification = {
       steps: [
         { kind: "CONDITION", unitId: "U-a", expr: { op: "IS", variable: "v1", value: "v1_1" }, holds: true },
         { kind: "WRITE", unitId: "U-b", variable: "v2", change: { op: "ADD", amount: 1 }, when: [] },
-        { kind: "CONDITION", unitId: "U-c", expr: { op: "CMP", variable: "v2", cmp: "lt", value: 3 }, holds: true },
+        { kind: "CONDITION", unitId: "U-c", expr: { op: "CMP", variable: "v2", cmp: "LT", value: 3 }, holds: true },
         { kind: "WRITE", unitId: "U-d", variable: "v1", change: { op: "SET", value: "v1_2" }, when: [{ unitId: "U-e", holds: false, expr: { op: "PROP", prop: "c1" } }] },
       ],
       dataMutations: ["src/order.ts:20:3:DATA_MUTATION"],
@@ -221,14 +221,14 @@ async function catalog(overrides: Partial<DomainLedgerCatalog> = {}, issues: Led
   };
 }
 
-function request(format: ScenarioViewFormat, viewRole: ViewRole = "PdM"): ProjectionRequest {
-  return { format, viewRole, displayId: "S-01" };
+function request(format: ScenarioViewFormat, viewRole: ViewRole = "BUSINESS"): ProjectionRequest {
+  return { format, viewRole, displayId: "C-01" };
 }
 
 const DOCUMENT = request("DOCUMENT");
 const IDENTIFIER = /\b(?:v\d+(?:_\d+|_unknown)?|c\d+|op\d+(?:_guard)?|o\d+|m3_\w+)\b/;
 const FORBIDDEN = ["健全", "証明済み", "問題なし", "採択済み", "合意済み"];
-/** PdM の出力に出てはいけない実装の名前と内部の識別子。 */
+/** BUSINESS の出力に出てはいけない実装の名前と内部の識別子。 */
 const IMPLEMENTATION = ["SCN-", "LEDGER-", "src/order.ts", "closeOrder", "@source"];
 
 function bodyOf(markdown: string): string {
@@ -244,8 +244,8 @@ test("M5: 仕様書は決定論的で、末尾は改行 1 つ", async () => {
   assert.ok(a.content.endsWith("\n") && !a.content.endsWith("\n\n"));
   assert.equal(a.mediaType, "text/markdown");
   assert.equal(a.scenarioId, SCENARIO_ID);
-  assert.equal(a.displayId, "S-01");
-  assert.equal(a.viewRole, "PdM");
+  assert.equal(a.displayId, "C-01");
+  assert.equal(a.viewRole, "BUSINESS");
   assert.equal(a.basis.specSourceHash, await sha256Hex(SOURCE));
   assert.equal(a.basis.ledgerReportId, "REPORT-1");
   assert.equal(a.basis.ledgerIsStale, false);
@@ -254,7 +254,7 @@ test("M5: 仕様書は決定論的で、末尾は改行 1 つ", async () => {
 test("M5: 仕様書に状態変数・命題・操作・論点がすべて表示名で出て、識別子と禁止語が出ない", async () => {
   const view = await projectSpecification(SPEC, await catalog(), CONTEXT, DOCUMENT);
   const body = bodyOf(view.content);
-  for (const label of ["注文の状態", "試行回数", "確認済み \\| 印", "強制の指定", "注文を締める", "S-01-L-001"]) {
+  for (const label of ["注文の状態", "試行回数", "確認済み \\| 印", "強制の指定", "注文を締める", "C-01-L-001"]) {
     assert.ok(body.includes(label), `${label} が無い`);
   }
   assert.doesNotMatch(body, IDENTIFIER);
@@ -268,7 +268,7 @@ test("M5: 仕様書に状態変数・命題・操作・論点がすべて表示�
   assert.ok(body.includes("従属する反例: 1 件"));
 });
 
-test("M5: PdM の仕様書・一覧表・流れ図に、実装の名前と内部の識別子が出ない（全体設計 2.2）", async () => {
+test("M5: BUSINESS の仕様書・一覧表・流れ図に、実装の名前と内部の識別子が出ない（全体設計 2.2）", async () => {
   const ledger = await catalog();
   for (const format of ["DOCUMENT", "MATRIX", "FLOW"] as const) {
     const view = await projectSpecification(SPEC, ledger, CONTEXT, request(format));
@@ -280,21 +280,21 @@ test("M5: PdM の仕様書・一覧表・流れ図に、実装の名前と内部
 
 test("M5: 題は「表示の id と起点の用語」で、用語が無ければ「名前は未生成」（設計 4.1・8.2）", async () => {
   const view = await projectSpecification(SPEC, null, CONTEXT, DOCUMENT);
-  assert.ok(view.content.startsWith("# 仕様書: S-01 注文の締め\n"));
+  assert.ok(view.content.startsWith("# 仕様書: C-01 注文の締め\n"));
   const matrix = await projectSpecification(SPEC, null, CONTEXT, request("MATRIX"));
-  assert.ok(matrix.content.startsWith("# 操作の一覧表: S-01 注文の締め\n"));
+  assert.ok(matrix.content.startsWith("# 操作の一覧表: C-01 注文の締め\n"));
 
   const notGenerated = glossaryWith({ status: "NOT_GENERATED", reason: "INVALID_OUTPUT", detail: "closeOrder を含む詳細" });
   for (const glossary of [notGenerated, null]) {
     const other = await projectSpecification(SPEC, null, { ...CONTEXT, glossary }, DOCUMENT);
-    assert.ok(other.content.startsWith("# 仕様書: S-01（名前は未生成）\n"));
+    assert.ok(other.content.startsWith("# 仕様書: C-01（名前は未生成）\n"));
     assert.ok(!other.content.includes("closeOrder"));
   }
 });
 
 test("M5: 流れ図の起点は表示の id で書く（設計 7.4）", async () => {
   const view = await projectSpecification(SPEC, null, CONTEXT, request("FLOW"));
-  assert.ok(view.content.includes('s["シナリオ S-01 の起点"]'));
+  assert.ok(view.content.includes('s["シナリオ C-01 の起点"]'));
 });
 
 test("M5: 意図の候補の節は検証の状態の後に置き、候補であることを書く（設計 4.1）", async () => {
@@ -316,22 +316,22 @@ test("M5: 意図の候補の節は検証の状態の後に置き、候補であ�
   assert.ok(!notGenerated.content.includes("op1 を含む詳細"));
 });
 
-test("M5: Eng のときは題に所在を併記し、付録を載せる（設計 8.3）", async () => {
-  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "Eng"));
-  assert.equal(view.viewRole, "Eng");
-  assert.ok(view.content.startsWith("# 仕様書: S-01 注文の締め（`src/order.ts#closeOrder` L3）\n"));
+test("M5: IMPLEMENTATION のときは題に所在を併記し、付録を載せる（設計 8.3）", async () => {
+  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "IMPLEMENTATION"));
+  assert.equal(view.viewRole, "IMPLEMENTATION");
+  assert.ok(view.content.startsWith("# 仕様書: C-01 注文の締め（`src/order.ts#closeOrder` L3）\n"));
   assert.ok(view.content.includes("## 付録: 形式仕様のソース"));
-  const matrix = await projectSpecification(SPEC, null, CONTEXT, request("MATRIX", "Eng"));
-  assert.ok(matrix.content.startsWith("# 操作の一覧表: S-01 注文の締め（`src/order.ts#closeOrder` L3）\n"));
+  const matrix = await projectSpecification(SPEC, null, CONTEXT, request("MATRIX", "IMPLEMENTATION"));
+  assert.ok(matrix.content.startsWith("# 操作の一覧表: C-01 注文の締め（`src/order.ts#closeOrder` L3）\n"));
   // 本文の文は役割で変えない
   const pdm = await projectSpecification(SPEC, null, CONTEXT, DOCUMENT);
-  // 題の行を除き、末尾の空行をそろえる（Eng は付録の見出しの前に空行が 1 つ入る）
+  // 題の行を除き、末尾の空行をそろえる（IMPLEMENTATION は付録の見出しの前に空行が 1 つ入る）
   const strip = (text: string): string => bodyOf(text).split("\n").slice(1).join("\n").replace(/\n+$/, "\n");
   assert.equal(strip(view.content), strip(pdm.content));
 });
 
 test("M5: 付録のソースは @source の行を除き、囲みはバッククォートの並びより長い", async () => {
-  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "Eng"));
+  const view = await projectSpecification(SPEC, null, CONTEXT, request("DOCUMENT", "IMPLEMENTATION"));
   const appendix = view.content.slice(view.content.indexOf("## 付録"));
   assert.ok(appendix.includes("`````alloy\n"));
   assert.ok(appendix.includes("pred op1_guard"));
@@ -359,7 +359,7 @@ test("M5: 条件と書き込みの文（設計 3.2）", () => {
       kind: "CONDITION",
       unitId: "x",
       holds: true,
-      expr: { op: "AND", args: [{ op: "PROP", prop: "c1" }, { op: "OR", args: [{ op: "IS", variable: "v3", value: "True" }, { op: "CMP", variable: "v2", cmp: "gte", value: 2 }] }] },
+      expr: { op: "AND", args: [{ op: "PROP", prop: "c1" }, { op: "OR", args: [{ op: "IS", variable: "v3", value: "True" }, { op: "CMP", variable: "v2", cmp: "GTE", value: 2 }] }] },
     }),
     "強制の指定が成り立つ、かつ、（確認済み | 印が真である、または、試行回数が 2 以上）",
   );
@@ -402,7 +402,7 @@ test("M5: カタログが古いときは先頭で知らせ、論点は消さな�
   assert.equal(view.basis.ledgerIsStale, true);
   const notice = view.content.indexOf("別の版から作った");
   assert.ok(notice > 0 && notice < view.content.indexOf("## 検証の状態"));
-  assert.ok(view.content.includes("S-01-L-001"));
+  assert.ok(view.content.includes("C-01-L-001"));
 });
 
 test("M5: カタログが無いときは、そのことを書き、basis は null", async () => {
@@ -432,12 +432,12 @@ test("M5: 実行列は時点ごとに表示名で書く", async () => {
   assert.ok(view.content.includes("| 1 | 注文の状態: 締め切り済み、試行回数: 1、確認済み \\| 印: 真 | 締めた結果（戻り値を返して終わる） | 強制の指定 |"));
 });
 
-test("M5: 論点の表示の id はカタログの並びに S-01-L-001 から振る", async () => {
+test("M5: 論点の表示の id はカタログの並びに C-01-L-001 から振る", async () => {
   const second = issue({ id: `LEDGER-${SCENARIO_ID}-002`, kind: "DEADLOCK", operations: ["op1"] });
   const view = await projectSpecification(SPEC, await catalog({}, [issue(), second]), CONTEXT, DOCUMENT);
   // 見出しは DEADLOCK が先でも、番号はカタログの並び
-  assert.ok(view.content.indexOf("#### S-01-L-002") < view.content.indexOf("#### S-01-L-001"));
-  assert.ok(view.content.includes("- 関わる論点: S-01-L-001、S-01-L-002"));
+  assert.ok(view.content.indexOf("#### C-01-L-002") < view.content.indexOf("#### C-01-L-001"));
+  assert.ok(view.content.includes("- 関わる論点: C-01-L-001、C-01-L-002"));
 });
 
 test("M5: 操作の一覧表はすべての操作を行にし、セルの | を逃がす", async () => {
@@ -446,7 +446,7 @@ test("M5: 操作の一覧表はすべての操作を行にし、セルの | を�
   const rows = view.content.split("\n").filter((line) => line.startsWith("| ") && !line.startsWith("| 表示名") && !line.startsWith("| :--"));
   assert.equal(rows.length, 2);
   assert.ok(rows[0]!.startsWith("| 注文を締める | (1) 注文の状態が受付中である；(3) 試行回数が 3 より小さい |"));
-  assert.ok(rows[0]!.includes("| 1 件 | S-01-L-001 |"));
+  assert.ok(rows[0]!.includes("| 1 件 | C-01-L-001 |"));
   assert.doesNotMatch(view.content, IDENTIFIER);
 });
 
@@ -456,7 +456,7 @@ test("M5: 操作の流れ図は Mermaid で、表示する文の \" を置き換
   assert.ok(view.content.startsWith("flowchart TD\n"));
   assert.ok(view.content.includes('op2_0["操作: 締めを断る #quot;強制#quot;"]'));
   assert.ok(view.content.includes("op1_r"));
-  assert.ok(view.content.includes("未決の論点: S-01-L-001"));
+  assert.ok(view.content.includes("未決の論点: C-01-L-001"));
   const labels = [...view.content.matchAll(/\["([^"]*)"\]/g)].map((match) => match[1]!).join("\n");
   assert.doesNotMatch(labels, IDENTIFIER);
 });
@@ -553,7 +553,7 @@ test("M5: 確定と要再確認の印は、項目を定義する箇所と題・�
   const content = view.content;
 
   // 題・意図・論点の文
-  assert.ok(content.startsWith("# 仕様書: S-01 注文の締め（確定）\n"), content);
+  assert.ok(content.startsWith("# 仕様書: C-01 注文の締め（確定）\n"), content);
   assert.ok(content.includes("- 候補: 受付中の注文を締め切り、それ以上の変更を止める（要再確認）\n"));
   assert.ok(content.includes("- 主張: 締め切り済みの注文にも、扱いが決まっているべきである。（確定）\n"));
   assert.ok(content.includes("- 観測事実: 締め切り済みで強制の指定があるとき、受け付ける操作が無かった。\n"));
@@ -572,6 +572,6 @@ test("M5: 確定と要再確認の印は、項目を定義する箇所と題・�
 
   // 中間表現に入れるので、操作の一覧表にも同じ印が出る
   const matrix = await projectSpecification(spec, ledger, context, request("MATRIX"));
-  assert.ok(matrix.content.startsWith("# 操作の一覧表: S-01 注文の締め（確定）\n"), matrix.content);
+  assert.ok(matrix.content.startsWith("# 操作の一覧表: C-01 注文の締め（確定）\n"), matrix.content);
   assert.ok(matrix.content.includes("| 注文を締める（要再確認） |"));
 });

@@ -42,7 +42,7 @@ export interface OperationView {
   outcome: string;
   /** 状態として検証していない変更（dataMutations）の件数。中身は実装の所在なので出さない。 */
   dataMutationCount: number;
-  /** この操作が関わる論点の表示の id（"S-01-L-001"。カタログの並び）。 */
+  /** この操作が関わる論点の表示の id（"C-01-L-001"。カタログの並び）。 */
   issueIds: string[];
 }
 
@@ -91,11 +91,11 @@ export interface IntentView {
 export interface ViewModel {
   // シナリオの内部の識別子（SCN-<ファイル>#<関数>）は持たない。起点のファイルと関数を含むので、
   // どのビューにも出さないため（M5 の設計 4.1・7.4・8.6）。
-  /** 表示の id（"S-01"）。 */
+  /** 表示の id（"C-01"）。 */
   displayId: string;
-  /** 題: 「S-01 〈起点の用語〉」、用語が未生成なら「S-01（名前は未生成）」（設計 4.1）。 */
+  /** 題: 「C-01 〈起点の用語〉」、用語が未生成なら「C-01（名前は未生成）」（設計 4.1）。 */
   title: string;
-  /** 題の後ろに足す併記（Eng のときだけ。設計 8.3）。PdM と、所在が無いときは ""。 */
+  /** 題の後ろに足す併記（IMPLEMENTATION のときだけ。設計 8.3）。BUSINESS と、所在が無いときは ""。 */
   titleNote: string;
   viewRole: ViewRole;
   /** このシナリオの意図の候補。意図の候補の一覧が無いか、このシナリオの候補が無ければ null。 */
@@ -209,7 +209,7 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
 }
 
 /**
- * 論点の表示の id（"S-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
+ * 論点の表示の id（"C-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
  * 論点の識別子 "LEDGER-<scenarioId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
  * ビューには出さない。内部の識別子との対応は実装との対応表（設計 8.5）に持つ。
  * 画面（SpecViewer）も同じ番号を振る（SpecViewer 基本設計 6.5）。
@@ -236,7 +236,7 @@ export function issueGroupsOf(
 /**
  * 題（設計 4.1）。起点のコマンドまたはポリシーの項目を辞書で引く（設計 8.2）。
  * 項目が無いか、種類が起点の種類と違うか、用語が未生成なら「名前は未生成」とする。
- * 併記は Eng のときだけ、項目の implementation.locations から作る（設計 8.3）。
+ * 併記は IMPLEMENTATION のときだけ、項目の implementation.locations から作る（設計 8.3）。
  */
 export function titleOf(
   context: ProjectionContext,
@@ -252,7 +252,7 @@ export function titleOf(
       ? `${request.displayId} ${term.label}${statusMark(matched?.termStatus)}`
       : `${request.displayId}（名前は未生成）`;
   const titleNote =
-    request.viewRole === "Eng" && matched !== undefined ? markdownImplementationNote(matched.implementation.locations) : "";
+    request.viewRole === "IMPLEMENTATION" && matched !== undefined ? markdownImplementationNote(matched.implementation.locations) : "";
   return { title, titleNote };
 }
 

@@ -191,7 +191,7 @@ test("整数: 書き込みを経路の順に合成し、読めない比較は命
   const conditions = write.steps.flatMap((step) => (step.kind === "CONDITION" ? [step.expr] : []));
   assert.deepEqual(conditions, [
     { op: "PROP", prop: "c1" },
-    { op: "CMP", variable: "v1", cmp: "gte", value: 3 },
+    { op: "CMP", variable: "v1", cmp: "GTE", value: 3 },
   ]);
   assert.ok(s.source.includes("System.v1' = plus[plus[System.v1, 1], 2]"));
   assert.ok(s.source.includes("(System.v1 >= 3)"));

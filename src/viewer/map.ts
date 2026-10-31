@@ -195,8 +195,8 @@ function nodeView(node: RawNode, viewRole: ViewRole, popupOf: PopupOf): MapNodeV
     label: node.label,
     crossing: node.crossing,
     broken: node.broken,
-    // JSON は出力を作ったときの役割で書かれているので、画面の役割が PdM なら JSON にあっても持たない（設計 6.10）。
-    implementation: viewRole === "Eng" ? node.implementation : null,
+    // JSON は出力を作ったときの役割で書かれているので、画面の役割が BUSINESS なら JSON にあっても持たない（設計 6.10）。
+    implementation: viewRole === "IMPLEMENTATION" ? node.implementation : null,
     popup: popupOf(node),
   };
 }

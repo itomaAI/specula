@@ -22,8 +22,8 @@
 // 起動するコマンドの Bounded Context が違えば「またいでいる」。
 //
 // 表示の役割（設計 8.3）:
-// - PdM: 実装の名前と所在を出さない。JSON に implementation のキーを置かない。
-// - Eng: Mermaid のノードの文の後ろに「 / ファイル#関数」を足し、JSON の各ノードに implementation を置く。
+// - BUSINESS: 実装の名前と所在を出さない。JSON に implementation のキーを置かない。
+// - IMPLEMENTATION: Mermaid のノードの文の後ろに「 / ファイル#関数」を足し、JSON の各ノードに implementation を置く。
 // 意図の候補（設計 4.4）: JSON の Bounded Context のノードだけに intent を置く（候補が無いか未生成なら null）。
 // 壊れた印（設計 8.9）: JSON のノードとつながりに broken: null を置く。Mermaid には何も足さない。
 
@@ -351,7 +351,7 @@ export function renderSystemMermaid(
 ): string {
   const graph = buildGraph(map, glossary, intents);
   const note = (implementation: Implementation): string =>
-    options.viewRole === "Eng" ? mermaidImplementationNote(implementation.locations) : "";
+    options.viewRole === "IMPLEMENTATION" ? mermaidImplementationNote(implementation.locations) : "";
   const lines: string[] = ["flowchart LR"];
 
   if (options.level === "CONTEXT_MAP") {
@@ -402,9 +402,9 @@ export function renderSystemJson(
 ): string {
   const graph = buildGraph(map, glossary, intents);
   // キーの並びは id・kind・label・context・intent・crossing・broken・implementation に固定する（設計 4.4・8.9）。
-  // intent は Bounded Context のノードだけ、crossing は地図 2 のポリシーだけ、implementation は Eng のときだけ置く。
+  // intent は Bounded Context のノードだけ、crossing は地図 2 のポリシーだけ、implementation は IMPLEMENTATION のときだけ置く。
   const withImplementation = <T extends object>(value: T, implementation: Implementation): T | (T & { implementation: Implementation }) =>
-    options.viewRole === "Eng" ? { ...value, implementation } : value;
+    options.viewRole === "IMPLEMENTATION" ? { ...value, implementation } : value;
   const contextValue = (context: ContextNode) =>
     withImplementation(
       { id: context.id, kind: "BOUNDED_CONTEXT", label: context.label, context: null, intent: context.intent, broken: null },

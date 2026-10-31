@@ -112,7 +112,7 @@ export function buildGlossaryView(outputs: RunOutputs, viewRole: ViewRole): Glos
     sources: entry.sources.map((id) => sourceOf(id, documents)),
     crossing,
     implementation:
-      viewRole === "Eng"
+      viewRole === "IMPLEMENTATION"
         ? { names: [...entry.implementation.names], locations: entry.implementation.locations.map((location) => ({ ...location })) }
         : null,
   });

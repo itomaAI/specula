@@ -95,7 +95,7 @@ export interface RunOutputsCheck {
 
 // ---- シナリオ一覧とシナリオの詳細（設計 3.1・3.2・6.5） ----
 // 文は SpecProjector と同じく、確定の状態の印を後ろに足した文字列で持つ（設計 6.5）。
-// ビューモデルには内部の識別子を入れない。シナリオは表示の id（"S-01"）で指す（設計 4 節）。
+// ビューモデルには内部の識別子を入れない。シナリオは表示の id（"C-01"）で指す（設計 4 節）。
 
 export type ScenarioKind = "COMPLETED" | "AMBIGUOUS" | "STOPPED";
 
@@ -107,7 +107,7 @@ export interface RunSummaryView {
   commandCount: number;
   eventCount: number;
   scenarioCounts: Record<ScenarioKind, number>;
-  /** byKind は Eng のときだけある。PdM は合計だけを「エンジニアの確認待ち: N 件」と出す。 */
+  /** byKind は IMPLEMENTATION のときだけある。BUSINESS は合計だけを「エンジニアの確認待ち: N 件」と出す。 */
   ambiguity: { total: number; text: string; byKind: Array<{ kind: AmbiguityKind; text: string; count: number }> | null };
   verification: Array<{ outcome: VerificationOutcome; text: string; count: number }>;
   /** 検査の範囲の文（実行の報告の inspectionScope から）。 */
@@ -120,7 +120,7 @@ export interface RunSummaryView {
 /** シナリオの表の 1 行（設計 3.1）。 */
 export interface ScenarioRowView {
   displayId: string;
-  /** 「S-01 〈表示名〉〈印〉」。名前を出せないときは理由（設計 6.5）。 */
+  /** 「C-01 〈表示名〉〈印〉」。名前を出せないときは理由（設計 6.5）。 */
   title: string;
   kind: ScenarioKind;
   /** 「仕様になった」「曖昧さで止まった」「途中で止まった」。 */
@@ -133,7 +133,7 @@ export interface ScenarioRowView {
   intentText: string;
   /** Bounded Context の表示名（印付き）。 */
   boundedContext: string;
-  /** 起点の所在。Eng のときだけある。 */
+  /** 起点の所在。IMPLEMENTATION のときだけある。 */
   inletLocations: GlossaryLocation[] | null;
 }
 
@@ -167,13 +167,13 @@ export interface ScenarioDetailView {
   verification: VerificationView | null;
   /** 仕様になったシナリオだけ。 */
   issueCount: number | null;
-  /** 仕様になったシナリオだけ。論点の id は表示の id（"S-01-L-001"）。 */
+  /** 仕様になったシナリオだけ。論点の id は表示の id（"C-01-L-001"）。 */
   issueGroups: IssueGroupView[] | null;
   /** 仕様になったシナリオだけ。タブの中身（設計 3.2・6.6・6.9）。流れ図は全体地図と同じ配置の関数で層に並べる。 */
   tabs: ScenarioTabsView | null;
   /** 曖昧さで止まった・途中で止まったシナリオで、タブの代わりに出す文。仕様になったシナリオは null。 */
   notice: string | null;
-  /** 起点の所在。Eng のときだけある。 */
+  /** 起点の所在。IMPLEMENTATION のときだけある。 */
   inletLocations: GlossaryLocation[] | null;
 }
 
@@ -183,7 +183,7 @@ export interface ScenarioTabsView {
   document: MarkdownBlock[];
   /** 操作の一覧表（matrix.md）のブロックの並び。 */
   matrix: MarkdownBlock[];
-  /** 形式仕様のソース（spec.als から `-- @source:` の行を除いたもの）。Eng のときだけ。 */
+  /** 形式仕様のソース（spec.als から `-- @source:` の行を除いたもの）。IMPLEMENTATION のときだけ。 */
   source: string | null;
   /** 操作の流れ図（flow.mmd を層に並べたもの。設計 6.9）。 */
   flow: FlowView;
@@ -243,7 +243,7 @@ export type FlowView =
 
 // ---- 仕様不備一覧（設計 3.3・6.7） ----
 // 論点は SpecProjector の IssueView（issueGroupsOf）をそのまま使う。曖昧さの文は SpecProjector の曖昧さの一覧と同じ。
-// 画面どうしのリンクは表示の id（"S-01"・"S-01-L-001"）で指す（設計 6.7）。
+// 画面どうしのリンクは表示の id（"C-01"・"C-01-L-001"）で指す（設計 6.7）。
 
 /** 仕様になったシナリオ 1 つの論点（設計 3.3）。論点が 1 件以上あるシナリオだけ。 */
 export interface ScenarioIssuesView {
@@ -260,9 +260,9 @@ export interface ScenarioIssuesView {
   operationRows: Record<string, number[]>;
 }
 
-/** 曖昧さ 1 件（Eng のみ。設計 3.3）。 */
+/** 曖昧さ 1 件（IMPLEMENTATION のみ。設計 3.3）。 */
 export interface AmbiguityItemView {
-  /** "S-02-A-001"。 */
+  /** "C-02-A-001"。 */
   id: string;
   kind: AmbiguityKind;
   /** 「値が決まらない」など。 */
@@ -280,9 +280,9 @@ export interface ScenarioAmbiguitiesView {
   displayId: string;
   title: string;
   total: number;
-  /** PdM は「エンジニアの確認待ち: N 件」、Eng は「曖昧さ N 件」。 */
+  /** BUSINESS は「エンジニアの確認待ち: N 件」、IMPLEMENTATION は「曖昧さ N 件」。 */
   countText: string;
-  /** Eng のときだけ。PdM では null（質問・箇所・原文を出さない）。 */
+  /** IMPLEMENTATION のときだけ。BUSINESS では null（質問・箇所・原文を出さない）。 */
   items: AmbiguityItemView[] | null;
 }
 
@@ -291,7 +291,7 @@ export interface IssueListView {
   issueTotal: number;
   scenarios: ScenarioIssuesView[];
   ambiguityTotal: number;
-  /** PdM ではシナリオ別の件数の表として、Eng では質問の一覧として描く。 */
+  /** BUSINESS ではシナリオ別の件数の表として、IMPLEMENTATION では質問の一覧として描く。 */
   ambiguities: ScenarioAmbiguitiesView[];
 }
 
@@ -325,7 +325,7 @@ export interface GlossaryEntryView {
   sources: GlossarySourceView[];
   /** またぐポリシーだけ。「〈Bounded Context〉へまたぐ」または「〈Bounded Context〉からまたいでくる」。ほかは null。 */
   crossing: string | null;
-  /** 実装の名前と所在。Eng のときだけある。 */
+  /** 実装の名前と所在。IMPLEMENTATION のときだけある。 */
   implementation: { names: string[]; locations: GlossaryLocation[] } | null;
 }
 
@@ -391,7 +391,7 @@ export interface MapPopupView {
   intent: string | null;
   /** Bounded Context だけ: 属するシナリオの数。 */
   scenarioCount: number | null;
-  /** コマンドとポリシーだけ: その要素を起点にしたシナリオの表示の id（"S-01"）。 */
+  /** コマンドとポリシーだけ: その要素を起点にしたシナリオの表示の id（"C-01"）。 */
   scenarios: string[] | null;
   /** intent・scenarioCount・scenarios を引けなかったときの理由（実装との対応表が無いとき）。ほかは null。 */
   lookupNote: string | null;
@@ -408,7 +408,7 @@ export interface MapNodeView {
   crossing: { from: string; to: string } | null;
   /** 壊れた印（JSON の broken が null でなければ true）。初回は常に false。 */
   broken: boolean;
-  /** 実装の名前と所在。画面の役割が Eng で、JSON にあるときだけ。 */
+  /** 実装の名前と所在。画面の役割が IMPLEMENTATION で、JSON にあるときだけ。 */
   implementation: { names: string[]; locations: GlossaryLocation[] } | null;
   popup: MapPopupView;
 }
@@ -454,7 +454,7 @@ export type MapView =
 
 /**
  * 1 回の実行の画面すべてのビューモデル（設計 1.2・6.11）。buildRunView が 4 つの画面とシナリオの詳細を束ねる。
- * 画面どうしのリンクは、各ビューモデルが持つ表示の id（"S-01"・"S-01-L-001"・"c1"・"n1"）で張る（設計 4 節・6.7）。
+ * 画面どうしのリンクは、各ビューモデルが持つ表示の id（"C-01"・"C-01-L-001"・"c1"・"n1"）で張る（設計 4 節・6.7）。
  * そのため、別のリンクの表は持たない。
  */
 export interface RunView {

@@ -11,7 +11,7 @@ export interface StateVariable {
   id: string;
   /** M1 の STATE の識別子。 */
   unitId: string;
-  /** 実装上の名前（M1 の STATE の name。変数名）。実装との対応表（M5）が使う。質問の文・M4 の LLM の入力と PdM の出力には出さない。 */
+  /** 実装上の名前（M1 の STATE の name。変数名）。実装との対応表（M5）が使う。質問の文・M4 の LLM の入力と BUSINESS の出力には出さない。 */
   name: string;
   domain: StateDomain;
   /** ENUM の値の識別子（"v1_1" …。初期値が決まらなければ "v1_unknown" を含む）。BOOL・INT は空。 */
@@ -36,7 +36,7 @@ export interface Proposition {
 export type GuardExpr =
   | { op: "PROP"; prop: string }
   | { op: "IS"; variable: string; value: string }
-  | { op: "CMP"; variable: string; cmp: "eq" | "neq" | "lt" | "lte" | "gt" | "gte"; value: number }
+  | { op: "CMP"; variable: string; cmp: "EQ" | "NEQ" | "LT" | "LTE" | "GT" | "GTE"; value: number }
   | { op: "NOT"; arg: GuardExpr }
   | { op: "AND" | "OR"; args: GuardExpr[] };
 

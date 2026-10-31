@@ -119,7 +119,7 @@ test("リポジトリにかけると終了コード 0 で、報告・全体マ�
 
     // 俯瞰図は地図 1 と Bounded Context ごとの地図 2 を束ねた 1 つの JSON（全体設計 4.1）。
     const systemMap = JSON.parse(await readFile(join(out, "system_map.json"), "utf8"));
-    assert.equal(systemMap.viewRole, "PdM");
+    assert.equal(systemMap.viewRole, "BUSINESS");
     assert.deepEqual(systemMap.basis, glossary.basis);
     assert.ok(Array.isArray(systemMap.contextMap.nodes));
     assert.deepEqual(
@@ -145,10 +145,10 @@ test("同じリポジトリに 2 回かけると、同じ報告になる", async
   });
 });
 
-test("--view-role が無ければ PdM で付録を載せず、Eng なら仕様書に形式仕様のソースの付録を載せる", async () => {
+test("--view-role が無ければ BUSINESS で付録を載せず、IMPLEMENTATION なら仕様書に形式仕様のソースの付録を載せる", async () => {
   await withTempRepo(async (root) => {
     assert.equal(await main([join(root, "repo"), "--out", join(root, "pdm")], capture().io), 0);
-    assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "Eng"], capture().io), 0);
+    assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "IMPLEMENTATION"], capture().io), 0);
 
     const report = JSON.parse(await readFile(join(root, "pdm", "run_report.json"), "utf8"));
     const name = safeName(report.scenarios[0].scenarioId);
@@ -164,11 +164,11 @@ test("--view-role が無ければ PdM で付録を載せず、Eng なら仕様�
   });
 });
 
-test("曖昧さで止まったシナリオは ambiguity.json と曖昧さの一覧 ambiguity.md を書き、所在は Eng のときだけ出す", async () => {
+test("曖昧さで止まったシナリオは ambiguity.json と曖昧さの一覧 ambiguity.md を書き、所在は IMPLEMENTATION のときだけ出す", async () => {
   await withTempRepo(
     async (root) => {
       assert.equal(await main([join(root, "repo"), "--out", join(root, "pdm")], capture().io), 0);
-      assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "Eng"], capture().io), 0);
+      assert.equal(await main([join(root, "repo"), "--out", join(root, "eng"), "--view-role", "IMPLEMENTATION"], capture().io), 0);
 
       const report = JSON.parse(await readFile(join(root, "pdm", "run_report.json"), "utf8"));
       const [scenario] = report.scenarios;
@@ -177,7 +177,7 @@ test("曖昧さで止まったシナリオは ambiguity.json と曖昧さの一�
       assert.ok(await isFile(join(dir("pdm"), "ambiguity.json")));
       const pdm = await readFile(join(dir("pdm"), "ambiguity.md"), "utf8");
       const eng = await readFile(join(dir("eng"), "ambiguity.md"), "utf8");
-      // PdM は「エンジニアの確認待ち: N 件」だけ、Eng は曖昧さごとに表示の id と所在を書く（SpecProjector の設計 8.9）
+      // BUSINESS は「エンジニアの確認待ち: N 件」だけ、IMPLEMENTATION は曖昧さごとに表示の id と所在を書く（SpecProjector の設計 8.9）
       assert.ok(pdm.includes("エンジニアの確認待ち: "));
       assert.ok(!pdm.includes(`${scenario.displayId}-A-001`));
       assert.ok(eng.includes(`${scenario.displayId}-A-001`));
@@ -194,7 +194,7 @@ test("引数の誤りは終了コード 2 で、使い方を出す", async () =>
     ["--out", "out"], // リポジトリが無い
     ["a", "b", "--out", "out"], // リポジトリが 2 つ
     ["repo", "--out", "out", "--unknown"], // 知らない引数
-    ["repo", "--out", "out", "--view-role", "pdm"], // 役割は PdM か Eng だけ（大文字小文字も区別する）
+    ["repo", "--out", "out", "--view-role", "pdm"], // 役割は BUSINESS か IMPLEMENTATION だけ（大文字小文字も区別する）
   ];
   for (const argv of cases) {
     const captured = capture();

@@ -143,7 +143,7 @@ test("表示の id: 実装との対応表で引き、俯瞰図（system_map.json
   await withOutputs(async (out) => {
     const outputs = await checkedOutputs(out);
     assert.ok(outputs.implementationMap.kind === "OK" && outputs.systemMap.kind === "OK");
-    const view = buildGlossaryView(outputs, "PdM");
+    const view = buildGlossaryView(outputs, "BUSINESS");
     assert.equal(view.unavailable, null);
     assert.equal(view.displayIdNote, null);
 
@@ -163,7 +163,7 @@ test("表示の id: 実装との対応表で引き、俯瞰図（system_map.json
       assert.ok(item.displayId !== null, `${item.term} の表示の id が無い`);
       assert.equal(rows.get(item.displayId), item.kind);
       assert.equal(mapKinds.get(item.displayId), item.kind, `${item.displayId} が俯瞰図に無いか、種類が違う`);
-      // PdM では実装の名前と所在を持たない
+      // BUSINESS では実装の名前と所在を持たない
       assert.equal(item.implementation, null);
     }
     assert.ok(!JSON.stringify(view).includes("src/a.ts"));
@@ -172,7 +172,7 @@ test("表示の id: 実装との対応表で引き、俯瞰図（system_map.json
 
 test("区切り: Bounded Context ごとに俯瞰図の順で並べ、またぐポリシーは両方に出し、所属の無い項目は最後に置く", async () => {
   await withOutputs(async (out) => {
-    const view = buildGlossaryView(withSynthetic(await checkedOutputs(out), true), "PdM");
+    const view = buildGlossaryView(withSynthetic(await checkedOutputs(out), true), "BUSINESS");
     assert.equal(view.showContextSections, true);
     assert.ok(view.statusNote?.includes("候補"));
     assert.deepEqual(
@@ -210,9 +210,9 @@ test("区切り: Bounded Context ごとに俯瞰図の順で並べ、またぐ�
   });
 });
 
-test("Eng: 項目に実装の名前と所在を持つ", async () => {
+test("IMPLEMENTATION: 項目に実装の名前と所在を持つ", async () => {
   await withOutputs(async (out) => {
-    const view = buildGlossaryView(withSynthetic(await checkedOutputs(out), true), "Eng");
+    const view = buildGlossaryView(withSynthetic(await checkedOutputs(out), true), "IMPLEMENTATION");
     const command = view.sections.flatMap((s) => s.entries).find((e) => e.displayId === "n1");
     assert.deepEqual(command?.implementation, { names: ["impl_cmdB"], locations: [{ file: "src/x.ts", line: 1 }] });
   });
@@ -220,7 +220,7 @@ test("Eng: 項目に実装の名前と所在を持つ", async () => {
 
 test("実装との対応表が無いとき: 表示の id を出さずに理由を書き、辞書の順で並べる", async () => {
   await withOutputs(async (out) => {
-    const view = buildGlossaryView(withSynthetic(await checkedOutputs(out), false), "PdM");
+    const view = buildGlossaryView(withSynthetic(await checkedOutputs(out), false), "BUSINESS");
     assert.equal(view.displayIdNote, "表示の id を引けない: 実装との対応表が無い");
     assert.deepEqual(
       view.sections.map((s) => [s.displayId, s.title, s.entries.map((e) => e.term)]),
@@ -236,7 +236,7 @@ test("実装との対応表が無いとき: 表示の id を出さずに理由�
 test("辞書が無いとき: 理由だけを返す", async () => {
   await withOutputs(async (out) => {
     await rm(join(out, "glossary.json"));
-    const view = buildGlossaryView(await checkedOutputs(out), "PdM");
+    const view = buildGlossaryView(await checkedOutputs(out), "BUSINESS");
     assert.equal(view.unavailable, "辞書（glossary.json）が無いため、用語辞典を出せない。");
     assert.deepEqual(view.sections, []);
     assert.equal(view.gaps, null);
@@ -255,6 +255,6 @@ test("用語辞典: 事前条件を通っていない入力では例外を投げ
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
-    assert.throws(() => buildGlossaryView(outputs, "PdM"), /checkRunOutputs/);
+    assert.throws(() => buildGlossaryView(outputs, "BUSINESS"), /checkRunOutputs/);
   });
 });

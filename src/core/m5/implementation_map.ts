@@ -2,7 +2,7 @@
 //
 // - 並び: Bounded Context（c1…。map.boundedContexts の順）→ 俯瞰図のノード（n1…。events → commands → policies。
 //   render_system.ts と同じ振り方）→ シナリオごとに入力の順で、シナリオ → 曖昧さ（A-001…）→ 状態変数（V-01…）→ 論点（L-001…）。
-// - 地図の要素とシナリオは、辞書の項目の implementation をそのまま写す（Eng の併記と同じ値。implementation.ts）。
+// - 地図の要素とシナリオは、辞書の項目の implementation をそのまま写す（IMPLEMENTATION の併記と同じ値。implementation.ts）。
 // - 曖昧さと論点は、辞書と結び付けない（glossaryEntryId は null）。
 // - 状態変数は、実装の名前（StateVariable.name）を implementation.names にそのまま持つ辞書の項目がちょうど 1 つのときだけ
 //   結び付ける。0 件・2 件以上なら null にする（取り違えを避けるため）。辞書には足さない（全体設計 2.2）。

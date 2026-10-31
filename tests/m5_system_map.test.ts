@@ -80,7 +80,7 @@ function intentsOf(glossary: Glossary, intent: LlmText): IntentCatalog {
 
 const INTENT: LlmText = { status: "GENERATED", text: "注文を受け付けてから締めるまでを扱う", recordKey: "intent-1" };
 
-function request(format: SystemViewFormat, viewRole: ViewRole = "PdM"): SystemProjectionRequest {
+function request(format: SystemViewFormat, viewRole: ViewRole = "BUSINESS"): SystemProjectionRequest {
   return { format, viewRole };
 }
 
@@ -93,7 +93,7 @@ test("俯瞰図（Mermaid）: Bounded Context ごとにまとめ、題とノー�
   assert.equal(a.content, b.content);
   assert.equal(a.scenarioId, null);
   assert.equal(a.displayId, null);
-  assert.equal(a.viewRole, "PdM");
+  assert.equal(a.viewRole, "BUSINESS");
   assert.equal(a.mediaType, "text/vnd.mermaid");
   assert.ok(a.content.includes('subgraph c1["注文"]'));
   assert.ok(a.content.includes('n1["イベント: 注文が締められた"]'));
@@ -160,15 +160,15 @@ test("俯瞰図（JSON）: 意図の候補は Bounded Context のノードだけ
   assert.ok(!mermaid.content.includes("注文を受け付けてから"));
 });
 
-test("俯瞰図: Eng のときは Mermaid のノードに所在を併記し、JSON に implementation を置く（設計 8.3）", async () => {
+test("俯瞰図: IMPLEMENTATION のときは Mermaid のノードに所在を併記し、JSON に implementation を置く（設計 8.3）", async () => {
   const glossary = await glossaryOf(MAP, LABELS);
-  const mermaid = await projectSystemMap(MAP, glossary, null, request("SYSTEM_MERMAID", "Eng"));
-  assert.equal(mermaid.viewRole, "Eng");
+  const mermaid = await projectSystemMap(MAP, glossary, null, request("SYSTEM_MERMAID", "IMPLEMENTATION"));
+  assert.equal(mermaid.viewRole, "IMPLEMENTATION");
   assert.ok(mermaid.content.includes('n3["コマンド: 注文を締める / src/order.ts#closeOrder"]'));
   // 所在が無いノードは併記しない
   assert.ok(mermaid.content.includes('n1["イベント: 注文が締められた"]'));
 
-  const value = JSON.parse((await projectSystemMap(MAP, glossary, intentsOf(glossary, INTENT), request("SYSTEM_JSON", "Eng"))).content) as JsonView;
+  const value = JSON.parse((await projectSystemMap(MAP, glossary, intentsOf(glossary, INTENT), request("SYSTEM_JSON", "IMPLEMENTATION"))).content) as JsonView;
   assert.deepEqual(Object.keys(value.nodes[0]!), ["id", "kind", "label", "context", "intent", "broken", "implementation"]);
   assert.deepEqual(Object.keys(value.nodes[1]!), ["id", "kind", "label", "context", "broken", "implementation"]);
   assert.deepEqual(value.nodes[3]!.implementation, {
@@ -192,7 +192,7 @@ test("俯瞰図: 別の全体マップから作った辞書と、別の辞書か
   await assert.rejects(projectSystemMap(MAP, glossary, staleIntents, request("SYSTEM_JSON")), reason("GLOSSARY_STALE"));
 
   await assert.rejects(
-    projectSystemMap(MAP, glossary, null, { format: "SYSTEM_SVG", viewRole: "PdM" } as unknown as SystemProjectionRequest),
+    projectSystemMap(MAP, glossary, null, { format: "SYSTEM_SVG", viewRole: "BUSINESS" } as unknown as SystemProjectionRequest),
     reason("UNSUPPORTED_FORMAT"),
   );
   await assert.rejects(
@@ -246,7 +246,7 @@ function levelRequest(
   level: "CONTEXT_MAP" | "CONTEXT_DETAIL",
   extra: Partial<SystemProjectionRequest> = {},
 ): SystemProjectionRequest {
-  return { format, viewRole: "PdM", level, ...extra };
+  return { format, viewRole: "BUSINESS", level, ...extra };
 }
 
 test("地図 1（JSON）: Bounded Context のノードと、またぐポリシーのつながりだけを出す（設計 8.9）", async () => {
@@ -306,7 +306,7 @@ test("地図 2（Mermaid）: subgraph 1 つにまとめ、またぐポリシー�
   assert.ok(!view.content.includes("src_ship"));
 });
 
-test("地図 2: includeSupporting でアクター・リードモデル・アグリゲートを足し、実装の名前は PdM に出さない", async () => {
+test("地図 2: includeSupporting でアクター・リードモデル・アグリゲートを足し、実装の名前は BUSINESS に出さない", async () => {
   const glossary = await glossaryOf(MAP2, LABELS2);
   const json = JSON.parse(
     (await projectSystemMap(MAP2, glossary, null, levelRequest("SYSTEM_JSON", "CONTEXT_DETAIL", { contextId: "src_order", includeSupporting: true }))).content,
@@ -342,13 +342,13 @@ test("地図 2: includeSupporting でアクター・リードモデル・アグ�
   assert.deepEqual(plain.nodes.map((node) => node.id), ["c1", "n1", "n3", "n5"]);
 });
 
-test("地図 2: Eng のときは、アクター・リードモデル・アグリゲートの implementation に全体マップの名前を置く", async () => {
+test("地図 2: IMPLEMENTATION のときは、アクター・リードモデル・アグリゲートの implementation に全体マップの名前を置く", async () => {
   const glossary = await glossaryOf(MAP2, LABELS2);
   const json = JSON.parse(
     (
       await projectSystemMap(MAP2, glossary, null, {
         format: "SYSTEM_JSON",
-        viewRole: "Eng",
+        viewRole: "IMPLEMENTATION",
         level: "CONTEXT_DETAIL",
         contextId: "src_order",
         includeSupporting: true,
@@ -382,7 +382,7 @@ test("俯瞰図: 階層の指定が正しくないときは UNSUPPORTED_FORMAT�
   const reason = (expected: string) => (error: unknown) => error instanceof ProjectionContractError && error.reason === expected;
   const glossary = await glossaryOf(MAP2, LABELS2);
   await assert.rejects(
-    projectSystemMap(MAP2, glossary, null, { format: "SYSTEM_JSON", viewRole: "PdM", level: "CONTEXT_ALL" } as unknown as SystemProjectionRequest),
+    projectSystemMap(MAP2, glossary, null, { format: "SYSTEM_JSON", viewRole: "BUSINESS", level: "CONTEXT_ALL" } as unknown as SystemProjectionRequest),
     reason("UNSUPPORTED_FORMAT"),
   );
   await assert.rejects(
@@ -390,7 +390,7 @@ test("俯瞰図: 階層の指定が正しくないときは UNSUPPORTED_FORMAT�
     reason("UNSUPPORTED_FORMAT"),
   );
   await assert.rejects(
-    projectSystemMap(MAP2, glossary, null, { format: "SYSTEM_JSON", viewRole: "PdM", includeSupporting: true }),
+    projectSystemMap(MAP2, glossary, null, { format: "SYSTEM_JSON", viewRole: "BUSINESS", includeSupporting: true }),
     reason("UNSUPPORTED_FORMAT"),
   );
   await assert.rejects(projectSystemMap(MAP2, glossary, null, levelRequest("SYSTEM_JSON", "CONTEXT_DETAIL")), reason("UNKNOWN_CONTEXT"));

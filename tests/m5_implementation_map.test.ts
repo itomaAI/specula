@@ -197,8 +197,8 @@ const AMBIGUITY: AmbiguityReport = {
 
 function inputs(): ImplementationMapInput[] {
   return [
-    { displayId: "S-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: LEDGER },
-    { displayId: "S-02", scenario: NOTIFY, spec: null, ambiguity: AMBIGUITY, ledger: null },
+    { displayId: "C-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: LEDGER },
+    { displayId: "C-02", scenario: NOTIFY, spec: null, ambiguity: AMBIGUITY, ledger: null },
   ];
 }
 
@@ -223,14 +223,14 @@ test("対応表: 地図の要素 → シナリオごとにシナリオ・曖昧�
       ["n2", "EVENT", "src/order.ts#notify"],
       ["n3", "COMMAND", "src/order.ts#closeOrder"],
       ["n4", "POLICY", "src/order.ts#onClose"],
-      ["S-01", "SCENARIO", ORDER_ID],
-      ["S-01-V-01", "STATE_VARIABLE", "v1"],
-      ["S-01-V-02", "STATE_VARIABLE", "v2"],
-      ["S-01-V-03", "STATE_VARIABLE", "v3"],
-      ["S-01-L-001", "LEDGER_ISSUE", `LEDGER-${ORDER_ID}-001`],
-      ["S-01-L-002", "LEDGER_ISSUE", `LEDGER-${ORDER_ID}-002`],
-      ["S-02", "SCENARIO", NOTIFY_ID],
-      ["S-02-A-001", "AMBIGUITY", "src/order.ts:22:5:STATE_WRITE"],
+      ["C-01", "SCENARIO", ORDER_ID],
+      ["C-01-V-01", "STATE_VARIABLE", "v1"],
+      ["C-01-V-02", "STATE_VARIABLE", "v2"],
+      ["C-01-V-03", "STATE_VARIABLE", "v3"],
+      ["C-01-L-001", "LEDGER_ISSUE", `LEDGER-${ORDER_ID}-001`],
+      ["C-01-L-002", "LEDGER_ISSUE", `LEDGER-${ORDER_ID}-002`],
+      ["C-02", "SCENARIO", NOTIFY_ID],
+      ["C-02-A-001", "AMBIGUITY", "src/order.ts:22:5:STATE_WRITE"],
     ],
   );
   assert.deepEqual(table.basis, glossary.basis);
@@ -245,20 +245,20 @@ test("対応表: 地図の要素とシナリオは辞書の項目を写し、曖
 
   assert.equal(byId.get("n3")?.glossaryEntryId, "src/order.ts#closeOrder");
   assert.deepEqual(byId.get("n3")?.implementation, { names: ["closeOrder"], locations: COMMAND_LOCATIONS });
-  assert.equal(byId.get("S-01")?.glossaryEntryId, "src/order.ts#closeOrder");
-  assert.deepEqual(byId.get("S-01")?.implementation, { names: ["closeOrder"], locations: COMMAND_LOCATIONS });
-  assert.equal(byId.get("S-02")?.glossaryEntryId, "src/order.ts#onClose");
+  assert.equal(byId.get("C-01")?.glossaryEntryId, "src/order.ts#closeOrder");
+  assert.deepEqual(byId.get("C-01")?.implementation, { names: ["closeOrder"], locations: COMMAND_LOCATIONS });
+  assert.equal(byId.get("C-02")?.glossaryEntryId, "src/order.ts#onClose");
 
-  assert.equal(byId.get("S-02-A-001")?.glossaryEntryId, null);
-  assert.deepEqual(byId.get("S-02-A-001")?.implementation, { names: [], locations: [{ file: "src/order.ts", line: 22 }] });
+  assert.equal(byId.get("C-02-A-001")?.glossaryEntryId, null);
+  assert.deepEqual(byId.get("C-02-A-001")?.implementation, { names: [], locations: [{ file: "src/order.ts", line: 22 }] });
 
   // 論点の所在は、操作ごとの出口のユニット（経路の全ユニットではない）。同じ所在は重ねない。
-  assert.equal(byId.get("S-01-L-001")?.glossaryEntryId, null);
-  assert.deepEqual(byId.get("S-01-L-001")?.implementation, {
+  assert.equal(byId.get("C-01-L-001")?.glossaryEntryId, null);
+  assert.deepEqual(byId.get("C-01-L-001")?.implementation, {
     names: [],
     locations: [{ file: "src/order.ts", line: 12 }, { file: "src/order.ts", line: 15 }],
   });
-  assert.deepEqual(byId.get("S-01-L-002")?.implementation.locations, [{ file: "src/order.ts", line: 12 }]);
+  assert.deepEqual(byId.get("C-01-L-002")?.implementation.locations, [{ file: "src/order.ts", line: 12 }]);
 
   // 写しは辞書の配列を共有しない
   byId.get("n3")?.implementation.names.push("x");
@@ -268,12 +268,12 @@ test("対応表: 地図の要素とシナリオは辞書の項目を写し、曖
 test("対応表: 状態変数は実装の名前を持つ辞書の項目がちょうど 1 つのときだけ結び付ける", async () => {
   const table = await projectImplementationMap(MAP, await glossaryOf(MAP), inputs());
   const byId = new Map(table.entries.map((entry) => [entry.displayId, entry] as const));
-  assert.equal(byId.get("S-01-V-01")?.glossaryEntryId, "SCHEMA_FIELD:orders.status");
-  assert.deepEqual(byId.get("S-01-V-01")?.implementation, { names: ["status"], locations: [{ file: "src/order.ts", line: 3 }] });
-  assert.equal(byId.get("S-01-V-02")?.glossaryEntryId, null, "辞書に無い");
-  assert.equal(byId.get("S-01-V-03")?.glossaryEntryId, null, "2 つの項目にある");
+  assert.equal(byId.get("C-01-V-01")?.glossaryEntryId, "SCHEMA_FIELD:orders.status");
+  assert.deepEqual(byId.get("C-01-V-01")?.implementation, { names: ["status"], locations: [{ file: "src/order.ts", line: 3 }] });
+  assert.equal(byId.get("C-01-V-02")?.glossaryEntryId, null, "辞書に無い");
+  assert.equal(byId.get("C-01-V-03")?.glossaryEntryId, null, "2 つの項目にある");
   // sourceMap に無いときは unitId から所在を作る
-  assert.deepEqual(byId.get("S-01-V-03")?.implementation.locations, [{ file: "src/order.ts", line: 5 }]);
+  assert.deepEqual(byId.get("C-01-V-03")?.implementation.locations, [{ file: "src/order.ts", line: 5 }]);
 });
 
 test("対応表: 状態変数の表示の id は 2 桁を最小にし、100 件以上なら件数の桁にそろえる", async () => {
@@ -291,11 +291,11 @@ test("対応表: 状態変数の表示の id は 2 桁を最小にし、100 件�
     sourceMap: {},
   };
   const table = await projectImplementationMap(MAP, await glossaryOf(MAP), [
-    { displayId: "S-01", scenario: ORDER, spec: many, ambiguity: null, ledger: null },
+    { displayId: "C-01", scenario: ORDER, spec: many, ambiguity: null, ledger: null },
   ]);
   const ids = table.entries.filter((entry) => entry.kind === "STATE_VARIABLE").map((entry) => entry.displayId);
-  assert.equal(ids[0], "S-01-V-001");
-  assert.equal(ids[99], "S-01-V-100");
+  assert.equal(ids[0], "C-01-V-001");
+  assert.equal(ids[99], "C-01-V-100");
 });
 
 test("対応表の契約: 辞書の古さ、シナリオの食い違い、論点カタログだけがある、論点が知らない操作を指す", async () => {
@@ -306,22 +306,22 @@ test("対応表の契約: 辞書の古さ、シナリオの食い違い、論点
   );
   assert.equal(
     await reasonOf(
-      projectImplementationMap(MAP, glossary, [{ displayId: "S-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([], NOTIFY_ID) }]),
+      projectImplementationMap(MAP, glossary, [{ displayId: "C-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([], NOTIFY_ID) }]),
     ),
     "SCENARIO_MISMATCH",
   );
   assert.equal(
-    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "S-01", scenario: NOTIFY, spec: SPEC, ambiguity: null, ledger: null }])),
+    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "C-01", scenario: NOTIFY, spec: SPEC, ambiguity: null, ledger: null }])),
     "SCENARIO_MISMATCH",
   );
   assert.equal(
-    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "S-01", scenario: ORDER, spec: null, ambiguity: null, ledger: LEDGER }])),
+    await reasonOf(projectImplementationMap(MAP, glossary, [{ displayId: "C-01", scenario: ORDER, spec: null, ambiguity: null, ledger: LEDGER }])),
     "SCENARIO_MISMATCH",
   );
   assert.equal(
     await reasonOf(
       projectImplementationMap(MAP, glossary, [
-        { displayId: "S-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([issue(`LEDGER-${ORDER_ID}-001`, ["op9"])]) },
+        { displayId: "C-01", scenario: ORDER, spec: SPEC, ambiguity: null, ledger: ledgerOf([issue(`LEDGER-${ORDER_ID}-001`, ["op9"])]) },
       ]),
     ),
     "UNKNOWN_OPERATION",
@@ -330,7 +330,7 @@ test("対応表の契約: 辞書の古さ、シナリオの食い違い、論点
   assert.equal(
     await reasonOf(
       projectImplementationMap(MAP, glossary, [
-        { displayId: "S-01", scenario: { ...ORDER, inletTrigger: { ...ORDER.inletTrigger, id: "src/order.ts#missing" } }, spec: null, ambiguity: null, ledger: null },
+        { displayId: "C-01", scenario: { ...ORDER, inletTrigger: { ...ORDER.inletTrigger, id: "src/order.ts#missing" } }, spec: null, ambiguity: null, ledger: null },
       ]),
     ),
     "GLOSSARY_STALE",

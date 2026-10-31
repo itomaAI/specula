@@ -7,7 +7,7 @@ import { parseMarkdown, tableCells } from "../src/viewer/markdown.js";
 
 test("SpecProjector が出す記法を、それぞれの種類のブロックに分ける", () => {
   const text = [
-    "# 仕様書: S-01（名前は未生成）",
+    "# 仕様書: C-01（名前は未生成）",
     "",
     "この文書の表示名と用語は、人が確かめていない候補である。",
     "",
@@ -31,7 +31,7 @@ test("SpecProjector が出す記法を、それぞれの種類のブロックに
     "",
   ].join("\n");
   assert.deepEqual(parseMarkdown(text), [
-    { kind: "heading", level: 1, text: "仕様書: S-01（名前は未生成）" },
+    { kind: "heading", level: 1, text: "仕様書: C-01（名前は未生成）" },
     { kind: "paragraph", text: "この文書の表示名と用語は、人が確かめていない候補である。" },
     { kind: "quote", text: "注意: この論点カタログは、いまの形式仕様正本とは別の版から作った。" },
     { kind: "heading", level: 2, text: "検証の状態" },
@@ -43,10 +43,10 @@ test("SpecProjector が出す記法を、それぞれの種類のブロックに
 });
 
 test("行の中の書式は解釈せず、前置きの後ろの LLM の文の記号もそのまま残す", () => {
-  const text = ["- 主張: **強調** と `コード`", "- 判断質問: # 見出しではない | 表でもない", "#### S-01-L-001"].join("\n");
+  const text = ["- 主張: **強調** と `コード`", "- 判断質問: # 見出しではない | 表でもない", "#### C-01-L-001"].join("\n");
   assert.deepEqual(parseMarkdown(text), [
     { kind: "list", ordered: false, items: ["主張: **強調** と `コード`", "判断質問: # 見出しではない | 表でもない"] },
-    { kind: "heading", level: 4, text: "S-01-L-001" },
+    { kind: "heading", level: 4, text: "C-01-L-001" },
   ]);
 });
 

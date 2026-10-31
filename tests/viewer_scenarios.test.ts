@@ -88,7 +88,7 @@ test("シナリオ一覧: すべてのシナリオが実行の報告の順に出
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
     const ambiguousTotal = Object.values(ambiguous.counts).reduce((sum, n) => sum + n, 0);
 
-    const pdm = buildScenarioList(outputs, "PdM");
+    const pdm = buildScenarioList(outputs, "BUSINESS");
     assert.deepEqual(
       pdm.rows.map((r) => [r.displayId, r.kind]),
       report.scenarios.map((s) => [s.displayId, s.kind]),
@@ -105,7 +105,7 @@ test("シナリオ一覧: すべてのシナリオが実行の報告の順に出
     assert.equal(pdm.showContextColumn, report.system.boundedContextCount > 1);
     assert.ok(pdm.summary.inspectionScope[0]?.includes("シナリオどうしの矛盾は見ていない"));
 
-    const eng = buildScenarioList(outputs, "Eng");
+    const eng = buildScenarioList(outputs, "IMPLEMENTATION");
     assert.equal(eng.rows.find((r) => r.displayId === ambiguous.displayId)!.countText, `曖昧さ ${ambiguousTotal} 件`);
     assert.deepEqual(
       eng.summary.ambiguity.byKind?.map((k) => [k.kind, k.count]),
@@ -114,12 +114,12 @@ test("シナリオ一覧: すべてのシナリオが実行の報告の順に出
   });
 });
 
-test("PdM の一覧と詳細の冒頭には、内部の識別子と所在が出ない", async () => {
+test("BUSINESS の一覧と詳細の冒頭には、内部の識別子と所在が出ない", async () => {
   await withOutputs(async (out, report) => {
     const outputs = await checkedOutputs(out);
-    const list = buildScenarioList(outputs, "PdM");
+    const list = buildScenarioList(outputs, "BUSINESS");
     // 論点と検証の状態は SpecProjector の文そのもの（次のテストで同じことを確かめる）なので、ここでは冒頭だけを見る
-    const headers = buildScenarioDetails(outputs, "PdM").map((detail) => ({ ...detail, verification: null, issueGroups: null, tabs: null }));
+    const headers = buildScenarioDetails(outputs, "BUSINESS").map((detail) => ({ ...detail, verification: null, issueGroups: null, tabs: null }));
     const text = JSON.stringify({ list, headers });
     for (const scenario of report.scenarios) {
       assert.ok(!text.includes(scenario.scenarioId), `内部の識別子が出ている: ${scenario.scenarioId}`);
@@ -130,13 +130,13 @@ test("PdM の一覧と詳細の冒頭には、内部の識別子と所在が出�
   });
 });
 
-test("Eng では起点の所在を一覧と詳細に持つ", async () => {
+test("IMPLEMENTATION では起点の所在を一覧と詳細に持つ", async () => {
   await withOutputs(async (out) => {
     const outputs = await checkedOutputs(out);
-    const list = buildScenarioList(outputs, "Eng");
+    const list = buildScenarioList(outputs, "IMPLEMENTATION");
     assert.ok(list.rows.every((r) => Array.isArray(r.inletLocations)));
     assert.ok(list.rows.some((r) => (r.inletLocations ?? []).some((l) => l.file.endsWith("src/a.ts"))));
-    assert.ok(buildScenarioDetails(outputs, "Eng").every((d) => Array.isArray(d.inletLocations)));
+    assert.ok(buildScenarioDetails(outputs, "IMPLEMENTATION").every((d) => Array.isArray(d.inletLocations)));
   });
 });
 
@@ -145,7 +145,7 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     const outputs = await checkedOutputs(out);
     const completed = rowOfKind(report, "COMPLETED");
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
-    const details = buildScenarioDetails(outputs, "PdM");
+    const details = buildScenarioDetails(outputs, "BUSINESS");
     assert.deepEqual(
       details.map((d) => d.displayId),
       report.scenarios.map((s) => s.displayId),
@@ -162,7 +162,7 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     // 検査の範囲の文（設計 3.2）は verificationView の lines に入っている。画面で別に持たない
     assert.ok(detail.verification?.lines.includes("検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。"));
     assert.equal(detail.notice, null);
-    // タブ: 仕様書は題の見出しから始まり、一覧表は操作ごとに 1 行。ソースは Eng だけ
+    // タブ: 仕様書は題の見出しから始まり、一覧表は操作ごとに 1 行。ソースは IMPLEMENTATION だけ
     const firstBlock = detail.tabs?.document[0];
     assert.ok(firstBlock?.kind === "heading" && firstBlock.level === 1 && firstBlock.text.startsWith("仕様書: "));
     const table = detail.tabs?.matrix.find((b) => b.kind === "table");
@@ -176,7 +176,7 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.equal(flow.nodes.length, 1 + spec.operations.reduce((sum, operation) => sum + operation.steps.length + 2, 0));
     assert.equal(flow.nodes[0]?.kind, "START");
     assert.equal(flow.layout.layers[0]?.length, 1);
-    const engDetail = buildScenarioDetails(outputs, "Eng").find((d) => d.displayId === completed.displayId)!;
+    const engDetail = buildScenarioDetails(outputs, "IMPLEMENTATION").find((d) => d.displayId === completed.displayId)!;
     const engSource = engDetail.tabs?.source;
     assert.ok(typeof engSource === "string" && engSource.length > 0);
     assert.ok(!/^\s*--\s*@source:/m.test(engSource));
@@ -196,19 +196,19 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
 test("辞書や対応表が無いときは、名前を「未生成」ではなく引けない理由で出す", async () => {
   await withOutputs(async (out, report) => {
     await rm(join(out, "glossary.json"));
-    const noGlossary = buildScenarioList(await checkedOutputs(out), "PdM");
+    const noGlossary = buildScenarioList(await checkedOutputs(out), "BUSINESS");
     for (const row of noGlossary.rows) {
       assert.equal(row.title, `${row.displayId}（名前を引けない: 辞書が無い）`);
       assert.equal(row.boundedContext, "（名前を引けない: 辞書が無い）");
     }
 
     await rm(join(out, "implementation_map.json"));
-    const noMap = buildScenarioList(await checkedOutputs(out), "Eng");
+    const noMap = buildScenarioList(await checkedOutputs(out), "IMPLEMENTATION");
     assert.deepEqual(
       noMap.rows.map((r) => r.title),
       report.scenarios.map((s) => `${s.displayId}（名前を引けない: 実装との対応表が無い）`),
     );
-    // 対応表が無ければ所在は空（Eng でも推測で埋めない）
+    // 対応表が無ければ所在は空（IMPLEMENTATION でも推測で埋めない）
     assert.ok(noMap.rows.every((r) => Array.isArray(r.inletLocations) && r.inletLocations.length === 0));
   });
 });
@@ -217,7 +217,7 @@ test("事前条件を通っていない入力では例外を投げる", async ()
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
-    assert.throws(() => buildScenarioList(outputs, "PdM"), /checkRunOutputs/);
-    assert.throws(() => buildScenarioDetails(outputs, "PdM"), /checkRunOutputs/);
+    assert.throws(() => buildScenarioList(outputs, "BUSINESS"), /checkRunOutputs/);
+    assert.throws(() => buildScenarioDetails(outputs, "BUSINESS"), /checkRunOutputs/);
   });
 });

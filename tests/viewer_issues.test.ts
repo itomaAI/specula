@@ -117,7 +117,7 @@ test("論点: SpecProjector と同じ組で、論点がある仕様になった�
   await withOutputs(async (out, report) => {
     const completed = rowOfKind(report, "COMPLETED");
     const outputs = withAddedIssue(await checkedOutputs(out), completed.displayId);
-    const list = buildIssueList(outputs, "PdM");
+    const list = buildIssueList(outputs, "BUSINESS");
 
     const files = outputs.scenarios.find((s) => s.displayId === completed.displayId);
     assert.ok(files?.kind === "COMPLETED" && files.spec.kind === "OK" && files.ledger.kind === "OK");
@@ -147,11 +147,11 @@ test("論点: SpecProjector と同じ組で、論点がある仕様になった�
   });
 });
 
-test("曖昧さ: PdM はシナリオごとの件数だけで、質問・箇所・原文を出さない", async () => {
+test("曖昧さ: BUSINESS はシナリオごとの件数だけで、質問・箇所・原文を出さない", async () => {
   await withOutputs(async (out, report) => {
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
     const total = Object.values(ambiguous.counts).reduce((sum, n) => sum + n, 0);
-    const list = buildIssueList(await checkedOutputs(out), "PdM");
+    const list = buildIssueList(await checkedOutputs(out), "BUSINESS");
 
     assert.deepEqual(
       list.ambiguities.map((a) => a.displayId),
@@ -168,7 +168,7 @@ test("曖昧さ: PdM はシナリオごとの件数だけで、質問・箇所�
   });
 });
 
-test("曖昧さ: Eng は SpecProjector の曖昧さの一覧と同じ番号・種類・質問・所在・原文を持つ", async () => {
+test("曖昧さ: IMPLEMENTATION は SpecProjector の曖昧さの一覧と同じ番号・種類・質問・所在・原文を持つ", async () => {
   await withOutputs(async (out, report) => {
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
     const outputs = await checkedOutputs(out);
@@ -177,7 +177,7 @@ test("曖昧さ: Eng は SpecProjector の曖昧さの一覧と同じ番号・�
     const source: AmbiguityReport = files.ambiguity.value;
     assert.ok(source.issues.length > 0);
 
-    const view = buildIssueList(outputs, "Eng").ambiguities.find((a) => a.displayId === ambiguous.displayId)!;
+    const view = buildIssueList(outputs, "IMPLEMENTATION").ambiguities.find((a) => a.displayId === ambiguous.displayId)!;
     assert.ok(view.countText.startsWith("曖昧さ "));
     assert.equal(view.items?.length, source.issues.length);
     view.items!.forEach((item, index) => {
@@ -197,6 +197,6 @@ test("仕様不備一覧: 事前条件を通っていない入力では例外を
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
-    assert.throws(() => buildIssueList(outputs, "PdM"), /checkRunOutputs/);
+    assert.throws(() => buildIssueList(outputs, "BUSINESS"), /checkRunOutputs/);
   });
 });

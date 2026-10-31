@@ -182,7 +182,7 @@ function walk(operation: Operation, byId: ReadonlyMap<string, StateVariable>): {
   return { guards, finals: current };
 }
 
-const CMP_TEXT = { eq: "=", neq: "!=", lt: "<", lte: "=<", gt: ">", gte: ">=" } as const;
+const CMP_TEXT = { EQ: "=", NEQ: "!=", LT: "<", LTE: "=<", GT: ">", GTE: ">=" } as const;
 
 function render(expr: GuardExpr, now: (id: string) => string): string {
   switch (expr.op) {

@@ -147,7 +147,7 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
   assert.deepEqual(report.inspectionScope, {
     unit: "PER_SCENARIO",
     invariantChecks: { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" },
-    scenariosWithoutVerification: ["S-01", "S-02", "S-03"],
+    scenariosWithoutVerification: ["C-01", "C-02", "C-03"],
   });
 
   // 元にした入力は辞書の basis の写し（意図の候補・実装との対応表と同じ）
@@ -168,7 +168,7 @@ test("検査の範囲: 検証の結果を持つシナリオは、検証の結果
   const [completed] = report.scenarios;
   assert.ok(completed?.kind === "COMPLETED");
   assert.notEqual(completed.outcome, "UNVERIFIED", JSON.stringify(completed));
-  assert.deepEqual(report.inspectionScope.scenariosWithoutVerification, ["S-02", "S-03"]);
+  assert.deepEqual(report.inspectionScope.scenariosWithoutVerification, ["C-02", "C-03"]);
   assert.deepEqual(report.inspectionScope.invariantChecks, { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" });
 });
 
@@ -195,20 +195,20 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   assert.ok(ambiguous?.kind === "AMBIGUOUS");
   assert.equal(ambiguous.ambiguity.issues.length, 3);
   assert.equal(ambiguous.view.format, "AMBIGUITY_DOCUMENT");
-  assert.equal(ambiguous.view.displayId, "S-02");
-  assert.ok(ambiguous.view.content.startsWith("# S-02"), ambiguous.view.content);
-  // PdM の曖昧さの一覧は合計だけ（SpecProjector の設計 8.9）。表示の id は対応表に残る（下）
+  assert.equal(ambiguous.view.displayId, "C-02");
+  assert.ok(ambiguous.view.content.startsWith("# C-02"), ambiguous.view.content);
+  // BUSINESS の曖昧さの一覧は合計だけ（SpecProjector の設計 8.9）。表示の id は対応表に残る（下）
   assert.ok(ambiguous.view.content.includes("エンジニアの確認待ち: 3 件"), ambiguous.view.content);
   assert.ok(!ambiguous.view.content.includes("src/g.ts"));
 
   assert.equal(result.systemViews.mermaid.mediaType, "text/vnd.mermaid");
   // system_map.json: 地図 1 と、Bounded Context ごとの地図 2（足す要素なし・あり）を束ね、辞書の basis を写す（全体設計 4.1）。
   const maps = result.systemViews.json;
-  assert.equal(maps.viewRole, "PdM");
+  assert.equal(maps.viewRole, "BUSINESS");
   assert.deepEqual(maps.basis, result.glossary.basis);
   const projected = async (request: Omit<SystemProjectionRequest, "format" | "viewRole">): Promise<unknown> =>
     JSON.parse(
-      (await projectSystemMap(result.map, result.glossary, result.intents, { format: "SYSTEM_JSON", viewRole: "PdM", ...request })).content,
+      (await projectSystemMap(result.map, result.glossary, result.intents, { format: "SYSTEM_JSON", viewRole: "BUSINESS", ...request })).content,
     );
   assert.deepEqual(maps.contextMap, await projected({ level: "CONTEXT_MAP" }));
   assert.deepEqual(maps.details.map((detail) => detail.context), ["c1"]);
@@ -230,10 +230,10 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   );
   assert.deepEqual(
     entries.filter((entry) => entry.kind === "AMBIGUITY").map((entry) => entry.displayId),
-    ["S-02-A-001", "S-02-A-002", "S-02-A-003"],
+    ["C-02-A-001", "C-02-A-002", "C-02-A-003"],
   );
-  assert.ok(entries.filter((entry) => entry.kind === "STATE_VARIABLE").every((entry) => entry.displayId.startsWith("S-01-V-")));
-  assert.ok(!entries.some((entry) => entry.displayId.startsWith("S-03-")), "M1 で止まったシナリオはシナリオの行だけ");
+  assert.ok(entries.filter((entry) => entry.kind === "STATE_VARIABLE").every((entry) => entry.displayId.startsWith("C-01-V-")));
+  assert.ok(!entries.some((entry) => entry.displayId.startsWith("C-03-")), "M1 で止まったシナリオはシナリオの行だけ");
   assert.deepEqual(result.implementationMap.basis, result.glossary.basis);
 });
 
@@ -304,11 +304,11 @@ test("選択で起点を絞ると、そのシナリオだけを回す", async ()
   assert.equal(result.report.totals.ambiguous, 1);
 });
 
-test("表示の id を切り出しの順に S-01 … と振り、報告と成果物とビューに同じ id を載せる", async () => {
+test("表示の id を切り出しの順に C-01 … と振り、報告と成果物とビューに同じ id を載せる", async () => {
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(
     result.report.scenarios.map((scenario) => scenario.displayId),
-    ["S-01", "S-02", "S-03"],
+    ["C-01", "C-02", "C-03"],
   );
   assert.deepEqual(
     result.scenarios.map((scenario) => [scenario.scenarioId, scenario.displayId]),
@@ -318,44 +318,44 @@ test("表示の id を切り出しの順に S-01 … と振り、報告と成果
   const completed = result.scenarios[0];
   assert.ok(completed?.kind === "COMPLETED");
   for (const view of [completed.document, completed.matrix, completed.flow]) {
-    assert.equal(view.displayId, "S-01");
-    assert.equal(view.viewRole, "PdM");
-    assert.ok(view.content.includes("S-01"), view.format);
+    assert.equal(view.displayId, "C-01");
+    assert.equal(view.viewRole, "BUSINESS");
+    assert.ok(view.content.includes("C-01"), view.format);
     assert.ok(!view.content.includes(completed.scenarioId), view.format);
   }
 });
 
-test("既定の役割は PdM で仕様書に付録が無く、Eng を渡すと付録が付く", async () => {
+test("既定の役割は BUSINESS で仕様書に付録が無く、IMPLEMENTATION を渡すと付録が付く", async () => {
   const pdm = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
-  const eng = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null }, { viewRole: "Eng" });
+  const eng = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null }, { viewRole: "IMPLEMENTATION" });
   const a = pdm.scenarios[0];
   const b = eng.scenarios[0];
   assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");
   assert.ok(!a.document.content.includes("## 付録"));
   assert.ok(b.document.content.includes("## 付録: 形式仕様のソース"));
-  assert.equal(b.document.viewRole, "Eng");
-  assert.equal(pdm.systemViews.json.viewRole, "PdM");
-  assert.equal(eng.systemViews.json.viewRole, "Eng");
+  assert.equal(b.document.viewRole, "IMPLEMENTATION");
+  assert.equal(pdm.systemViews.json.viewRole, "BUSINESS");
+  assert.equal(eng.systemViews.json.viewRole, "IMPLEMENTATION");
 });
 
-test("選択で絞っても、表示の id は回したシナリオの中で S-01 から振る", async () => {
+test("選択で絞っても、表示の id は回したシナリオの中で C-01 から振る", async () => {
   const result = await runPipeline(
     REPO,
     { fs: sourceFs(), llm: NO_LLM, solver: null },
     { selection: { filter: { inlets: ["src/g.ts#go"] } } },
   );
-  assert.deepEqual(result.report.scenarios.map((scenario) => scenario.displayId), ["S-01"]);
+  assert.deepEqual(result.report.scenarios.map((scenario) => scenario.displayId), ["C-01"]);
 });
 
 test("displayIdsOf: 2 桁を最小にし、100 件以上なら件数の桁にそろえる", () => {
   assert.deepEqual(displayIdsOf(0), []);
-  assert.deepEqual(displayIdsOf(1), ["S-01"]);
+  assert.deepEqual(displayIdsOf(1), ["C-01"]);
   const ninetyNine = displayIdsOf(99);
   assert.equal(ninetyNine.length, 99);
-  assert.equal(ninetyNine[0], "S-01");
-  assert.equal(ninetyNine[98], "S-99");
+  assert.equal(ninetyNine[0], "C-01");
+  assert.equal(ninetyNine[98], "C-99");
   const hundred = displayIdsOf(100);
-  assert.equal(hundred[0], "S-001");
-  assert.equal(hundred[99], "S-100");
+  assert.equal(hundred[0], "C-001");
+  assert.equal(hundred[99], "C-100");
   assert.deepEqual([...hundred].sort(), hundred);
 });

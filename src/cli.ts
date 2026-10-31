@@ -1,6 +1,6 @@
 // Node.js の入口（全体設計 4.1）。アダプターを組み立ててオーケストレーターに渡し、出力をファイルに書く。解析の処理は持たない。
 //
-// 使い方: node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>] [--view-role PdM|Eng]
+// 使い方: node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>] [--view-role BUSINESS|IMPLEMENTATION]
 // 終了コード: 0 = 最後まで回った（論点や曖昧さがあっても 0）、1 = 環境の故障、2 = 引数の誤り。
 //
 // このファイルは Itera 向けの bundle（index.ts から）に入らないので、node: のモジュールを静的に import してよい。
@@ -22,7 +22,7 @@ import type { ViewRole } from "./types/projection.js";
 export { safeName } from "./lib/write_outputs.js";
 
 const USAGE =
-  "使い方: node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>] [--view-role PdM|Eng]";
+  "使い方: node dist/src/cli.js <リポジトリのディレクトリ> --out <出力先> [--alloy-jar <jar>] [--records <LLM の記録の置き場所>] [--view-role BUSINESS|IMPLEMENTATION]";
 
 export interface CliIo {
   stdout: (line: string) => void;
@@ -55,8 +55,12 @@ export async function main(argv: readonly string[], io: CliIo = DEFAULT_IO): Pro
     if (parsed.positionals.length !== 1) throw new Error("リポジトリのディレクトリを 1 つだけ指定する");
     if (parsed.values.out === undefined || parsed.values.out === "") throw new Error("--out が無い");
     // 役割の誤りは、ここで引数の誤りにする。そのまま渡すと俯瞰図の射影が UNSUPPORTED_FORMAT を投げ、環境の故障（1）と区別できないため。
-    const role = parsed.values["view-role"] ?? "PdM";
-    if (role !== "PdM" && role !== "Eng") throw new Error(`--view-role は PdM か Eng（${role} を受け取った）`);
+    // 小文字で受け取ってよく、読むときに大文字へ戻す（全体仕様 4.5）。列挙に無い値は既定に読み替えずにエラーにする。
+    const given = parsed.values["view-role"] ?? "business";
+    const role = given.toUpperCase();
+    if (role !== "BUSINESS" && role !== "IMPLEMENTATION") {
+      throw new Error(`--view-role は business か implementation（${given} を受け取った）`);
+    }
     repoDir = parsed.positionals[0] as string;
     outDir = parsed.values.out;
     alloyJar = parsed.values["alloy-jar"];

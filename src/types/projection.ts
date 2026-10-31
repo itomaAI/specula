@@ -13,16 +13,17 @@ export type ScenarioViewFormat = "DOCUMENT" | "MATRIX" | "FLOW";
 export type SystemViewFormat = "SYSTEM_MERMAID" | "SYSTEM_JSON";
 
 /**
- * 表示の役割（全体設計 2.2、SpecProjector の設計 8.3）。既定は PdM。
- * - PdM: ファイルのパス・関数名・行番号・コードの断片を出さない。
- * - Eng: 文は PdM と同じにし、実装の名前と所在を併記する。仕様書に形式仕様のソースの付録を載せる。
+ * 表示の役割（全体設計 2.2、SpecProjector の設計 8.3、全体仕様 4.5）。既定は BUSINESS。画面の表示名は「業務／実装」。
+ * - BUSINESS: ファイルのパス・関数名・行番号・コードの断片を出さない。
+ * - IMPLEMENTATION: 文は BUSINESS と同じにし、実装の名前と所在を併記する。仕様書に形式仕様のソースの付録を載せる。
+ * URL や CLI では小文字で受け取ってよく、読むときに大文字へ戻す。列挙に無い値はエラーにする。
  */
-export type ViewRole = "PdM" | "Eng";
+export type ViewRole = "BUSINESS" | "IMPLEMENTATION";
 
 export interface ProjectionRequest {
   format: ScenarioViewFormat;
   viewRole: ViewRole;
-  /** シナリオの表示の id（"S-01"）。オーケストレーターが切り出しの順に振る。 */
+  /** シナリオの表示の id（"C-01"）。オーケストレーターが切り出しの順に振る。 */
   displayId: string;
 }
 
@@ -30,7 +31,7 @@ export interface ProjectionRequest {
 export interface AmbiguityProjectionRequest {
   format: "AMBIGUITY_DOCUMENT";
   viewRole: ViewRole;
-  /** シナリオの表示の id（"S-01"）。 */
+  /** シナリオの表示の id（"C-01"）。 */
   displayId: string;
 }
 
@@ -61,7 +62,7 @@ export interface ProjectionContext {
 export interface SpecificationView {
   /** 内部の識別子。出力の置き場所を決めるためだけに使い、content には出さない。全体の俯瞰図は null。 */
   scenarioId: string | null;
-  /** 表示の id（"S-01"）。全体の俯瞰図は null。 */
+  /** 表示の id（"C-01"）。全体の俯瞰図は null。 */
   displayId: string | null;
   viewRole: ViewRole;
   format: ScenarioViewFormat | "AMBIGUITY_DOCUMENT" | SystemViewFormat;
@@ -80,7 +81,7 @@ export interface SpecificationView {
 
 /** 実装との対応表の、シナリオ 1 つ分の入力（SpecProjector の設計 5・8.5）。 */
 export interface ImplementationMapInput {
-  /** シナリオの表示の id（"S-01"）。 */
+  /** シナリオの表示の id（"C-01"）。 */
   displayId: string;
   scenario: ScenarioTarget;
   /** FormalTranspiler で止まったシナリオは null。 */
@@ -102,7 +103,7 @@ export type ImplementationMapEntryKind =
   | "LEDGER_ISSUE";
 
 export interface ImplementationMapEntry {
-  /** "c1"・"n1"・"S-01"・"S-01-A-001"・"S-01-V-01"・"S-01-L-001" */
+  /** "c1"・"n1"・"C-01"・"C-01-A-001"・"C-01-V-01"・"C-01-L-001" */
   displayId: string;
   kind: ImplementationMapEntryKind;
   /** 地図の要素の id、シナリオの id、状態変数の識別子、論点の識別子など。曖昧さは最初のユニットの識別子。 */
@@ -134,7 +135,7 @@ export class ProjectionContractError extends Error {
       | "SCENARIO_MISMATCH"
       | "UNKNOWN_OPERATION"
       | "UNKNOWN_STATE_VARIABLE"
-      // 表現形式が関数の受け付けるものでない。表示の役割が PdM・Eng のどちらでもないときも、この理由にする
+      // 表現形式が関数の受け付けるものでない。表示の役割が BUSINESS・IMPLEMENTATION のどちらでもないときも、この理由にする
       | "UNSUPPORTED_FORMAT"
       // 辞書の basis.mapHash が、受け取った全体マップのハッシュと違う（SpecProjector の設計 7.7・8.1）
       | "GLOSSARY_STALE"

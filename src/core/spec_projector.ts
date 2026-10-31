@@ -3,7 +3,7 @@
 // 形式仕様正本と論点カタログから、人が読むビューを決定論的に作る。LLM は呼ばない。ファイルの読み書きもしない。
 // 流れ: ContractGuard → ViewModelBuilder（中間表現 1 つ）→ 描画（仕様書・操作の一覧表・操作の流れ図）。
 // 全体の俯瞰図は、シナリオの単位では作れない図なので、別の関数にする。
-// 表示の役割（PdM・Eng）と表示の id（S-01）は request で受け取る（全体設計 2.2、設計 8.3）。
+// 表示の役割（BUSINESS・IMPLEMENTATION）と表示の id（C-01）は request で受け取る（全体設計 2.2、設計 8.3）。
 
 import { sha256Hex } from "../lib/sha256.js";
 import type { AmbiguityReport, FormalSpecification } from "../types/formal.js";
