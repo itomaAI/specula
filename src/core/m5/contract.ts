@@ -1,7 +1,7 @@
 // M5 の入力の契約を確かめる（M5 の設計 1.2・7.7、仕様 3.1）。破れていれば ProjectionContractError。
 //
 // - 表現形式が DOCUMENT・MATRIX・FLOW のどれかで、表示の役割が BUSINESS・IMPLEMENTATION のどちらかであること。
-// - context.commandTarget と論点カタログのシナリオが、形式仕様のシナリオと同じであること。
+// - context.commandTarget と論点カタログのコマンドが、形式仕様のコマンドと同じであること。
 // - 論点が指す操作と、論点の実行列の状態変数が、形式仕様にあること（表示名を引けなくならないように）。
 // カタログが古いこと（ソースの SHA-256 が違うこと）は契約違反ではない。ビューの先頭で知らせる（設計 3.3）。
 
@@ -41,7 +41,7 @@ export function checkProjectionContract(
   }
 
   if (context.commandTarget.id !== spec.commandId) {
-    fail("COMMAND_MISMATCH", `context のシナリオは ${context.commandTarget.id}、形式仕様は ${spec.commandId}`);
+    fail("COMMAND_MISMATCH", `context のコマンドは ${context.commandTarget.id}、形式仕様は ${spec.commandId}`);
   }
 
   if (ledger === null) return;
@@ -66,7 +66,7 @@ export function checkProjectionContract(
 
 /**
  * 曖昧さの一覧の入力の契約（設計 7.7・8.4）。
- * 表現形式が AMBIGUITY_DOCUMENT で、表示の役割が BUSINESS・IMPLEMENTATION のどちらかで、context のシナリオが報告のシナリオと同じであること。
+ * 表現形式が AMBIGUITY_DOCUMENT で、表示の役割が BUSINESS・IMPLEMENTATION のどちらかで、context のコマンドが報告のコマンドと同じであること。
  */
 export function checkAmbiguityContract(
   report: AmbiguityReport,
@@ -84,6 +84,6 @@ export function checkAmbiguityContract(
     fail("UNSUPPORTED_FORMAT", `表示の役割: ${String(request.viewRole)}`);
   }
   if (context.commandTarget.id !== report.commandId) {
-    fail("COMMAND_MISMATCH", `context のシナリオは ${context.commandTarget.id}、曖昧さの報告は ${report.commandId}`);
+    fail("COMMAND_MISMATCH", `context のコマンドは ${context.commandTarget.id}、曖昧さの報告は ${report.commandId}`);
   }
 }

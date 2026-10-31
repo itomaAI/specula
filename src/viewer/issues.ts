@@ -1,8 +1,8 @@
 // 仕様不備一覧のビューモデル（SpecViewer 基本設計 3.3・6.7）。
 // 純粋な関数。checkRunOutputs を通った RunOutputs を受け取る（通っていない入力では例外を投げる）。
 // 論点は SpecProjector の issueGroupsOf で作り、曖昧さの文は SpecProjector の曖昧さの一覧（render_ambiguities.ts）と同じにする。
-// BUSINESS には曖昧さの質問・箇所・原文を出さず、シナリオごとの件数だけにする（仕様 3.2、設計 3.3）。
-// ビューモデルには内部の識別子を入れない。シナリオ・論点・曖昧さは表示の id で指す（設計 6.7）。
+// BUSINESS には曖昧さの質問・箇所・原文を出さず、コマンドごとの件数だけにする（仕様 3.2、設計 3.3）。
+// ビューモデルには内部の識別子を入れない。コマンド・論点・曖昧さは表示の id で指す（設計 6.7）。
 
 import { statusMark } from "../core/m5/labels.js";
 import { AMBIGUITY_KIND_TEXT } from "../core/m5/render_ambiguities.js";
@@ -15,7 +15,7 @@ function unread(displayId: string): Error {
   return new Error(`${displayId} のファイルが読めていない。先に checkRunOutputs を通してください。`);
 }
 
-/** 仕様不備一覧（設計 3.3）。論点と曖昧さを、それぞれ実行の報告の順に並べる。途中で止まったシナリオは不備を持たない。 */
+/** 仕様不備一覧（設計 3.3）。論点と曖昧さを、それぞれ実行の報告の順に並べる。途中で止まったコマンドは不備を持たない。 */
 export function buildIssueList(outputs: RunOutputs, viewRole: ViewRole): IssueListView {
   const sources = sourcesOf(outputs);
   const commands: CommandIssuesView[] = [];

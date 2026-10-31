@@ -1,14 +1,14 @@
 // 実装との対応表（implementation_map.json）の項目を作る（SpecProjector の設計 8.5。ImplementationMapBuilder）。
 //
 // - 並び: Bounded Context（c1…。map.boundedContexts の順）→ 俯瞰図のノード（n1…。events → commands → policies。
-//   render_system.ts と同じ振り方）→ シナリオごとに入力の順で、シナリオ → 曖昧さ（A-001…）→ 状態変数（V-01…）→ 論点（L-001…）。
-// - 地図の要素とシナリオは、辞書の項目の implementation をそのまま写す（IMPLEMENTATION の併記と同じ値。implementation.ts）。
+//   render_system.ts と同じ振り方）→ コマンドごとに入力の順で、コマンド → 曖昧さ（A-001…）→ 状態変数（V-01…）→ 論点（L-001…）。
+// - 地図の要素とコマンドは、辞書の項目の implementation をそのまま写す（IMPLEMENTATION の併記と同じ値。implementation.ts）。
 // - 曖昧さと論点は、辞書と結び付けない（glossaryEntryId は null）。
 // - 状態変数は、実装の名前（StateVariable.name）を implementation.names にそのまま持つ辞書の項目がちょうど 1 つのときだけ
 //   結び付ける。0 件・2 件以上なら null にする（取り違えを避けるため）。辞書には足さない（全体設計 2.2）。
 // - 状態変数の所在は spec.sourceMap のユニット、論点の所在は論点の操作ごとの出口のユニットから作る。
 //   経路の全ユニット（spec.sourceMap[operation.id]）は数が多いので使わない。
-// - 辞書の古さとシナリオの食い違いは、呼び出し元（spec_projector.ts）が確かめてある。
+// - 辞書の古さとコマンドの食い違いは、呼び出し元（spec_projector.ts）が確かめてある。
 //   ここでは、辞書に地図の要素や起点の項目が無いときだけ GLOSSARY_STALE にする。
 
 import type { Glossary, GlossaryEntry, GlossaryLocation } from "../../types/glossary.js";
@@ -95,7 +95,7 @@ export function buildImplementationMap(
     });
   });
 
-  // ---- シナリオごと ----
+  // ---- コマンドごと ----
   for (const { displayId, commandTarget, spec, ambiguity, ledger } of commands) {
     // 単位の起点はコマンドだけ（2026-10-31 T-0070）。
     const inlet = mapEntryOf(entries, "COMMAND", commandTarget.inletTrigger.id, commandTarget.id);

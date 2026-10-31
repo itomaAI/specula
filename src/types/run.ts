@@ -99,10 +99,10 @@ export interface RunReport {
   };
   /** 意図の候補の要約（全体設計 2.1）。 */
   intents: {
-    /** 候補の欄の数（Bounded Context とシナリオ）。未生成のものも数える。 */
+    /** 候補の欄の数（Bounded Context とコマンド）。未生成のものも数える。 */
     contextCount: number;
     commandTargetCount: number;
-    /** 候補が未生成の欄の数（理由の種類ごと。Bounded Context とシナリオの合計）。 */
+    /** 候補が未生成の欄の数（理由の種類ごと。Bounded Context とコマンドの合計）。 */
     notGenerated: { UNREACHABLE: number; INVALID_OUTPUT: number };
   };
   slice: {
@@ -120,18 +120,18 @@ export interface RunReport {
   };
   /** 検査の範囲（全体設計 2.1）。 */
   inspectionScope: {
-    /** 検査はシナリオごとに行い、シナリオどうしの矛盾は見ていない。 */
+    /** 検査はコマンドごとに行い、コマンドどうしの矛盾は見ていない。 */
     unit: "PER_COMMAND";
     /** 初回は業務上の不変条件が無いので検査しない（FormalSolver の報告と同じ値）。 */
     invariantChecks: SolverReport["invariantChecks"];
-    /** 検証の結果がこの報告に無いシナリオの表示の id（切り出しの順）。未検証・曖昧さで止まった・途中で止まった。 */
+    /** 検証の結果がこの報告に無いコマンドの表示の id（切り出しの順）。未検証・曖昧さで止まった・途中で止まった。 */
     commandsWithoutVerification: string[];
   };
   /** 元にした辞書の basis をそのまま写す（意図の候補・実装との対応表と同じ）。 */
   basis: Glossary["basis"];
 }
 
-/** シナリオ 1 つの成果物。報告の commands と同じ順・同じ id。 */
+/** コマンド 1 つの成果物。報告の commands と同じ順・同じ id。 */
 export type CommandArtifacts =
   | {
       commandId: string;
@@ -188,7 +188,7 @@ export interface PipelineResult {
   commands: CommandArtifacts[];
   /**
    * 実装との対応表（implementation_map.json。SpecProjector の設計 8.5）。表示の役割に関係なく作る。
-   * 状態変数と論点は、最後まで進んだシナリオ（COMPLETED）の分だけ入る。
+   * 状態変数と論点は、最後まで進んだコマンド（COMPLETED）の分だけ入る。
    */
   implementationMap: ImplementationMap;
 }

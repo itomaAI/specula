@@ -79,11 +79,11 @@ function rowOfKind<K extends RunReport["commands"][number]["kind"]>(
   kind: K,
 ): Extract<RunReport["commands"][number], { kind: K }> {
   const found = report.commands.find((s) => s.kind === kind);
-  assert.ok(found, `${kind} のシナリオが無い`);
+  assert.ok(found, `${kind} のコマンドが無い`);
   return found as Extract<RunReport["commands"][number], { kind: K }>;
 }
 
-/** 仕様になったシナリオの論点カタログの末尾に、最後の操作に関わる「到達しない操作」の論点を 1 件足す。 */
+/** 仕様になったコマンドの論点カタログの末尾に、最後の操作に関わる「到達しない操作」の論点を 1 件足す。 */
 function withAddedIssue(outputs: RunOutputs, displayId: string): RunOutputs {
   return {
     ...outputs,
@@ -113,7 +113,7 @@ function withAddedIssue(outputs: RunOutputs, displayId: string): RunOutputs {
   };
 }
 
-test("論点: SpecProjector と同じ組で、論点がある仕様になったシナリオだけが出て、一覧表の行の位置を持つ", async () => {
+test("論点: SpecProjector と同じ組で、論点がある仕様になったコマンドだけが出て、一覧表の行の位置を持つ", async () => {
   await withOutputs(async (out, report) => {
     const completed = rowOfKind(report, "COMPLETED");
     const outputs = withAddedIssue(await checkedOutputs(out), completed.displayId);
@@ -126,7 +126,7 @@ test("論点: SpecProjector と同じ組で、論点がある仕様になった�
     const displayIds = issueDisplayIds(ledger, completed.displayId);
 
     const view = list.commands.find((s) => s.displayId === completed.displayId);
-    assert.ok(view, "論点のあるシナリオが出ていない");
+    assert.ok(view, "論点のあるコマンドが出ていない");
     assert.equal(view.issueCount, ledger.issues.length);
     assert.deepEqual(view.groups, issueGroupsOf(spec, ledger, displayIds));
     // 論点はすべて未決（仕様 3.2）
@@ -135,7 +135,7 @@ test("論点: SpecProjector と同じ組で、論点がある仕様になった�
     const added = displayIds.get("LEDGER-test-999")!;
     assert.deepEqual(view.operationRows[added], [spec.operations.length - 1]);
     assert.equal(list.issueTotal, list.commands.reduce((sum, s) => sum + s.issueCount, 0));
-    // 論点の無いシナリオ・曖昧さで止まったシナリオは論点の側に出ない
+    // 論点の無いコマンド・曖昧さで止まったコマンドは論点の側に出ない
     for (const s of list.commands) {
       assert.ok(s.issueCount > 0);
       assert.equal(report.commands.find((r) => r.displayId === s.displayId)?.kind, "COMPLETED");
@@ -147,7 +147,7 @@ test("論点: SpecProjector と同じ組で、論点がある仕様になった�
   });
 });
 
-test("曖昧さ: BUSINESS はシナリオごとの件数だけで、質問・箇所・原文を出さない", async () => {
+test("曖昧さ: BUSINESS はコマンドごとの件数だけで、質問・箇所・原文を出さない", async () => {
   await withOutputs(async (out, report) => {
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
     const total = Object.values(ambiguous.counts).reduce((sum, n) => sum + n, 0);

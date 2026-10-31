@@ -38,7 +38,7 @@ const SOURCE = [
   "",
 ].join("\n");
 
-// シナリオの内部の識別子は、実際には起点のファイルと関数を含む（"CT-<ファイル>#<関数>"）。
+// コマンドの内部の識別子は、実際には起点のファイルと関数を含む（"CT-<ファイル>#<関数>"）。
 // ビューに出ないことを確かめるため、テストでもその形にする。
 const COMMAND_ID = "CT-src/order.ts#closeOrder";
 
@@ -294,7 +294,7 @@ test("M5: 題は「表示の id と起点の用語」で、用語が無ければ
 
 test("M5: 流れ図の起点は表示の id で書く（設計 7.4）", async () => {
   const view = await projectSpecification(SPEC, null, CONTEXT, request("FLOW"));
-  assert.ok(view.content.includes('s["シナリオ C-01 の起点"]'));
+  assert.ok(view.content.includes('s["コマンド C-01 の起点"]'));
 });
 
 test("M5: 意図の候補の節は検証の状態の後に置き、候補であることを書く（設計 4.1）", async () => {
@@ -516,7 +516,7 @@ test("M5: 仕様書の冒頭に、表示名と用語は候補であることを 
 });
 
 test("M5: 検証の状態の節に、検査の範囲の文を書く。カタログが無ければ書かない（設計 8.9）", async () => {
-  const scopeText = "- 検査はこのシナリオだけで行った。ほかのシナリオとの矛盾は見ていない。\n";
+  const scopeText = "- 検査はこのコマンドだけで行った。ほかのコマンドとの矛盾は見ていない。\n";
   const unverified = await catalog({
     verification: {
       outcome: "UNVERIFIED",
@@ -534,7 +534,7 @@ test("M5: 検証の状態の節に、検査の範囲の文を書く。カタロ�
     assert.ok(at > view.content.indexOf("## 検証の状態") && at < view.content.indexOf("## 意図の候補"), ledger.verification.outcome);
   }
   const missing = await projectSpecification(SPEC, null, CONTEXT, DOCUMENT);
-  assert.ok(!missing.content.includes("検査はこのシナリオだけで行った"));
+  assert.ok(!missing.content.includes("検査はこのコマンドだけで行った"));
 });
 
 test("M5: 確定と要再確認の印は、項目を定義する箇所と題・意図・論点の文にだけ付け、文の中の表示名には付けない（設計 8.9）", async () => {

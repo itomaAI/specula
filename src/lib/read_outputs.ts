@@ -39,8 +39,8 @@ export async function readRunOutputs(fs: FileSystemPort, outDir: string): Promis
   const intents = await readJson<IntentCatalog>(fs, at("intents.json"));
   const implementationMap = await readJson<ImplementationMap>(fs, at("implementation_map.json"));
 
-  // シナリオのディレクトリは run_report.json の行から引く（list は順序を保証しないため。設計 6.1）。
-  // 形は検査しないが、commands が配列でなければシナリオを読まない。
+  // コマンドのディレクトリは run_report.json の行から引く（list は順序を保証しないため。設計 6.1）。
+  // 形は検査しないが、commands が配列でなければコマンドを読まない。
   const commands: CommandOutputs[] = [];
   const rows = report.kind === "OK" && Array.isArray(report.value.commands) ? report.value.commands : [];
   for (const row of rows) {

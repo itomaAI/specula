@@ -1,5 +1,5 @@
 // IntentSynthesizer（意図の候補）の公開する関数（IntentSynthesizer の設計 1.2・2）。
-// Bounded Context ごととシナリオごとに、意図の候補を LLM で 1 文ずつ作る。全体マップ・シナリオ・辞書は読むだけで書き換えない。
+// Bounded Context ごととコマンドごとに、意図の候補を LLM で 1 文ずつ作る。全体マップ・コマンド・辞書は読むだけで書き換えない。
 //
 // - 手がかりは、実装から機械的に決まる値と、辞書が選んだ節（GlossaryEntry.sources）の抜粋だけ。辞書の用語（LLM の結果）は入れない。
 // - 抜粋は、GlossaryBuilder と同じ関数で資料を節に分け（sections.ts）、同じ規則で先頭の 1500 字まで（match.ts の excerptOf）。
@@ -23,7 +23,7 @@ export const INTENT_PROMPT_VERSION = "1";
 
 export const MAX_INTENT_CHARS = 200;
 
-/** シナリオの抜粋の節の数の上限（起点の項目の節を先に）。 */
+/** コマンドの抜粋の節の数の上限（起点の項目の節を先に）。 */
 export const MAX_COMMAND_SECTIONS = 3;
 
 /** 出力の検査: 1 行、空でない、200 字以内（CommandExtractor の m0.context-intent で使っていたものと同じ）。 */

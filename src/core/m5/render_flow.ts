@@ -1,6 +1,6 @@
 // 操作の流れ図（FLOW）を描く（M5 の設計 4.3）。Mermaid の flowchart TD。
 //
-// シナリオの起点から操作ごとに枝を出し、操作の表示名 → 条件と書き込み（経路の順）→ 結果、とつなぐ。
+// コマンドの起点から操作ごとに枝を出し、操作の表示名 → 条件と書き込み（経路の順）→ 結果、とつなぐ。
 // ノードの識別子は機械的に振る（s、op1_0、op1_1 …、op1_r）。表示する文はすべて mermaidLabel で置き換える。
 
 import { joinLines, mermaidLabel } from "./escape.js";
@@ -13,7 +13,7 @@ export function renderFlow(model: ViewModel): string {
     lines.push("  %% 注意: 論点カタログは、いまの形式仕様正本とは別の版から作った。");
   }
   // 起点は表示の id で書く。内部の識別子は起点のファイルと関数を含むので出さない（設計 7.4・8.6）。
-  lines.push(`  s${mermaidLabel(`シナリオ ${model.displayId} の起点`)}`);
+  lines.push(`  s${mermaidLabel(`コマンド ${model.displayId} の起点`)}`);
 
   for (const operation of model.operations) {
     const head = `${operation.id}_0`;

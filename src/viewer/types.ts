@@ -23,7 +23,7 @@ export type FileRead<T> =
   // JSON としてパースできない。reason はパースのエラーの文
   | { kind: "INVALID"; reason: string };
 
-/** シナリオ 1 つのファイル。読むファイルは run_report.json のシナリオの kind で決まる（設計 6.1）。 */
+/** コマンド 1 つのファイル。読むファイルは run_report.json のコマンドの kind で決まる（設計 6.1）。 */
 export type CommandOutputs =
   | {
       commandId: string;
@@ -78,11 +78,11 @@ export interface RunOutputsProblem {
     | "NO_BASIS"
     // basis が run_report.json のものと違う（別の実行の出力が混ざっている）
     | "BASIS_MISMATCH"
-    // run_report.json のシナリオの kind から決まるファイルが無い
+    // run_report.json のコマンドの kind から決まるファイルが無い
     | "COMMAND_FILE_MISSING";
-  /** 出力先の直下のファイルの名前（"glossary.json"）か、シナリオのディレクトリの中のファイルの名前（"spec.md"）。 */
+  /** 出力先の直下のファイルの名前（"glossary.json"）か、コマンドのディレクトリの中のファイルの名前（"spec.md"）。 */
   file: string;
-  /** シナリオのファイルなら、そのシナリオの表示の id。内部の識別子は出さない（仕様 2.3）。 */
+  /** コマンドのファイルなら、そのコマンドの表示の id。内部の識別子は出さない（仕様 2.3）。 */
   commandTarget: string | null;
   detail: string;
 }
@@ -93,13 +93,13 @@ export interface RunOutputsCheck {
   problems: RunOutputsProblem[];
 }
 
-// ---- シナリオ一覧とシナリオの詳細（設計 3.1・3.2・6.5） ----
+// ---- コマンド一覧とコマンドの詳細（設計 3.1・3.2・6.5） ----
 // 文は SpecProjector と同じく、確定の状態の印を後ろに足した文字列で持つ（設計 6.5）。
-// ビューモデルには内部の識別子を入れない。シナリオは表示の id（"C-01"）で指す（設計 4 節）。
+// ビューモデルには内部の識別子を入れない。コマンドは表示の id（"C-01"）で指す（設計 4 節）。
 
 export type CommandKind = "COMPLETED" | "AMBIGUOUS" | "STOPPED";
 
-/** シナリオ一覧の上部の、実行の概要（設計 3.1）。 */
+/** コマンド一覧の上部の、実行の概要（設計 3.1）。 */
 export interface RunSummaryView {
   parsedFileCount: number;
   parseFailureCount: number;
@@ -117,7 +117,7 @@ export interface RunSummaryView {
   documents: { read: number; truncated: number; omitted: number };
 }
 
-/** シナリオの表の 1 行（設計 3.1）。 */
+/** コマンドの表の 1 行（設計 3.1）。 */
 export interface CommandRowView {
   displayId: string;
   /** 「C-01 〈表示名〉〈印〉」。名前を出せないときは理由（設計 6.5）。 */
@@ -125,9 +125,9 @@ export interface CommandRowView {
   kind: CommandKind;
   /** 「仕様になった」「曖昧さで止まった」「途中で止まった」。 */
   kindText: string;
-  /** 仕様になったシナリオだけ。未検証なら理由を含む。 */
+  /** 仕様になったコマンドだけ。未検証なら理由を含む。 */
   verificationText: string | null;
-  /** 論点の件数、または曖昧さの件数の文。途中で止まったシナリオは null。 */
+  /** 論点の件数、または曖昧さの件数の文。途中で止まったコマンドは null。 */
   countText: string | null;
   /** 意図の候補の文（印付き）。無ければ「意図の候補が無い」。 */
   intentText: string;
@@ -137,7 +137,7 @@ export interface CommandRowView {
   inletLocations: GlossaryLocation[] | null;
 }
 
-/** シナリオ一覧（設計 3.1）。 */
+/** コマンド一覧（設計 3.1）。 */
 export interface CommandListView {
   summary: RunSummaryView;
   /** Bounded Context が 1 つだけなら false（列を出さない）。 */
@@ -146,7 +146,7 @@ export interface CommandListView {
   rows: CommandRowView[];
 }
 
-/** シナリオの詳細の冒頭と、検証の状態・論点（設計 3.2）。タブの中身（仕様書・一覧表・流れ図）は別に足す。 */
+/** コマンドの詳細の冒頭と、検証の状態・論点（設計 3.2）。タブの中身（仕様書・一覧表・流れ図）は別に足す。 */
 export interface CommandDetailView {
   displayId: string;
   title: string;
@@ -163,21 +163,21 @@ export interface CommandDetailView {
   route: string | null;
   /** 期待イベントの表示名（印付き。実行の報告の expectedEvents の順）。 */
   expectedEvents: string[];
-  /** 仕様になったシナリオだけ。SpecProjector の仕様書と同じ文。検査の範囲の文（設計 3.2）も lines に入っている。 */
+  /** 仕様になったコマンドだけ。SpecProjector の仕様書と同じ文。検査の範囲の文（設計 3.2）も lines に入っている。 */
   verification: VerificationView | null;
-  /** 仕様になったシナリオだけ。 */
+  /** 仕様になったコマンドだけ。 */
   issueCount: number | null;
-  /** 仕様になったシナリオだけ。論点の id は表示の id（"C-01-L-001"）。 */
+  /** 仕様になったコマンドだけ。論点の id は表示の id（"C-01-L-001"）。 */
   issueGroups: IssueGroupView[] | null;
-  /** 仕様になったシナリオだけ。タブの中身（設計 3.2・6.6・6.9）。流れ図は全体地図と同じ配置の関数で層に並べる。 */
+  /** 仕様になったコマンドだけ。タブの中身（設計 3.2・6.6・6.9）。流れ図は全体地図と同じ配置の関数で層に並べる。 */
   tabs: CommandTabsView | null;
-  /** 曖昧さで止まった・途中で止まったシナリオで、タブの代わりに出す文。仕様になったシナリオは null。 */
+  /** 曖昧さで止まった・途中で止まったコマンドで、タブの代わりに出す文。仕様になったコマンドは null。 */
   notice: string | null;
   /** 起点の所在。IMPLEMENTATION のときだけある。 */
   inletLocations: GlossaryLocation[] | null;
 }
 
-/** シナリオの詳細のタブ（設計 3.2・6.6）。 */
+/** コマンドの詳細のタブ（設計 3.2・6.6）。 */
 export interface CommandTabsView {
   /** 仕様書（spec.md）のブロックの並び。 */
   document: MarkdownBlock[];
@@ -230,7 +230,7 @@ export type FlowGraphRead =
     }
   | { kind: "UNREADABLE"; reason: string };
 
-/** シナリオの詳細の流れ図のタブ（buildFlowView）。 */
+/** コマンドの詳細の流れ図のタブ（buildFlowView）。 */
 export type FlowView =
   | {
       kind: "OK";
@@ -245,10 +245,10 @@ export type FlowView =
 // 論点は SpecProjector の IssueView（issueGroupsOf）をそのまま使う。曖昧さの文は SpecProjector の曖昧さの一覧と同じ。
 // 画面どうしのリンクは表示の id（"C-01"・"C-01-L-001"）で指す（設計 6.7）。
 
-/** 仕様になったシナリオ 1 つの論点（設計 3.3）。論点が 1 件以上あるシナリオだけ。 */
+/** 仕様になったコマンド 1 つの論点（設計 3.3）。論点が 1 件以上あるコマンドだけ。 */
 export interface CommandIssuesView {
   displayId: string;
-  /** シナリオ一覧と同じ題。 */
+  /** コマンド一覧と同じ題。 */
   title: string;
   issueCount: number;
   /** 見出しごとの組（SpecProjector の仕様書と同じ）。 */
@@ -275,7 +275,7 @@ export interface AmbiguityItemView {
   detail: string;
 }
 
-/** 曖昧さで止まったシナリオ 1 つ（設計 3.3）。 */
+/** 曖昧さで止まったコマンド 1 つ（設計 3.3）。 */
 export interface CommandAmbiguitiesView {
   displayId: string;
   title: string;
@@ -291,7 +291,7 @@ export interface IssueListView {
   issueTotal: number;
   commands: CommandIssuesView[];
   ambiguityTotal: number;
-  /** BUSINESS ではシナリオ別の件数の表として、IMPLEMENTATION では質問の一覧として描く。 */
+  /** BUSINESS ではコマンド別の件数の表として、IMPLEMENTATION では質問の一覧として描く。 */
   ambiguities: CommandAmbiguitiesView[];
 }
 
@@ -389,9 +389,9 @@ export interface MapPopupView {
   entryNote: string | null;
   /** Bounded Context だけ: 意図の候補の文と確定の状態の印。候補が無ければ「意図の候補が無い」。 */
   intent: string | null;
-  /** Bounded Context だけ: 属するシナリオの数。 */
+  /** Bounded Context だけ: 属するコマンドの数。 */
   commandTargetCount: number | null;
-  /** コマンドとポリシーだけ: その要素を起点にしたシナリオの表示の id（"C-01"）。 */
+  /** コマンドとポリシーだけ: その要素を起点にしたコマンドの単位の表示の id（"C-01"）。 */
   commands: string[] | null;
   /** intent・commandTargetCount・commands を引けなかったときの理由（実装との対応表が無いとき）。ほかは null。 */
   lookupNote: string | null;
@@ -453,16 +453,16 @@ export type MapView =
   | { kind: "UNAVAILABLE"; reason: string };
 
 /**
- * 1 回の実行の画面すべてのビューモデル（設計 1.2・6.11）。buildRunView が 4 つの画面とシナリオの詳細を束ねる。
+ * 1 回の実行の画面すべてのビューモデル（設計 1.2・6.11）。buildRunView が 4 つの画面とコマンドの詳細を束ねる。
  * 画面どうしのリンクは、各ビューモデルが持つ表示の id（"C-01"・"C-01-L-001"・"c1"・"n1"）で張る（設計 4 節・6.7）。
  * そのため、別のリンクの表は持たない。
  */
 export interface RunView {
   /** 画面の表示の役割（起動アプリの引数）。 */
   viewRole: ViewRole;
-  /** シナリオ一覧（設計 3.1）。Global Menu の先頭。 */
+  /** コマンド一覧（設計 3.1）。Global Menu の先頭。 */
   commandList: CommandListView;
-  /** シナリオの詳細（設計 3.2）。commandList.rows と同じ順・同じ数。 */
+  /** コマンドの詳細（設計 3.2）。commandList.rows と同じ順・同じ数。 */
   commandDetails: CommandDetailView[];
   /** 仕様不備一覧（設計 3.3）。 */
   issues: IssueListView;

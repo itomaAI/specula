@@ -61,7 +61,7 @@ const LIBRARY_COMMANDS = [
   "CMD-src/core/star.ts#zeta",
 ];
 
-test("ライブラリ: 入口から公開されている関数 7 本が、それぞれ別のコマンドとシナリオの起点になる", () => {
+test("ライブラリ: 入口から公開されている関数 7 本が、それぞれ別のコマンドの単位の起点になる", () => {
   const map = discoverSystemContext(LIBRARY);
   assert.equal(map.diagnostics.mode, "PUBLIC_FUNCTIONS");
   assert.deepEqual(map.diagnostics.entryFiles, ["src/index.ts"]);
@@ -82,7 +82,7 @@ test("ライブラリ: 入口から公開されている関数 7 本が、それ
   assert.equal(result.commands.length, 7);
   assert.deepEqual(result.rejected, []);
   const handlers = new Set(result.commands.map((s) => `${s.inletTrigger.handler.file}#${s.inletTrigger.handler.symbol}`));
-  assert.equal(handlers.size, 7, "起点の所在がシナリオごとに違う");
+  assert.equal(handlers.size, 7, "起点の所在がコマンドごとに違う");
   const expected = new Set(result.commands.flatMap((s) => s.expectedEvents));
   assert.equal(expected.size, 7, "期待イベントが単位ごとに違う");
   for (const commandTarget of result.commands) {
@@ -101,7 +101,7 @@ test("ライブラリ: dist・tests を読まず、構文の誤りはファイ�
   assert.ok(map.commands.every((c) => !c.handler.file.startsWith("dist/") && !c.handler.file.startsWith("tests/")));
 });
 
-test("全体マップとシナリオは LLM の欄（name・intent・intentStatus）を持たない", () => {
+test("全体マップとコマンドは LLM の欄（name・intent・intentStatus）を持たない", () => {
   const map = discoverSystemContext(LIBRARY);
   for (const context of map.boundedContexts) {
     assert.deepEqual(Object.keys(context).sort(), ["id", "isDefaultFallback", "name", "rootPaths"]);

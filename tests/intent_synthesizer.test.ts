@@ -1,5 +1,5 @@
 // IntentSynthesizer のテスト（IntentSynthesizer の設計 1.2・2・3、仕様 3）。
-// 全体マップとシナリオは CommandExtractor、辞書は GlossaryBuilder で小さな偽のリポジトリから作り、偽の LLM を渡す。
+// 全体マップとコマンドは CommandExtractor、辞書は GlossaryBuilder で小さな偽のリポジトリから作り、偽の LLM を渡す。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -82,7 +82,7 @@ const sectionsOf = (request: LlmRequest): string[] =>
   (inputOf(request)["excerpts"] as Array<{ section: string }>).map((excerpt) => excerpt.section);
 const sourcesOf = (glossary: Glossary, id: string): string[] => glossary.entries.find((entry) => entry.id === id)?.sources ?? [];
 
-test("網羅: すべての Bounded Context とシナリオに 1 つずつ、id の辞書順。初回はすべて CANDIDATE。basis は辞書のもの", async () => {
+test("網羅: すべての Bounded Context とコマンドに 1 つずつ、id の辞書順。初回はすべて CANDIDATE。basis は辞書のもの", async () => {
   const { repo, map, slice, glossary } = await inputsOf();
   const catalog = await synthesizeIntents(map, slice, glossary, repo, { llm: intentLlm() });
 
@@ -120,7 +120,7 @@ test("確定の状態は欄ごとに決まる: 書けた欄は CANDIDATE、届�
   }
 });
 
-test("呼ぶ順と処理の名前: Bounded Context、続いてシナリオ、それぞれ id の辞書順。promptVersion は 1", async () => {
+test("呼ぶ順と処理の名前: Bounded Context、続いてコマンド、それぞれ id の辞書順。promptVersion は 1", async () => {
   const { repo, map, slice, glossary } = await inputsOf();
   const llm = intentLlm();
   await synthesizeIntents(map, slice, glossary, repo, { llm });

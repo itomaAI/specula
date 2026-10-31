@@ -235,7 +235,7 @@
 
   // ---- Global Menu ----
   function renderMenu() {
-    const items = [['commands', 'シナリオ一覧'], ['map', '全体地図'], ['issues', '仕様不備一覧'], ['glossary', '用語辞典']];
+    const items = [['commands', 'コマンド一覧'], ['map', '全体地図'], ['issues', '仕様不備一覧'], ['glossary', '用語辞典']];
     const current = state.screen === 'detail' ? 'commands' : state.screen;
     menuEl.replaceChildren(
       el('h1', { text: 'specula' }),
@@ -255,14 +255,14 @@
     declareRoute();
   }
 
-  // ---- シナリオ一覧（設計 3.1） ----
+  // ---- コマンド一覧（設計 3.1） ----
   function renderCommandList() {
     const list = view.commandList;
     const s = list.summary;
     const notGenerated = s.notGenerated.glossary + s.notGenerated.intents;
     const summary = el('div', { class: 'box' },
       textLine(`解析したファイル ${s.parsedFileCount} 件（解析に失敗 ${s.parseFailureCount} 件）。Bounded Context ${s.boundedContextCount}・コマンド ${s.commandCount}・イベント ${s.eventCount}。`),
-      textLine(`シナリオ: 仕様になった ${s.commandTargetCounts.COMPLETED} 件・曖昧さで止まった ${s.commandTargetCounts.AMBIGUOUS} 件・途中で止まった ${s.commandTargetCounts.STOPPED} 件。`),
+      textLine(`コマンド: 仕様になった ${s.commandTargetCounts.COMPLETED} 件・曖昧さで止まった ${s.commandTargetCounts.AMBIGUOUS} 件・途中で止まった ${s.commandTargetCounts.STOPPED} 件。`),
       textLine(s.ambiguity.text),
       s.ambiguity.byKind ? el('ul', {}, s.ambiguity.byKind.map((k) => el('li', { text: `${k.text}: ${k.count} 件` }))) : null,
       s.verification.length > 0 ? el('div', {}, textLine('検証の状態:'), el('ul', {}, s.verification.map((v) => el('li', { text: `${v.text}: ${v.count} 件` })))) : null,
@@ -294,7 +294,7 @@
       rows = [...rows].sort((a, b) => countOf(b) - countOf(a));
     }
     const eng = view.viewRole === 'IMPLEMENTATION';
-    const head = ['表示の id', 'シナリオ', '状態', '検証', '件数', '意図の候補', ...(list.showContextColumn ? ['Bounded Context'] : []), ...(eng ? ['起点の所在'] : [])];
+    const head = ['表示の id', 'コマンド', '状態', '検証', '件数', '意図の候補', ...(list.showContextColumn ? ['Bounded Context'] : []), ...(eng ? ['起点の所在'] : [])];
     const table = el('table', {},
       el('tr', {}, head.map((h) => el('th', { text: h }))),
       rows.map((r) => el('tr', { class: 'link', onclick: () => openCommand(r.displayId, r.kind) },
@@ -308,19 +308,19 @@
         eng ? el('td', { text: (r.inletLocations || []).map(locationText).join('\n'), style: 'white-space:pre' }) : null,
       )),
     );
-    return [el('h2', { text: 'シナリオ一覧' }), summary, filters, textLine(`${rows.length} 件`, 'muted'), table];
+    return [el('h2', { text: 'コマンド一覧' }), summary, filters, textLine(`${rows.length} 件`, 'muted'), table];
   }
 
-  // 曖昧さで止まったシナリオは、IMPLEMENTATION では仕様不備一覧（そのシナリオで絞り込み）へ（設計 4 節）。
+  // 曖昧さで止まったコマンドは、IMPLEMENTATION では仕様不備一覧（そのコマンドで絞り込み）へ（設計 4 節）。
   function openCommand(displayId, kind) {
     if (kind === 'AMBIGUOUS' && view.viewRole === 'IMPLEMENTATION') go({ screen: 'issues', filter: { commandTarget: displayId } });
     else go({ screen: 'detail', id: displayId, tab: 'document' });
   }
 
-  // ---- シナリオの詳細（設計 3.2） ----
+  // ---- コマンドの詳細（設計 3.2） ----
   function renderDetail() {
     const d = view.commandDetails.find((x) => x.displayId === state.id);
-    if (!d) return [textLine(`シナリオ ${state.id} が無い`, 'error')];
+    if (!d) return [textLine(`コマンド ${state.id} が無い`, 'error')];
     const fields = [
       ['状態', d.kindText], ['Bounded Context', d.boundedContext], ['意図の候補', d.intentText],
       d.userIntent !== null ? ['利用者が書いた目的', d.userIntent] : null,
@@ -331,7 +331,7 @@
       d.inletLocations ? ['起点の所在', d.inletLocations.map(locationText).join('\n')] : null,
     ].filter(Boolean);
     const out = [
-      el('div', {}, link('← シナリオ一覧', () => go({ screen: 'commands', id: null }))),
+      el('div', {}, link('← コマンド一覧', () => go({ screen: 'commands', id: null }))),
       el('h2', { text: d.title }),
       el('table', {}, fields.map(([k, v]) => el('tr', {}, el('th', { text: k }), el('td', { text: v, style: 'white-space:pre-wrap' })))),
     ];
@@ -345,7 +345,7 @@
     }
     if (d.notice !== null) {
       out.push(el('div', { class: 'box' }, textLine(d.notice)));
-      if (d.kind === 'AMBIGUOUS' && view.viewRole === 'IMPLEMENTATION') out.push(link('仕様不備一覧（このシナリオ）', () => go({ screen: 'issues', filter: { commandTarget: d.displayId } })));
+      if (d.kind === 'AMBIGUOUS' && view.viewRole === 'IMPLEMENTATION') out.push(link('仕様不備一覧（このコマンド）', () => go({ screen: 'issues', filter: { commandTarget: d.displayId } })));
     }
     if (d.tabs) out.push(...renderTabs(d));
     return out;
@@ -464,7 +464,7 @@
         out.push(renderPopup(node, [
           link('地図 2 を開く', () => go({ mapContext: state.selected, mapSupporting: false })),
           ' ',
-          node.popup.entry ? link('この Bounded Context のシナリオ一覧', () => go({ screen: 'commands', filter: { context: node.popup.entry.term } })) : null,
+          node.popup.entry ? link('この Bounded Context のコマンド一覧', () => go({ screen: 'commands', filter: { context: node.popup.entry.term } })) : null,
         ]));
       }
       return out;
@@ -492,8 +492,8 @@
       p.entry ? el('div', {}, textLine(`用語: ${p.entry.term}`), textLine(`意味: ${p.entry.meaning}${p.entry.meaningTruncated ? '（抜粋を上限で切った）' : ''}`)) : null,
       p.entryNote ? textLine(p.entryNote, 'muted') : null,
       p.intent !== null ? textLine(`意図の候補: ${p.intent}`) : null,
-      p.commandTargetCount !== null ? textLine(`属するシナリオ: ${p.commandTargetCount} 件`) : null,
-      p.commands !== null ? el('div', {}, 'この要素を起点にしたシナリオ: ', p.commands.length === 0 ? '無い' : '',
+      p.commandTargetCount !== null ? textLine(`属するコマンド: ${p.commandTargetCount} 件`) : null,
+      p.commands !== null ? el('div', {}, 'この要素を起点にしたコマンドの単位: ', p.commands.length === 0 ? '無い' : '',
         ...p.commands.map((id) => el('span', {}, link(id, () => openCommand(id, (view.commandDetails.find((d) => d.displayId === id) || {}).kind)), ' '))) : null,
       p.lookupNote ? textLine(p.lookupNote, 'muted') : null,
       node.implementation ? textLine(`実装: ${node.implementation.names.join(', ')} / ${node.implementation.locations.map(locationText).join(', ')}`, 'muted') : null,
@@ -513,7 +513,7 @@
     kindSel.value = f.type || '';
     kindSel.addEventListener('change', () => go({ filter: { ...f, type: kindSel.value } }));
     const out = [el('h2', { text: `仕様不備一覧（論点 ${v.issueTotal} 件・曖昧さ ${v.ambiguityTotal} 件）` }),
-      el('div', { class: 'filters' }, el('label', {}, 'シナリオ ', sel), el('label', {}, '種類 ', kindSel))];
+      el('div', { class: 'filters' }, el('label', {}, 'コマンド ', sel), el('label', {}, '種類 ', kindSel))];
     const pick = (id) => !f.commandTarget || f.commandTarget === id;
 
     if (f.type !== 'ambiguity') {
@@ -532,9 +532,9 @@
     if (f.type !== 'issue') {
       out.push(el('h3', { text: view.viewRole === 'BUSINESS' ? 'エンジニアの確認待ち' : '曖昧さ' }));
       const shown = v.ambiguities.filter((a) => pick(a.displayId));
-      if (shown.length === 0) out.push(textLine('曖昧さで止まったシナリオは無い', 'muted'));
+      if (shown.length === 0) out.push(textLine('曖昧さで止まったコマンドは無い', 'muted'));
       else if (view.viewRole === 'BUSINESS') {
-        out.push(el('table', {}, el('tr', {}, el('th', { text: 'シナリオ' }), el('th', { text: '件数' })),
+        out.push(el('table', {}, el('tr', {}, el('th', { text: 'コマンド' }), el('th', { text: '件数' })),
           shown.map((a) => el('tr', { class: 'link', onclick: () => go({ screen: 'detail', id: a.displayId }) }, el('td', { text: a.title }), el('td', { text: a.countText })))));
       } else {
         for (const a of shown) {

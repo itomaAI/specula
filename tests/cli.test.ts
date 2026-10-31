@@ -79,7 +79,7 @@ async function isFile(path: string): Promise<boolean> {
   }
 }
 
-test("リポジトリにかけると終了コード 0 で、報告・全体マップ・辞書・意図の候補・対応表・シナリオの成果物を書く", async () => {
+test("リポジトリにかけると終了コード 0 で、報告・全体マップ・辞書・意図の候補・対応表・コマンドの成果物を書く", async () => {
   await withTempRepo(async (root) => {
     const out = join(root, "out");
     const captured = capture();
@@ -164,7 +164,7 @@ test("--view-role が無ければ BUSINESS で付録を載せず、IMPLEMENTATIO
   });
 });
 
-test("曖昧さで止まったシナリオは ambiguity.json と曖昧さの一覧 ambiguity.md を書き、所在は IMPLEMENTATION のときだけ出す", async () => {
+test("曖昧さで止まったコマンドは ambiguity.json と曖昧さの一覧 ambiguity.md を書き、所在は IMPLEMENTATION のときだけ出す", async () => {
   await withTempRepo(
     async (root) => {
       assert.equal(await main([join(root, "repo"), "--out", join(root, "pdm")], capture().io), 0);

@@ -94,14 +94,14 @@ test("実際の出力: 俯瞰図の要素と文をそのまま使い、地図 2 
       }
     }
 
-    // Bounded Context の箱: 属するシナリオの数は実行の報告の行の数と同じ（この入力は Bounded Context が 1 つ）
+    // Bounded Context の箱: 属するコマンドの数は実行の報告の行の数と同じ（この入力は Bounded Context が 1 つ）
     if (view.contextMap.nodes.length === 1) {
       assert.equal(view.contextMap.nodes[0]!.popup.commandTargetCount, report.commands.length);
     }
-    // コマンドとポリシーの起点のシナリオは、実行の報告にある表示の id だけ
+    // コマンドとポリシーの起点にしたコマンドの単位は、実行の報告にある表示の id だけ
     const known = new Set(report.commands.map((row) => row.displayId));
     const starts = view.details.flatMap((detail) => detail.core.nodes).flatMap((node) => node.popup.commands ?? []);
-    assert.ok(starts.length > 0, "起点のシナリオが 1 つも引けない");
+    assert.ok(starts.length > 0, "起点にしたコマンドの単位が 1 つも引けない");
     for (const id of starts) assert.ok(known.has(id), id);
 
     // BUSINESS では実装の名前と所在を持たない
@@ -217,7 +217,7 @@ function withSynthetic(outputs: RunOutputs, options: { map: boolean; implementat
   };
 }
 
-test("地図 1 と地図 2: またぐポリシーのつながり、箱のポップアップ、起点のシナリオ、壊れた印", async () => {
+test("地図 1 と地図 2: またぐポリシーのつながり、箱のポップアップ、起点にしたコマンドの単位、壊れた印", async () => {
   await withOutputs(async (out, report) => {
     const view = buildMapView(withSynthetic(await checkedOutputs(out), { map: true, implementation: true }), "BUSINESS");
     assert.ok(view.kind === "OK", JSON.stringify(view));
@@ -286,7 +286,7 @@ test("IMPLEMENTATION: JSON に実装の名前と所在があるときだけ持�
   });
 });
 
-test("実装との対応表が無いとき: 用語・意図の候補・起点のシナリオを引けない理由を書く", async () => {
+test("実装との対応表が無いとき: 用語・意図の候補・起点にしたコマンドの単位を引けない理由を書く", async () => {
   await withOutputs(async (out) => {
     const view = buildMapView(withSynthetic(await checkedOutputs(out), { map: false, implementation: false }), "BUSINESS");
     assert.ok(view.kind === "OK");
@@ -295,10 +295,10 @@ test("実装との対応表が無いとき: 用語・意図の候補・起点の
     assert.equal(c2.popup.entryNote, "用語と意味を引けない: 実装との対応表が無い");
     assert.equal(c2.popup.intent, null);
     assert.equal(c2.popup.commandTargetCount, null);
-    assert.equal(c2.popup.lookupNote, "意図の候補と属するシナリオの数を引けない: 実装との対応表が無い");
+    assert.equal(c2.popup.lookupNote, "意図の候補と属するコマンドの数を引けない: 実装との対応表が無い");
     const command = view.details[1]!.core.nodes[0]!;
     assert.equal(command.popup.commands, null);
-    assert.equal(command.popup.lookupNote, "起点のシナリオを引けない: 実装との対応表が無い");
+    assert.equal(command.popup.lookupNote, "起点にしたコマンドの単位を引けない: 実装との対応表が無い");
     // 地図そのものは出す
     assert.equal(command.label, "コマンド: 出荷を指示する");
   });

@@ -189,7 +189,7 @@ export function layoutLayers(nodeCount: number, edges: readonly GraphEdge[]): Gr
   return { layerOf, orderOf, layers, reversed };
 }
 
-/** シナリオの詳細の流れ図のタブ（設計 3.2・6.9）。flow.mmd を読み、層に並べる。読めなければ理由を返す。 */
+/** コマンドの詳細の流れ図のタブ（設計 3.2・6.9）。flow.mmd を読み、層に並べる。読めなければ理由を返す。 */
 export function buildFlowView(text: string): FlowView {
   const graph = parseFlow(text);
   if (graph.kind === "UNREADABLE") return graph;

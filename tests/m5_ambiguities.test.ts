@@ -15,7 +15,7 @@ import {
 } from "../src/types/projection.js";
 import type { CommandTarget } from "../src/types/command.js";
 
-// シナリオの内部の識別子は、実際には起点のファイルと関数を含む。ビューに出ないことを確かめるため、その形にする。
+// コマンドの内部の識別子は、実際には起点のファイルと関数を含む。ビューに出ないことを確かめるため、その形にする。
 const COMMAND_ID = "CT-src/pay.ts#charge";
 const INLET_ID = "CMD-src/pay.ts#charge";
 
@@ -155,7 +155,7 @@ test("M5 曖昧さ: 辞書が無いか用語が未生成なら「名前は未生
   assert.ok(pdm.content.includes("エンジニアの確認待ち: 0 件\n"));
 });
 
-test("M5 曖昧さ: 入力の契約（表現形式・表示の役割・シナリオの照合）", async () => {
+test("M5 曖昧さ: 入力の契約（表現形式・表示の役割・コマンドの照合）", async () => {
   const reasonOf = async (run: () => Promise<unknown>): Promise<string> => {
     try {
       await run();

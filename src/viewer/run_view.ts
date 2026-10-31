@@ -10,7 +10,7 @@ import { buildCommandDetails, buildCommandList } from "./commands.js";
 import type { RunOutputs, RunView } from "./types.js";
 
 /**
- * 4 つの画面（シナリオ一覧・全体地図・仕様不備一覧・用語辞典）とシナリオの詳細のビューモデルを作る。
+ * 4 つの画面（コマンド一覧・全体地図・仕様不備一覧・用語辞典）とコマンドの詳細のビューモデルを作る。
  * 事前条件（checkRunOutputs）を満たさない入力では例外を投げる。起動アプリは先に checkRunOutputs を呼び、
  * 破れがあれば画面を作らずに理由を出す（設計 1.2）。
  */

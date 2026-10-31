@@ -50,7 +50,7 @@ interface CommandTarget {
   kind: string;
 }
 
-/** 一時ディレクトリでリポジトリにかけ、出力先と報告のシナリオを渡す。終わったら消す。 */
+/** 一時ディレクトリでリポジトリにかけ、出力先と報告のコマンドを渡す。終わったら消す。 */
 async function withOutputs(body: (out: string, commands: CommandTarget[]) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "specula-viewer-"));
   try {
@@ -70,7 +70,7 @@ const fs = new NodeFsAdapter();
 
 function commandOfKind(commands: CommandTarget[], kind: string): CommandTarget {
   const found = commands.find((s) => s.kind === kind);
-  assert.ok(found, `${kind} のシナリオが無い: ${JSON.stringify(commands)}`);
+  assert.ok(found, `${kind} のコマンドが無い: ${JSON.stringify(commands)}`);
   return found;
 }
 
@@ -83,7 +83,7 @@ test("書いた出力をすべて読み戻せて、事前条件を満たす", as
     for (const read of [outputs.report, outputs.systemMap, outputs.glossary, outputs.intents, outputs.implementationMap]) {
       assert.equal(read.kind, "OK");
     }
-    // シナリオは報告の順・同じ id で、kind から決まるファイルがそろう
+    // コマンドは報告の順・同じ id で、kind から決まるファイルがそろう
     assert.deepEqual(
       outputs.commands.map((s) => [s.commandId, s.displayId, s.kind]),
       commands.map((s) => [s.commandId, s.displayId, s.kind]),
@@ -108,7 +108,7 @@ test("出力先の末尾に / があっても同じように読む", async () =>
   });
 });
 
-test("実行の報告が無ければ、シナリオを読まずに REPORT_MISSING を返す", async () => {
+test("実行の報告が無ければ、コマンドを読まずに REPORT_MISSING を返す", async () => {
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
@@ -168,7 +168,7 @@ test("basis を持たない古い出力は NO_BASIS", async () => {
   });
 });
 
-test("壊れた JSON と、無いシナリオのファイルは、シナリオの表示の id を付けて返す（内部の識別子は出さない）", async () => {
+test("壊れた JSON と、無いコマンドのファイルは、コマンドの表示の id を付けて返す（内部の識別子は出さない）", async () => {
   await withOutputs(async (out, commands) => {
     const completed = commandOfKind(commands, "COMPLETED");
     const ambiguous = commandOfKind(commands, "AMBIGUOUS");
@@ -183,7 +183,7 @@ test("壊れた JSON と、無いシナリオのファイルは、シナリオ�
 
     const check = checkRunOutputs(outputs);
     assert.equal(check.ok, false);
-    // 並びは報告のシナリオの順、シナリオの中はファイルの決まった順
+    // 並びは報告のコマンドの順、コマンドの中はファイルの決まった順
     const expected = commands.flatMap((s) =>
       s.commandId === completed.commandId
         ? [

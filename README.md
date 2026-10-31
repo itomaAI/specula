@@ -88,7 +88,7 @@ The launcher `itera/specula.html` builds the Itera adapters and runs the same pi
 
 - **LLM requests go to the Itera OS agent.** Each request is written to `<out>/llm_exchange/<key>.request.json` and handed to the agent with `MetaOS.ai.task`; the launcher waits (up to 5 minutes per request) for `<out>/llm_exchange/<key>.answer.txt`. Answers that pass the shape check are recorded in `<out>/llm_records`, so a second run asks nothing. An answer that failed the check is not recorded, but its file stays and is read again on the next run; delete that answer file to ask again.
 - **Verification uses the Local Bridge.** The machine needs Java 17 or later, the Alloy jar, and `bash`, `mktemp` and `base64` (Linux, macOS or WSL). When the connection's `execMode` is `ask`, the launcher asks once before the run; if you decline, M3 is skipped. A model larger than about 100 KB after encoding is not sent and is reported as unreachable.
-- The outputs have the same layout as the command line: `run_report.json`, `system_map.mmd` (one overview diagram), `system_map.json` (map 1, and map 2 for each bounded context with and without the supporting elements), `glossary.json`, `intents.json`, `implementation_map.json` (from the display ids such as `S-01` to the internal ids and the implementation), and `commands/<internal id>/…` (`ambiguity.json` and `ambiguity.md` for a command stopped by ambiguities).
+- The outputs have the same layout as the command line: `run_report.json`, `system_map.mmd` (one overview diagram), `system_map.json` (map 1, and map 2 for each bounded context with and without the supporting elements), `glossary.json`, `intents.json`, `implementation_map.json` (from the display ids such as `C-01` to the internal ids and the implementation), and `commands/<internal id>/…` (`ambiguity.json` and `ambiguity.md` for a command stopped by ambiguities).
 
 ### Viewing the outputs in Itera OS (SpecViewer)
 
@@ -102,7 +102,7 @@ The launcher `itera/spec_viewer.html` shows the outputs of one run as screens: t
 
 - **The viewer refuses outputs it cannot trust** and lists the reasons instead of the screens: `run_report.json` is missing, a JSON file cannot be parsed, a file has no `basis` (outputs older than the basis) or a `basis` different from `run_report.json` (files from another run are mixed in), or a file required by a command's kind is missing. A missing optional file (for example `implementation_map.json`) only removes what depends on it, with the reason shown on that screen.
 - The specification and operation table tabs show `spec.md` and `matrix.md` as written by the run. Use the same `viewRole` as the run.
-- Screens link to each other by display ids (`S-01`, `S-01-L-001`, `c1`, `n1`); internal ids are not shown.
+- Screens link to each other by display ids (`C-01`, `C-01-L-001`, `c1`, `n1`); internal ids are not shown.
 
 ---
 

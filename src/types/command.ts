@@ -32,7 +32,7 @@ export interface SourceLocation {
 }
 
 // 2026-10-30: 地図の LLM の欄（Bounded Context の intent・intentStatus、イベント・コマンド・ポリシーの name、
-// シナリオの intent・intentStatus・inletTrigger.name）を外した。名前は GlossaryBuilder の辞書、
+// コマンドの intent・intentStatus・inletTrigger.name）を外した。名前は GlossaryBuilder の辞書、
 // 意図の候補は IntentSynthesizer の出力に持つ（CommandExtractor の設計 4.1・4.2）。
 
 export interface BoundedContext {

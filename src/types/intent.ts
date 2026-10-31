@@ -16,14 +16,14 @@ export interface CommandIntent {
   commandId: string;
   intent: LlmText;
   intentStatus: ConfirmationStatus;
-  /** CommandTarget.userIntent をそのまま写す（利用者定義のシナリオで、利用者が書いたときだけ）。 */
+  /** CommandTarget.userIntent をそのまま写す（利用者定義のコマンドで、利用者が書いたときだけ）。 */
   userIntent?: string;
 }
 
 export interface IntentCatalog {
   /** contextId の辞書順。全体マップのすべての Bounded Context がちょうど 1 つずつある。 */
   contexts: ContextIntent[];
-  /** commandId の辞書順。切り出したすべてのシナリオがちょうど 1 つずつある。 */
+  /** commandId の辞書順。切り出したすべてのコマンドがちょうど 1 つずつある。 */
   commands: CommandIntent[];
   /** 元にした辞書の basis をそのまま写す。後段はこれで一覧が古くないかを確かめる。 */
   basis: { mapHash: string; documentsHash: string };

@@ -88,7 +88,7 @@ function sourceFs(broken: ReadonlySet<string> = new Set()): MemoryFs {
   return new MemoryFs(rest, broken);
 }
 
-test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止まる に分かれ、合計が合う", async () => {
+test("3 つのコマンドが、M5 まで進む・M2 で止まる・M1 で止まる に分かれ、合計が合う", async () => {
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   const { report } = result;
 
@@ -125,7 +125,7 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
     verification: { FOUND: 0, NONE_FOUND_WITHIN_SCOPE: 0, UNVERIFIED: 1 },
   });
 
-  // シナリオの行の項目は CommandTarget の欄を写したもの（全体設計 2.1）。止まったシナリオも同じ欄を持つ。
+  // コマンドの行の項目は CommandTarget の欄を写したもの（全体設計 2.1）。止まったコマンドも同じ欄を持つ。
   const targets = sliceCommands(discoverSystemContext(REPO)).commands;
   assert.deepEqual(
     report.commands.map((commandTarget) => [
@@ -162,7 +162,7 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
   assert.deepEqual(report.basis, result.implementationMap.basis);
 });
 
-test("検査の範囲: 検証の結果を持つシナリオは、検証の結果が無いシナリオに入れない", async () => {
+test("検査の範囲: 検証の結果を持つコマンドは、検証の結果が無いコマンドに入れない", async () => {
   // どの検査にも UNSAT を返す偽のエンジン（M3 のテストの ScriptedSolver と同じ既定の答え）。
   const engine: EngineInfo = { alloyVersion: "6.test", satSolver: "sat4j", satSolverVersion: null };
   const solver: SolverPort = {
@@ -178,7 +178,7 @@ test("検査の範囲: 検証の結果を持つシナリオは、検証の結果
   assert.deepEqual(report.inspectionScope.invariantChecks, { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" });
 });
 
-test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナリオは 3 形式のビューを持つ", async () => {
+test("成果物は報告と同じ順・同じ id で、M5 まで進んだコマンドは 3 形式のビューを持つ", async () => {
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(
     result.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.kind]),
@@ -228,7 +228,7 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   const supportingKinds = new Set(["ACTOR", "READ_MODEL", "AGGREGATE"]);
   assert.ok(detail.core.nodes.every((node) => !supportingKinds.has(String(node["kind"]))));
 
-  // 実装との対応表: シナリオは表示の id の順。曖昧さは止まったシナリオの分、状態変数と論点は最後まで進んだシナリオの分だけ。
+  // 実装との対応表: コマンドは表示の id の順。曖昧さは止まったコマンドの分、状態変数と論点は最後まで進んだコマンドの分だけ。
   const entries = result.implementationMap.entries;
   assert.deepEqual(
     entries.filter((entry) => entry.kind === "COMMAND_TARGET").map((entry) => [entry.displayId, entry.internalId]),
@@ -239,11 +239,11 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
     ["C-02-A-001", "C-02-A-002", "C-02-A-003"],
   );
   assert.ok(entries.filter((entry) => entry.kind === "STATE_VARIABLE").every((entry) => entry.displayId.startsWith("C-01-V-")));
-  assert.ok(!entries.some((entry) => entry.displayId.startsWith("C-03-")), "M1 で止まったシナリオはシナリオの行だけ");
+  assert.ok(!entries.some((entry) => entry.displayId.startsWith("C-03-")), "M1 で止まったコマンドはコマンドの行だけ");
   assert.deepEqual(result.implementationMap.basis, result.glossary.basis);
 });
 
-test("意図の候補を 1 回だけ作り、すべての Bounded Context とシナリオに 1 つずつ載せ、報告に要約を書く", async () => {
+test("意図の候補を 1 回だけ作り、すべての Bounded Context とコマンドに 1 つずつ載せ、報告に要約を書く", async () => {
   const unreachable = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(unreachable.report.intents, { contextCount: 1, commandTargetCount: 3, notGenerated: { UNREACHABLE: 4, INVALID_OUTPUT: 0 } });
   for (const item of [...unreachable.intents.contexts, ...unreachable.intents.commands]) {
@@ -297,7 +297,7 @@ test("契約のエラーでない例外（読み込みの故障）は、報告�
   );
 });
 
-test("選択で起点を絞ると、そのシナリオだけを回す", async () => {
+test("選択で起点を絞ると、そのコマンドだけを回す", async () => {
   const result = await runPipeline(
     REPO,
     { fs: sourceFs(), llm: NO_LLM, solver: null },
@@ -344,7 +344,7 @@ test("既定の役割は BUSINESS で仕様書に付録が無く、IMPLEMENTATIO
   assert.equal(eng.systemViews.json.viewRole, "IMPLEMENTATION");
 });
 
-test("選択で絞っても、表示の id は回したシナリオの中で C-01 から振る", async () => {
+test("選択で絞っても、表示の id は回したコマンドの中で C-01 から振る", async () => {
   const result = await runPipeline(
     REPO,
     { fs: sourceFs(), llm: NO_LLM, solver: null },

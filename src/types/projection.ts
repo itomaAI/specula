@@ -6,7 +6,7 @@ import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog } from "./ledger.js";
 import type { CommandTarget } from "./command.js";
 
-/** シナリオ 1 つのビューの形式。 */
+/** コマンド 1 つのビューの形式。 */
 export type CommandViewFormat = "DOCUMENT" | "MATRIX" | "FLOW";
 
 /** 全体の俯瞰図の形式。 */
@@ -23,15 +23,15 @@ export type ViewRole = "BUSINESS" | "IMPLEMENTATION";
 export interface ProjectionRequest {
   format: CommandViewFormat;
   viewRole: ViewRole;
-  /** シナリオの表示の id（"C-01"）。オーケストレーターが切り出しの順に振る。 */
+  /** コマンドの表示の id（"C-01"）。オーケストレーターが切り出しの順に振る。 */
   displayId: string;
 }
 
-/** 曖昧さの一覧（SpecProjector の設計 8.4）。シナリオのビューの format に入れると projectSpecification が型の上で受け付けてしまうので、別の型にする。 */
+/** 曖昧さの一覧（SpecProjector の設計 8.4）。コマンドのビューの format に入れると projectSpecification が型の上で受け付けてしまうので、別の型にする。 */
 export interface AmbiguityProjectionRequest {
   format: "AMBIGUITY_DOCUMENT";
   viewRole: ViewRole;
-  /** シナリオの表示の id（"C-01"）。 */
+  /** コマンドの表示の id（"C-01"）。 */
   displayId: string;
 }
 
@@ -49,7 +49,7 @@ export interface SystemProjectionRequest {
   includeSupporting?: boolean;
 }
 
-/** シナリオの射影で、表示の用語と意図の候補を引くための入力（M5 の設計 5）。 */
+/** コマンドの射影で、表示の用語と意図の候補を引くための入力（M5 の設計 5）。 */
 export interface ProjectionContext {
   /** 起点のコマンドまたはポリシーの、辞書の項目を引くため。 */
   commandTarget: CommandTarget;
@@ -79,16 +79,16 @@ export interface SpecificationView {
   };
 }
 
-/** 実装との対応表の、シナリオ 1 つ分の入力（SpecProjector の設計 5・8.5）。 */
+/** 実装との対応表の、コマンド 1 つ分の入力（SpecProjector の設計 5・8.5）。 */
 export interface ImplementationMapInput {
-  /** シナリオの表示の id（"C-01"）。 */
+  /** コマンドの表示の id（"C-01"）。 */
   displayId: string;
   commandTarget: CommandTarget;
-  /** FormalTranspiler で止まったシナリオは null。 */
+  /** FormalTranspiler で止まったコマンドは null。 */
   spec: FormalSpecification | null;
   /** 曖昧さで止まったときだけある。 */
   ambiguity: AmbiguityReport | null;
-  /** 論点カタログ。LedgerSynthesizer まで進まなかったシナリオは null。論点の表示の id と識別子の対応に使う（設計 8.7）。 */
+  /** 論点カタログ。LedgerSynthesizer まで進まなかったコマンドは null。論点の表示の id と識別子の対応に使う（設計 8.7）。 */
   ledger: DomainLedgerCatalog | null;
 }
 
@@ -106,7 +106,7 @@ export interface ImplementationMapEntry {
   /** "c1"・"n1"・"C-01"・"C-01-A-001"・"C-01-V-01"・"C-01-L-001" */
   displayId: string;
   kind: ImplementationMapEntryKind;
-  /** 地図の要素の id、シナリオの id、状態変数の識別子、論点の識別子など。曖昧さは最初のユニットの識別子。 */
+  /** 地図の要素の id、コマンドの id、状態変数の識別子、論点の識別子など。曖昧さは最初のユニットの識別子。 */
   internalId: string;
   /** 辞書の項目の id。結び付けられなければ null（設計 8.5）。 */
   glossaryEntryId: string | null;
