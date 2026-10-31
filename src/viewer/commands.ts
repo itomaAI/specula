@@ -39,7 +39,6 @@ const OUTCOMES: ReadonlyArray<{ outcome: VerificationOutcome; text: string }> = 
   { outcome: "UNVERIFIED", text: "未検証" },
 ];
 
-const INLET_TYPE_TEXT = { COMMAND: "操作", POLICY: "反応" } as const;
 
 const NO_MAP = "（名前を引けない: 実装との対応表が無い）";
 const NO_GLOSSARY = "（名前を引けない: 辞書が無い）";
@@ -91,7 +90,7 @@ function commandMapRow(sources: Sources, displayId: string) {
 function titleOf(sources: Sources, row: CommandRunResult): string {
   const mapRow = commandMapRow(sources, row.displayId);
   if (mapRow === null) return `${row.displayId}${NO_MAP}`;
-  const label = labelOfEntry(sources.glossary, mapRow?.glossaryEntryId ?? null, row.inletType);
+  const label = labelOfEntry(sources.glossary, mapRow?.glossaryEntryId ?? null, "COMMAND");
   return label.ok ? `${row.displayId} ${label.text}` : `${row.displayId}${label.text}`;
 }
 
@@ -195,10 +194,10 @@ export function buildCommandDetails(outputs: RunOutputs, viewRole: ViewRole): Co
       boundedContext: labelOfEntry(sources.glossary, row.boundedContext, "BOUNDED_CONTEXT").text,
       intentText: intent.text,
       userIntent: intent.userIntent,
-      inletTypeText: INLET_TYPE_TEXT[row.inletType],
+      invokedBy: row.invokedBy.map((policyId) => labelOfEntry(sources.glossary, policyId, "POLICY").text),
       actor: row.actor.name,
       route: row.route,
-      expectedEvent: labelOfEntry(sources.glossary, row.expectedEvent, "EVENT").text,
+      expectedEvents: row.expectedEvents.map((eventId) => labelOfEntry(sources.glossary, eventId, "EVENT").text),
       inletLocations: inletLocationsOf(sources, row, viewRole),
     };
 

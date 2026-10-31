@@ -207,16 +207,16 @@ function glossarySummaryOf(glossary: Glossary): RunReport["glossary"] {
   };
 }
 
-/** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は CommandTarget の欄を写す。 */
+/** コマンドの単位の行の 3 通りに共通する欄（全体設計 2.1）。アクターから下は CommandTarget の欄を写す。 */
 function rowBaseOf(target: CommandTarget, displayId: string): CommandRunBase {
   return {
     commandId: target.id,
     displayId,
     boundedContext: target.boundedContext,
-    inletType: target.inletType,
     actor: { id: target.actor.id, name: target.actor.name },
     route: target.readModel?.route ?? null,
-    expectedEvent: target.expectedEvent,
+    expectedEvents: [...target.expectedEvents],
+    invokedBy: target.invokedBy.map((policy) => policy.policyId),
   };
 }
 

@@ -62,10 +62,10 @@ function target(file: string, symbol: string, line = 1): CommandTarget {
     id: "CT-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
-    inletType: "COMMAND",
     inletTrigger: { id: "CMD-1", handler: { file, symbol, line } },
     actor: { id: "Caller", name: "Caller" },
-    expectedEvent: "EVT-1",
+    expectedEvents: ["EVT-1"],
+    invokedBy: [],
   };
 }
 

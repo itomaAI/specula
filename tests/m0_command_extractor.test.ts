@@ -83,13 +83,14 @@ test("ライブラリ: 入口から公開されている関数 7 本が、それ
   assert.deepEqual(result.rejected, []);
   const handlers = new Set(result.commands.map((s) => `${s.inletTrigger.handler.file}#${s.inletTrigger.handler.symbol}`));
   assert.equal(handlers.size, 7, "起点の所在がシナリオごとに違う");
-  const expected = new Set(result.commands.map((s) => s.expectedEvent));
-  assert.equal(expected.size, 7, "期待イベントがシナリオごとに違う");
+  const expected = new Set(result.commands.flatMap((s) => s.expectedEvents));
+  assert.equal(expected.size, 7, "期待イベントが単位ごとに違う");
   for (const commandTarget of result.commands) {
     assert.deepEqual(commandTarget.actor, { id: "ACT-Caller", name: "Caller" });
     assert.equal(commandTarget.readModel, undefined, "画面が無いシステムでは画面を付けない");
     assert.equal(commandTarget.origin, "EXTRACTED");
-    assert.equal(commandTarget.inletType, "COMMAND");
+    assert.equal(commandTarget.expectedEvents.length, 1);
+    assert.deepEqual(commandTarget.invokedBy, [], "ポリシーが無いので空");
   }
 });
 
@@ -225,30 +226,43 @@ test("リスナー: 発行の名前と一致するリスナーがポリシーに
   const registered = map.events.find((e) => e.id === "EVT-src/users.ts#register");
   assert.deepEqual(registered?.signal, { kind: "EVENT_EMIT", callee: "emit", label: "user.registered", line: 3 });
 
+  // コマンドノード 1 つにつき単位 1 つ。ポリシーは単位にならず、起動するコマンドの invokedBy に入る（2026-10-31 T-0070）。
   const result = sliceCommands(map);
-  assert.deepEqual(result.commands.map((s) => [s.id, s.inletType, s.expectedEvent]), [
-    ["CT-CMD-src/mail.ts#sendWelcome", "COMMAND", "EVT-src/mail.ts#sendWelcome"],
-    ["CT-CMD-src/users.ts#register", "COMMAND", "EVT-src/users.ts#register"],
-    ["CT-POL-src/wire.ts#<module>@3", "POLICY", "EVT-src/mail.ts#sendWelcome"],
+  assert.deepEqual(result.commands.map((s) => [s.id, s.expectedEvents]), [
+    ["CT-CMD-src/mail.ts#sendWelcome", ["EVT-src/mail.ts#sendWelcome"]],
+    ["CT-CMD-src/users.ts#register", ["EVT-src/users.ts#register"]],
   ]);
-  const policy = result.commands.find((s) => s.inletType === "POLICY");
-  assert.equal(policy?.inletTrigger.handler.file, "src/wire.ts", "ポリシーの起点はリスナーの登録の場所");
+  const welcomeTarget = result.commands.find((s) => s.id === "CT-CMD-src/mail.ts#sendWelcome");
+  assert.equal(welcomeTarget?.inletTrigger.handler.file, "src/mail.ts", "起点はコマンドのハンドラ");
+  assert.deepEqual(welcomeTarget?.invokedBy, [
+    { policyId: "POL-src/wire.ts#<module>@3", triggerEventId: "EVT-src/users.ts#register", listener: map.policies[0]?.listener },
+  ]);
+  const registerTarget = result.commands.find((s) => s.id === "CT-CMD-src/users.ts#register");
+  assert.deepEqual(registerTarget?.invokedBy, [], "ポリシーから起動されないコマンドでは空");
 });
 
-test("選択: filter は抽出したシナリオにだけ効き、利用者定義は同じ起点の抽出を置き換える", () => {
+test("選択: filter は抽出した単位にだけ効き、利用者定義は同じコマンドの抽出を置き換え、ポリシーを指すと rejected", () => {
   const map = discoverSystemContext(LISTENER);
+  const policyReason = "ポリシーは起点にしない。起動するコマンド CMD-src/mail.ts#sendWelcome を指す";
   const result = sliceCommands(map, {
-    filter: { inlets: ["CMD-src/users.ts#register"] },
+    filter: { inlets: ["CMD-src/users.ts#register", "POL-src/wire.ts#<module>@3"] },
     userDefined: [
       { inlet: "src/mail.ts#sendWelcome", intent: "歓迎メールを送る" },
+      { inlet: "CMD-src/mail.ts#sendWelcome" },
       { inlet: "src/nope.ts#missing" },
+      { inlet: "POL-src/wire.ts#<module>@3" },
     ],
   });
   assert.deepEqual(result.commands.map((s) => [s.id, s.origin]), [
     ["CT-CMD-src/mail.ts#sendWelcome", "USER_DEFINED"],
     ["CT-CMD-src/users.ts#register", "EXTRACTED"],
   ]);
-  assert.deepEqual(result.rejected, [{ inlet: "src/nope.ts#missing", reason: "起点が全体マップに無い" }]);
+  assert.deepEqual(result.rejected, [
+    { inlet: "CMD-src/mail.ts#sendWelcome", reason: "コマンド CMD-src/mail.ts#sendWelcome は利用者定義ですでに指されている" },
+    { inlet: "src/nope.ts#missing", reason: "起点が全体マップに無い" },
+    { inlet: "POL-src/wire.ts#<module>@3", reason: policyReason },
+    { inlet: "POL-src/wire.ts#<module>@3", reason: policyReason },
+  ]);
 });
 
 // ---------------------------------------------------------------------------

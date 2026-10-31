@@ -97,7 +97,8 @@ export function buildImplementationMap(
 
   // ---- シナリオごと ----
   for (const { displayId, commandTarget, spec, ambiguity, ledger } of commands) {
-    const inlet = mapEntryOf(entries, commandTarget.inletType, commandTarget.inletTrigger.id, commandTarget.id);
+    // 単位の起点はコマンドだけ（2026-10-31 T-0070）。
+    const inlet = mapEntryOf(entries, "COMMAND", commandTarget.inletTrigger.id, commandTarget.id);
     result.push({
       displayId,
       kind: "COMMAND_TARGET",

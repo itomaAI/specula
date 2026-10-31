@@ -179,7 +179,7 @@ FormalTranspiler が `AmbiguityReport` を返したシナリオは、そこで�
   - `COMPLETED`: SpecProjector まで進んだ。検証の結果（`FOUND`・`NONE_FOUND_WITHIN_SCOPE`・`UNVERIFIED`）、未検証の理由の種類、反例の数、論点の数を持つ。
   - `AMBIGUOUS`: FormalTranspiler が `AmbiguityReport` を返したので止まった。曖昧さの種類ごとの件数を持つ（中身はシナリオの成果物として別に返す）。
   - `STOPPED`: 入力の契約が破れていたので止まった。止まった段（モジュールの名前。いまのコードは `M1`〜`M5` を出しており、実装の変更で名前に揃える）、エラーの名前、理由、詳しい内容を持つ。
-  - 3 通りのどれも、シナリオの起点の種類（`inletType`。`COMMAND` か `POLICY`）、アクター（`actor`。全体マップのアクターの `id` と `name` を写す）、画面のルート（`route`。画面を持たないシナリオは `null`）、期待イベント（`expectedEvent`。イベントの識別子）を持つ。どれも `CommandTarget` の欄を写したもので、画面のシナリオの詳細の冒頭に出すため 2026-10-31 に足した（`spec_viewer.design.md` 3.2）。止まったシナリオでも起点は決まっているので、3 通りで同じ欄を持つ。
+  - 3 通りのどれも、アクター（`actor`。全体マップのアクターの `id` と `name` を写す）、画面のルート（`route`。画面を持たないシナリオは `null`）、期待イベント（`expectedEvents`。イベントの識別子の一覧）、起動するポリシー（`invokedBy`。ポリシーの識別子の一覧。無ければ空）を持つ（2026-10-31 に、起点の種類 `inletType` を外し、この 2 つを一覧にした）。どれも `CommandTarget` の欄を写したもので、画面のシナリオの詳細の冒頭に出すため 2026-10-31 に足した（`spec_viewer.design.md` 3.2）。止まったシナリオでも起点は決まっているので、3 通りで同じ欄を持つ。
 - **合計（`totals`）**: 3 通りの件数、曖昧さの種類ごとの合計、検証の結果ごとの件数。
 - **検査の範囲（`inspectionScope`）**: 画面の実行の概要に出すため、2026-10-31 に足した（`spec_viewer.spec.md` 1.1）。次の 3 つを持つ。
   - `unit`: 常に `"PER_COMMAND"`。検査をシナリオごとに行い、シナリオどうしの矛盾は見ていないことを表す。

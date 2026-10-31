@@ -156,13 +156,13 @@ export interface CommandDetailView {
   intentText: string;
   /** 利用者が書いた目的。無ければ null。 */
   userIntent: string | null;
-  /** 「操作」「反応」。 */
-  inletTypeText: string;
+  /** このコマンドを起動するポリシーの表示名（印付き。実行の報告の invokedBy の順）。直接呼ばれるだけなら空。 */
+  invokedBy: string[];
   actor: string;
-  /** 画面を持たないシナリオは null（出さない）。 */
+  /** 画面を持たない単位は null（出さない）。 */
   route: string | null;
-  /** 期待イベントの表示名（印付き）。 */
-  expectedEvent: string;
+  /** 期待イベントの表示名（印付き。実行の報告の expectedEvents の順）。 */
+  expectedEvents: string[];
   /** 仕様になったシナリオだけ。SpecProjector の仕様書と同じ文。検査の範囲の文（設計 3.2）も lines に入っている。 */
   verification: VerificationView | null;
   /** 仕様になったシナリオだけ。 */

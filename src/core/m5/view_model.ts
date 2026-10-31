@@ -234,8 +234,8 @@ export function issueGroupsOf(
 }
 
 /**
- * 題（設計 4.1）。起点のコマンドまたはポリシーの項目を辞書で引く（設計 8.2）。
- * 項目が無いか、種類が起点の種類と違うか、用語が未生成なら「名前は未生成」とする。
+ * 題（設計 4.1）。起点のコマンドの項目を辞書で引く（設計 8.2）。
+ * 項目が無いか、種類が COMMAND でないか、用語が未生成なら「名前は未生成」とする。
  * 併記は IMPLEMENTATION のときだけ、項目の implementation.locations から作る（設計 8.3）。
  */
 export function titleOf(
@@ -244,7 +244,7 @@ export function titleOf(
 ): { title: string; titleNote: string } {
   const inlet = context.commandTarget.inletTrigger.id;
   const entry = context.glossary?.entries.find((candidate) => candidate.id === inlet);
-  const matched = entry !== undefined && entry.kind === context.commandTarget.inletType ? entry : undefined;
+  const matched = entry !== undefined && entry.kind === "COMMAND" ? entry : undefined;
   const term = matched?.term;
   // 用語に確定の状態の印を足す（設計 8.9）。候補と未生成には付かない。
   const title =

@@ -63,8 +63,7 @@ export interface ExtractionCoverage {
 export interface RawContextModel {
   commandId: string;
   inlet: {
-    kind: "COMMAND" | "POLICY";
-    /** 追跡を始めた関数の所在（POLICY ではリスナーとして渡された関数）。 */
+    /** 追跡を始めた関数（コマンドのハンドラ）の所在。2026-10-31（T-0070）に kind を外した（起点はコマンドだけ）。 */
     handler: { file: string; symbol: string; line: number };
     route?: string;
   };

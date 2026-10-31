@@ -324,9 +324,10 @@
     const fields = [
       ['状態', d.kindText], ['Bounded Context', d.boundedContext], ['意図の候補', d.intentText],
       d.userIntent !== null ? ['利用者が書いた目的', d.userIntent] : null,
-      ['起点の種類', d.inletTypeText], ['アクター', d.actor],
+      ['アクター', d.actor],
+      ['起動するポリシー', d.invokedBy.length > 0 ? d.invokedBy.join('\n') : 'なし（ポリシーからは起動されない）'],
       d.route !== null ? ['画面のルート', d.route] : null,
-      ['期待イベント', d.expectedEvent],
+      ['期待イベント', d.expectedEvents.join('\n')],
       d.inletLocations ? ['起点の所在', d.inletLocations.map(locationText).join('\n')] : null,
     ].filter(Boolean);
     const out = [

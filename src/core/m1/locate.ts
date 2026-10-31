@@ -3,7 +3,7 @@
 
 import { InletNotFoundError } from "../../types/context.js";
 import type { CommandTarget } from "../../types/command.js";
-import { type AstNode, describeCallee, exportsOf, identifierName, isAstNode, lineOf, stringValue, walk } from "../m0/ast.js";
+import { type AstNode, exportsOf, identifierName, isAstNode, lineOf } from "../m0/ast.js";
 import type { LoadedFile, SourceLoader } from "./source_loader.js";
 
 /** たどる関数 1 つ。className はクラスのメソッドのときだけ。 */
@@ -20,8 +20,6 @@ export interface FunctionRef {
 export type ExternalReason = "PACKAGE" | "UNRESOLVED" | "METHOD" | "DYNAMIC" | "CONSTRUCTOR";
 
 export type CalleeResolution = { kind: "TRACE"; ref: FunctionRef } | { kind: "EXTERNAL"; reason: ExternalReason };
-
-const LISTENER_METHODS = new Set(["on", "once", "addListener", "addEventListener", "subscribe"]);
 
 /** 関数として扱うノードか（クラスのメソッドを含む）。 */
 export function isCallableNode(node: AstNode): boolean {
@@ -40,32 +38,17 @@ export function refKey(ref: FunctionRef): string {
   return `${ref.file.path}#${ref.symbol}`;
 }
 
-/** 起点の関数を見つける。見つからなければ InletNotFoundError（別の関数を起点にしない）。 */
+/**
+ * 起点の関数（コマンドのハンドラ）を見つける。見つからなければ InletNotFoundError（別の関数を起点にしない）。
+ * 2026-10-31（T-0070）: 単位の起点はコマンドだけになったので、ポリシーのリスナーの登録をたどる分岐を外した。
+ */
 export async function locateInlet(loader: SourceLoader, target: CommandTarget): Promise<FunctionRef> {
-  const { file: path, symbol, line } = target.inletTrigger.handler;
+  const { file: path, symbol } = target.inletTrigger.handler;
   if (!(await loader.exists(path))) throw new InletNotFoundError(path, symbol, "ファイルが無い");
   const file = await loader.load(path);
-  if (target.inletType === "COMMAND") {
-    const ref = findFunction(file, symbol);
-    if (ref === null) throw new InletNotFoundError(path, symbol, "その名前の関数が無い");
-    return ref;
-  }
-  // POLICY: 所在はリスナーの登録の場所。その行の登録の 2 番目の引数を解決する。
-  let listenerCall: AstNode | null = null;
-  walk(file.program, (node) => {
-    if (listenerCall !== null || node.type !== "CallExpression" || lineOf(node) !== line) return;
-    const callee = describeCallee(node);
-    if (callee === null || callee.chain.length === 0 || !LISTENER_METHODS.has(callee.name)) return;
-    const args = node["arguments"];
-    if (Array.isArray(args) && stringValue(args[0]) !== null) listenerCall = node;
-  });
-  if (listenerCall === null) throw new InletNotFoundError(path, symbol, `${line} 行目にリスナーの登録が無い`);
-  const args = (listenerCall as AstNode)["arguments"] as unknown[];
-  const handlerName = identifierName(args[1]);
-  if (handlerName === null) throw new InletNotFoundError(path, symbol, "リスナーに渡された関数を名前で決められない");
-  const resolved = await resolveName(loader, file, handlerName);
-  if (resolved.kind !== "TRACE") throw new InletNotFoundError(path, symbol, `リスナーに渡された関数をたどれない（${resolved.reason}）`);
-  return resolved.ref;
+  const ref = findFunction(file, symbol);
+  if (ref === null) throw new InletNotFoundError(path, symbol, "その名前の関数が無い");
+  return ref;
 }
 
 /** ファイルの中の関数を名前で探す（最上位の関数、"default"、"クラス名.メソッド名"）。 */

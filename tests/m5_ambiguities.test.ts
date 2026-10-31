@@ -23,10 +23,10 @@ const COMMAND_TARGET: CommandTarget = {
   id: COMMAND_ID,
   boundedContext: "DEFAULT_CONTEXT",
   origin: "EXTRACTED",
-  inletType: "COMMAND",
   inletTrigger: { id: INLET_ID, handler: { file: "src/pay.ts", symbol: "charge", line: 2 } },
   actor: { id: "Caller", name: "Caller" },
-  expectedEvent: "EVT-src/pay.ts#charge",
+  expectedEvents: ["EVT-src/pay.ts#charge"],
+  invokedBy: [],
 };
 
 const GLOSSARY: Glossary = {
