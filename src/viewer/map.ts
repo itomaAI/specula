@@ -279,15 +279,26 @@ function readBundle(bundle: unknown, viewRole: ViewRole, popupOf: PopupOf): MapV
       supporting: graphOf(graphs.supporting.nodes.slice(1), graphs.supporting.edges, `地図 2（${context}、足す要素あり）`, viewRole, popupOf),
     };
   });
-  // 地図 2 は全体マップの Bounded Context の順に 1 つずつある（全体設計 4.1）。
-  const order = contextMap.nodes.map((node) => node.id).join(",");
-  if (details.map((detail) => detail.context.displayId).join(",") !== order) fail("地図 2", "Bounded Context の並びが地図 1 と違う");
+  // 地図 2 は全体マップの Bounded Context ごとに 1 つずつある（全体設計 4.1）。
+  // 並びが地図 1 と違っても形の違いにはせず、地図 1 の並びに並べ替えて読む（Q12 で緩めた）。
+  const byContext = new Map<string, ContextDetailMapView>();
+  for (const detail of details) {
+    const id = detail.context.displayId;
+    if (byContext.has(id)) fail("地図 2", `${id} が 2 つある`);
+    byContext.set(id, detail);
+  }
+  const ordered = contextMap.nodes.map((node) => {
+    const detail = byContext.get(node.id);
+    if (detail === undefined) fail("地図 2", `${node.id} が無い`);
+    return detail;
+  });
+  if (byContext.size !== ordered.length) fail("地図 2", "地図 1 に無い Bounded Context");
 
   return {
     kind: "OK",
     startWithDetail: contextMap.nodes.length === 1,
     contextMap: graphOf(contextMap.nodes, contextMap.edges, "地図 1", viewRole, popupOf),
-    details,
+    details: ordered,
   };
 }
 

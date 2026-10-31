@@ -333,10 +333,25 @@ test("俯瞰図が無いとき・形が違うとき: 全体地図だけを理由
       reason: "全体地図を出せない: 俯瞰図の形が違う（地図 2（c2）の 1 番目のつながり: 地図に無いノードを指している）",
     });
 
-    const reordered = withMap({ ...bundle, details: [bundle.details[1], bundle.details[0]] });
-    assert.deepEqual(buildMapView(reordered, "BUSINESS"), {
+    // 地図 2 の並びが地図 1 と違っても、地図 1 の並びに並べ替えて出す（Q12）
+    const reordered = buildMapView(withMap({ ...bundle, details: [bundle.details[1], bundle.details[0]] }), "BUSINESS");
+    assert.ok(reordered.kind === "OK", JSON.stringify(reordered));
+    assert.deepEqual(
+      reordered.details.map((detail) => detail.context.displayId),
+      bundle.contextMap.nodes.map((node) => node["id"]),
+    );
+    assert.equal(JSON.stringify(reordered), JSON.stringify(buildMapView(withMap(bundle), "BUSINESS")));
+
+    const missing = withMap({ ...bundle, details: [bundle.details[0]] });
+    assert.deepEqual(buildMapView(missing, "BUSINESS"), {
       kind: "UNAVAILABLE",
-      reason: "全体地図を出せない: 俯瞰図の形が違う（地図 2: Bounded Context の並びが地図 1 と違う）",
+      reason: "全体地図を出せない: 俯瞰図の形が違う（地図 2: c2 が無い）",
+    });
+
+    const duplicated = withMap({ ...bundle, details: [bundle.details[0], bundle.details[0]] });
+    assert.deepEqual(buildMapView(duplicated, "BUSINESS"), {
+      kind: "UNAVAILABLE",
+      reason: "全体地図を出せない: 俯瞰図の形が違う（地図 2: c1 が 2 つある）",
     });
   });
 });
