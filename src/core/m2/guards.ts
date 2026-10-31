@@ -15,7 +15,7 @@ import { type AstNode, isAstNode } from "../m0/ast.js";
 import type { CheckedFacts } from "./contract.js";
 import { type BuiltState, type Literal, type StateModel, literalOf, memberPath, parseExpr, unwrap } from "./states.js";
 
-type Cmp = "eq" | "neq" | "lt" | "lte" | "gt" | "gte";
+type Cmp = "EQ" | "NEQ" | "LT" | "LTE" | "GT" | "GTE";
 
 const EQUALITY = new Set(["===", "==", "!==", "!="]);
 const RELATIONAL = new Set(["<", "<=", ">", ">="]);
@@ -112,7 +112,7 @@ class ConditionTranslator {
   private truthy(state: BuiltState, node: AstNode): GuardExpr {
     const variable = state.variable.id;
     if (state.variable.domain === "BOOL") return { op: "IS", variable, value: "True" };
-    if (state.variable.domain === "INT") return { op: "CMP", variable, cmp: "neq", value: 0 };
+    if (state.variable.domain === "INT") return { op: "CMP", variable, cmp: "NEQ", value: 0 };
     return this.enumWhere(state, (value) => Boolean(value), node);
   }
 
@@ -172,18 +172,18 @@ function cmpOf(operator: string): Cmp {
   switch (operator) {
     case "===":
     case "==":
-      return "eq";
+      return "EQ";
     case "!==":
     case "!=":
-      return "neq";
+      return "NEQ";
     case "<":
-      return "lt";
+      return "LT";
     case "<=":
-      return "lte";
+      return "LTE";
     case ">":
-      return "gt";
+      return "GT";
     default:
-      return "gte";
+      return "GTE";
   }
 }
 

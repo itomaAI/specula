@@ -12,8 +12,8 @@ import type { GraphEdge, GraphLayout } from "../src/viewer/types.js";
 /** 流れ図に要る値だけを埋めたビューモデル。文に Mermaid で置き換えられる記号と改行を入れる。 */
 function model(ledgerIsStale: boolean | null): ViewModel {
   return {
-    displayId: "S-01",
-    title: "S-01 開く",
+    displayId: "C-01",
+    title: "C-01 開く",
     titleNote: "",
     viewRole: "BUSINESS",
     intent: null,
@@ -32,7 +32,7 @@ function model(ledgerIsStale: boolean | null): ViewModel {
         ],
         outcome: "opened",
         dataMutationCount: 1,
-        issueIds: ["S-01-L-001"],
+        issueIds: ["C-01-L-001"],
       },
       { id: "op2", label: "閉じる", steps: [], outcome: "closed", dataMutationCount: 0, issueIds: [] },
     ],
@@ -61,11 +61,11 @@ test("renderFlow の出力のノードとつながりが、文を戻してすべ
   assert.deepEqual(
     read.nodes.map((node) => [node.kind, node.label]),
     [
-      ["START", "シナリオ S-01 の起点"],
+      ["START", "シナリオ C-01 の起点"],
       ["OPERATION", '操作: "開く" <すでに開いている>'],
       ["STEP", "条件: 開いていない とき"],
       ["STEP", "書き込み: 開いている = 真"],
-      ["RESULT", "結果: opened（状態として検証していない変更 1 件。未決の論点: S-01-L-001）"],
+      ["RESULT", "結果: opened（状態として検証していない変更 1 件。未決の論点: C-01-L-001）"],
       ["OPERATION", "操作: 閉じる"],
       ["RESULT", "結果: closed"],
     ],
@@ -74,11 +74,11 @@ test("renderFlow の出力のノードとつながりが、文を戻してすべ
   assert.deepEqual(
     read.edges.map((edge) => [label(edge.from), label(edge.to)]),
     [
-      ["シナリオ S-01 の起点", '操作: "開く" <すでに開いている>'],
+      ["シナリオ C-01 の起点", '操作: "開く" <すでに開いている>'],
       ['操作: "開く" <すでに開いている>', "条件: 開いていない とき"],
       ["条件: 開いていない とき", "書き込み: 開いている = 真"],
-      ["書き込み: 開いている = 真", "結果: opened（状態として検証していない変更 1 件。未決の論点: S-01-L-001）"],
-      ["シナリオ S-01 の起点", "操作: 閉じる"],
+      ["書き込み: 開いている = 真", "結果: opened（状態として検証していない変更 1 件。未決の論点: C-01-L-001）"],
+      ["シナリオ C-01 の起点", "操作: 閉じる"],
       ["操作: 閉じる", "結果: closed"],
     ],
   );

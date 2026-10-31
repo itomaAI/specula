@@ -4,7 +4,7 @@
 // - 題と起点の用語の引き方、IMPLEMENTATION の併記は仕様書と同じ（view_model.ts の titleOf）。
 // - BUSINESS には、質問の文・所在・原文・種類を出さず、「エンジニアの確認待ち: N 件」と合計だけを書く。
 //   質問は実装の振る舞いについての問いで、実装の名前を含みうるため（FormalTranspiler 仕様 2.2、設計 8.9）。
-// - IMPLEMENTATION には、曖昧さを report.issues の並びのまま、S-01-A-001 … と振って並べる（全体設計 2.2）。
+// - IMPLEMENTATION には、曖昧さを report.issues の並びのまま、C-01-A-001 … と振って並べる（全体設計 2.2）。
 // - unitIds は出さない（ファイルと行を含むため。設計 7.2 の dataMutations と同じ理由）。
 
 import type { AmbiguityKind, AmbiguityReport } from "../../types/formal.js";

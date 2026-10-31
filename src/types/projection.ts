@@ -23,7 +23,7 @@ export type ViewRole = "BUSINESS" | "IMPLEMENTATION";
 export interface ProjectionRequest {
   format: ScenarioViewFormat;
   viewRole: ViewRole;
-  /** シナリオの表示の id（"S-01"）。オーケストレーターが切り出しの順に振る。 */
+  /** シナリオの表示の id（"C-01"）。オーケストレーターが切り出しの順に振る。 */
   displayId: string;
 }
 
@@ -31,7 +31,7 @@ export interface ProjectionRequest {
 export interface AmbiguityProjectionRequest {
   format: "AMBIGUITY_DOCUMENT";
   viewRole: ViewRole;
-  /** シナリオの表示の id（"S-01"）。 */
+  /** シナリオの表示の id（"C-01"）。 */
   displayId: string;
 }
 
@@ -62,7 +62,7 @@ export interface ProjectionContext {
 export interface SpecificationView {
   /** 内部の識別子。出力の置き場所を決めるためだけに使い、content には出さない。全体の俯瞰図は null。 */
   scenarioId: string | null;
-  /** 表示の id（"S-01"）。全体の俯瞰図は null。 */
+  /** 表示の id（"C-01"）。全体の俯瞰図は null。 */
   displayId: string | null;
   viewRole: ViewRole;
   format: ScenarioViewFormat | "AMBIGUITY_DOCUMENT" | SystemViewFormat;
@@ -81,7 +81,7 @@ export interface SpecificationView {
 
 /** 実装との対応表の、シナリオ 1 つ分の入力（SpecProjector の設計 5・8.5）。 */
 export interface ImplementationMapInput {
-  /** シナリオの表示の id（"S-01"）。 */
+  /** シナリオの表示の id（"C-01"）。 */
   displayId: string;
   scenario: ScenarioTarget;
   /** FormalTranspiler で止まったシナリオは null。 */
@@ -103,7 +103,7 @@ export type ImplementationMapEntryKind =
   | "LEDGER_ISSUE";
 
 export interface ImplementationMapEntry {
-  /** "c1"・"n1"・"S-01"・"S-01-A-001"・"S-01-V-01"・"S-01-L-001" */
+  /** "c1"・"n1"・"C-01"・"C-01-A-001"・"C-01-V-01"・"C-01-L-001" */
   displayId: string;
   kind: ImplementationMapEntryKind;
   /** 地図の要素の id、シナリオの id、状態変数の識別子、論点の識別子など。曖昧さは最初のユニットの識別子。 */

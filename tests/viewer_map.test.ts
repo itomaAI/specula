@@ -158,7 +158,7 @@ function syntheticImplementationMap(basis: ImplementationMap["basis"]): Implemen
       row("c2", "BOUNDED_CONTEXT", "ctxB", "ctxB"),
       row("n1", "COMMAND", "cmdB", "cmdB"),
       row("n2", "POLICY", "polAB", "polAB"),
-      row("S-01", "SCENARIO", "scenario-1", "cmdB"),
+      row("C-01", "SCENARIO", "scenario-1", "cmdB"),
     ],
     basis,
   };
@@ -245,7 +245,7 @@ test("地図 1 と地図 2: またぐポリシーのつながり、箱のポッ�
     assert.deepEqual(detail.core.layout.layerOf, [1, 0]);
 
     const [command, policy] = detail.core.nodes;
-    assert.deepEqual(command!.popup.scenarios, ["S-01"]);
+    assert.deepEqual(command!.popup.scenarios, ["C-01"]);
     assert.equal(command!.popup.entry?.meaning, "出荷を指示するの説明。");
     assert.deepEqual(policy!.crossing, { from: "c1", to: "c2" });
     assert.deepEqual(policy!.popup.scenarios, []);

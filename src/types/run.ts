@@ -33,7 +33,7 @@ export type StoppedStage = "M1" | "M2" | "M3" | "M4" | "M5";
 /** シナリオの行の 3 通りに共通する欄（全体設計 2.1）。起点の種類から下は ScenarioTarget の欄を写したもの。 */
 export interface ScenarioRunBase {
   scenarioId: string;
-  /** 表示の id（"S-01"。切り出しの順。全体設計 2.2）。 */
+  /** 表示の id（"C-01"。切り出しの順。全体設計 2.2）。 */
   displayId: string;
   boundedContext: string;
   inletType: ScenarioTarget["inletType"];

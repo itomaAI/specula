@@ -1,7 +1,7 @@
 // オーケストレーター（全体設計 2・2.1）。M0〜M5 をつなぎ、シナリオごとの結果を実行の報告にまとめる。
 // コアに属するので、ファイルには書かない（成果物と報告を値で返す。書き込みは入口が行う）。
 //
-// - シナリオは M0 の切り出しの順に 1 つずつ進める。表示の id（S-01 …）もこの順に振る（全体設計 2.2）。
+// - シナリオは M0 の切り出しの順に 1 つずつ進める。表示の id（C-01 …）もこの順に振る（全体設計 2.2）。
 // - 各段の入力の契約のエラーだけを「その段で止まった」として残し、次のシナリオへ進む。
 //   それ以外の例外（環境の故障）は投げ直して、実行全体を止める。
 
@@ -73,12 +73,12 @@ async function stage<T>(name: StoppedStage, run: () => Promise<T>): Promise<T> {
 }
 
 /**
- * 表示の id（全体設計 2.2）。切り出しの順に S-01、S-02 … と振る。
+ * 表示の id（全体設計 2.2）。切り出しの順に C-01、C-02 … と振る。
  * 桁は 2 桁を最小にし、シナリオが 100 件以上なら全体を件数の桁にそろえる（文字列で並べても順が崩れないように）。
  */
 export function displayIdsOf(count: number): string[] {
   const width = Math.max(2, String(count).length);
-  return Array.from({ length: count }, (_, index) => `S-${String(index + 1).padStart(width, "0")}`);
+  return Array.from({ length: count }, (_, index) => `C-${String(index + 1).padStart(width, "0")}`);
 }
 
 /** 1 回の実行で共有する、シナリオの射影の入力。 */

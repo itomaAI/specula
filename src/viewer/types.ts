@@ -95,7 +95,7 @@ export interface RunOutputsCheck {
 
 // ---- シナリオ一覧とシナリオの詳細（設計 3.1・3.2・6.5） ----
 // 文は SpecProjector と同じく、確定の状態の印を後ろに足した文字列で持つ（設計 6.5）。
-// ビューモデルには内部の識別子を入れない。シナリオは表示の id（"S-01"）で指す（設計 4 節）。
+// ビューモデルには内部の識別子を入れない。シナリオは表示の id（"C-01"）で指す（設計 4 節）。
 
 export type ScenarioKind = "COMPLETED" | "AMBIGUOUS" | "STOPPED";
 
@@ -120,7 +120,7 @@ export interface RunSummaryView {
 /** シナリオの表の 1 行（設計 3.1）。 */
 export interface ScenarioRowView {
   displayId: string;
-  /** 「S-01 〈表示名〉〈印〉」。名前を出せないときは理由（設計 6.5）。 */
+  /** 「C-01 〈表示名〉〈印〉」。名前を出せないときは理由（設計 6.5）。 */
   title: string;
   kind: ScenarioKind;
   /** 「仕様になった」「曖昧さで止まった」「途中で止まった」。 */
@@ -167,7 +167,7 @@ export interface ScenarioDetailView {
   verification: VerificationView | null;
   /** 仕様になったシナリオだけ。 */
   issueCount: number | null;
-  /** 仕様になったシナリオだけ。論点の id は表示の id（"S-01-L-001"）。 */
+  /** 仕様になったシナリオだけ。論点の id は表示の id（"C-01-L-001"）。 */
   issueGroups: IssueGroupView[] | null;
   /** 仕様になったシナリオだけ。タブの中身（設計 3.2・6.6・6.9）。流れ図は全体地図と同じ配置の関数で層に並べる。 */
   tabs: ScenarioTabsView | null;
@@ -243,7 +243,7 @@ export type FlowView =
 
 // ---- 仕様不備一覧（設計 3.3・6.7） ----
 // 論点は SpecProjector の IssueView（issueGroupsOf）をそのまま使う。曖昧さの文は SpecProjector の曖昧さの一覧と同じ。
-// 画面どうしのリンクは表示の id（"S-01"・"S-01-L-001"）で指す（設計 6.7）。
+// 画面どうしのリンクは表示の id（"C-01"・"C-01-L-001"）で指す（設計 6.7）。
 
 /** 仕様になったシナリオ 1 つの論点（設計 3.3）。論点が 1 件以上あるシナリオだけ。 */
 export interface ScenarioIssuesView {
@@ -262,7 +262,7 @@ export interface ScenarioIssuesView {
 
 /** 曖昧さ 1 件（IMPLEMENTATION のみ。設計 3.3）。 */
 export interface AmbiguityItemView {
-  /** "S-02-A-001"。 */
+  /** "C-02-A-001"。 */
   id: string;
   kind: AmbiguityKind;
   /** 「値が決まらない」など。 */
@@ -391,7 +391,7 @@ export interface MapPopupView {
   intent: string | null;
   /** Bounded Context だけ: 属するシナリオの数。 */
   scenarioCount: number | null;
-  /** コマンドとポリシーだけ: その要素を起点にしたシナリオの表示の id（"S-01"）。 */
+  /** コマンドとポリシーだけ: その要素を起点にしたシナリオの表示の id（"C-01"）。 */
   scenarios: string[] | null;
   /** intent・scenarioCount・scenarios を引けなかったときの理由（実装との対応表が無いとき）。ほかは null。 */
   lookupNote: string | null;
@@ -454,7 +454,7 @@ export type MapView =
 
 /**
  * 1 回の実行の画面すべてのビューモデル（設計 1.2・6.11）。buildRunView が 4 つの画面とシナリオの詳細を束ねる。
- * 画面どうしのリンクは、各ビューモデルが持つ表示の id（"S-01"・"S-01-L-001"・"c1"・"n1"）で張る（設計 4 節・6.7）。
+ * 画面どうしのリンクは、各ビューモデルが持つ表示の id（"C-01"・"C-01-L-001"・"c1"・"n1"）で張る（設計 4 節・6.7）。
  * そのため、別のリンクの表は持たない。
  */
 export interface RunView {

@@ -6,13 +6,13 @@
 import type { FormalSpecification, GuardExpr, OperationStep, StateVariable, WriteCondition } from "../../types/formal.js";
 import { labelOf, valueText } from "./labels.js";
 
-const CMP_TEXT: Readonly<Record<"eq" | "neq" | "lt" | "lte" | "gt" | "gte", (n: string) => string>> = {
-  eq: (n) => `${n} と等しい`,
-  neq: (n) => `${n} と等しくない`,
-  lt: (n) => `${n} より小さい`,
-  lte: (n) => `${n} 以下`,
-  gt: (n) => `${n} より大きい`,
-  gte: (n) => `${n} 以上`,
+const CMP_TEXT: Readonly<Record<"EQ" | "NEQ" | "LT" | "LTE" | "GT" | "GTE", (n: string) => string>> = {
+  EQ: (n) => `${n} と等しい`,
+  NEQ: (n) => `${n} と等しくない`,
+  LT: (n) => `${n} より小さい`,
+  LTE: (n) => `${n} 以下`,
+  GT: (n) => `${n} より大きい`,
+  GTE: (n) => `${n} 以上`,
 };
 
 function variableOf(spec: FormalSpecification, id: string): StateVariable | undefined {

@@ -36,7 +36,7 @@ export interface Proposition {
 export type GuardExpr =
   | { op: "PROP"; prop: string }
   | { op: "IS"; variable: string; value: string }
-  | { op: "CMP"; variable: string; cmp: "eq" | "neq" | "lt" | "lte" | "gt" | "gte"; value: number }
+  | { op: "CMP"; variable: string; cmp: "EQ" | "NEQ" | "LT" | "LTE" | "GT" | "GTE"; value: number }
   | { op: "NOT"; arg: GuardExpr }
   | { op: "AND" | "OR"; args: GuardExpr[] };
 

@@ -42,7 +42,7 @@ export interface OperationView {
   outcome: string;
   /** 状態として検証していない変更（dataMutations）の件数。中身は実装の所在なので出さない。 */
   dataMutationCount: number;
-  /** この操作が関わる論点の表示の id（"S-01-L-001"。カタログの並び）。 */
+  /** この操作が関わる論点の表示の id（"C-01-L-001"。カタログの並び）。 */
   issueIds: string[];
 }
 
@@ -91,9 +91,9 @@ export interface IntentView {
 export interface ViewModel {
   // シナリオの内部の識別子（SCN-<ファイル>#<関数>）は持たない。起点のファイルと関数を含むので、
   // どのビューにも出さないため（M5 の設計 4.1・7.4・8.6）。
-  /** 表示の id（"S-01"）。 */
+  /** 表示の id（"C-01"）。 */
   displayId: string;
-  /** 題: 「S-01 〈起点の用語〉」、用語が未生成なら「S-01（名前は未生成）」（設計 4.1）。 */
+  /** 題: 「C-01 〈起点の用語〉」、用語が未生成なら「C-01（名前は未生成）」（設計 4.1）。 */
   title: string;
   /** 題の後ろに足す併記（IMPLEMENTATION のときだけ。設計 8.3）。BUSINESS と、所在が無いときは ""。 */
   titleNote: string;
@@ -209,7 +209,7 @@ function issueView(spec: FormalSpecification, issue: LedgerIssue): IssueView {
 }
 
 /**
- * 論点の表示の id（"S-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
+ * 論点の表示の id（"C-01-L-001"）。カタログの並び（LedgerSynthesizer が振った連番の順）に振る。
  * 論点の識別子 "LEDGER-<scenarioId>-001" はシナリオの内部の識別子（起点のファイルと関数）を含むので、
  * ビューには出さない。内部の識別子との対応は実装との対応表（設計 8.5）に持つ。
  * 画面（SpecViewer）も同じ番号を振る（SpecViewer 基本設計 6.5）。

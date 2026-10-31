@@ -59,7 +59,7 @@ export function buildIssueList(outputs: RunOutputs, viewRole: ViewRole): IssueLi
       title: scenarioTitleOf(sources, row),
       total,
       countText: ambiguityCountText(total, viewRole),
-      // 並びと番号は SpecProjector の曖昧さの一覧と同じ（report.issues の並び。S-02-A-001 …）。
+      // 並びと番号は SpecProjector の曖昧さの一覧と同じ（report.issues の並び。C-02-A-001 …）。
       items:
         viewRole === "IMPLEMENTATION"
           ? report.issues.map(
