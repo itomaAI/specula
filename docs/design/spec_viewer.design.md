@@ -59,11 +59,11 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 | シナリオの数と内訳 | `totals.completed`・`ambiguous`・`stopped` | 「仕様になった」「曖昧さで止まった」「途中で止まった」と書く |
 | 曖昧さの件数 | `totals.ambiguity` | `PdM` では「エンジニアの確認待ち: N 件」と合計だけを出す。`Eng` では種類ごとに出す |
 | 検証の状態の内訳 | `totals.verification` | `NONE_FOUND_WITHIN_SCOPE` は「指定の範囲で、行った検査では見つからなかった」と書く |
-| 検査の範囲 | `inspectionScope` | 「検査はシナリオごとに行った。シナリオどうしの矛盾は見ていない」（`unit`）と、行っていない検査（`invariantChecks` が `NOT_APPLICABLE` なら「不変条件の検査はしていない」、`scenariosWithoutVerification` のシナリオは「検証の結果が無い」） |
+| 検査の範囲 | `inspectionScope` | 「検査はシナリオごとに行った。シナリオどうしの矛盾は見ていない」（`unit`）と、行っていない検査（`invariantChecks` が `NOT_APPLICABLE` なら「不変条件の検査はしていない」、`commandsWithoutVerification` のシナリオは「検証の結果が無い」） |
 | 未生成の数 | `glossary.notGenerated`・`intents.notGenerated` | 0 件でなければ目立たせる |
 | 読んだ資料の数 | `glossary.documents` | 上限で読まなかった資料があれば出す |
 
-**本体: シナリオの表**（元: `run_report.json` の `scenarios`、`intents.json`）
+**本体: シナリオの表**（元: `run_report.json` の `commands`、`intents.json`）
 
 | 列 | 元のデータ | 備考 |
 | :--- | :--- | :--- |
@@ -139,7 +139,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **地図 1**: Bounded Context の箱と、またぐポリシーの矢印。箱を選ぶと、用語・意図の候補（確定の状態の印）・属するシナリオの数をポップアップで出し、地図 2 と、その Bounded Context で絞り込んだシナリオ一覧へのリンクを置く。Bounded Context が 1 つだけのときは、全体地図を開いたら地図 2 を出す。
 - **地図 2**: 既定はコマンド・ドメインイベント・ポリシーとそのつながり。切り替えで、アクター・リードモデル・アグリゲートを足す。切り替えは SpecProjector に地図 2 を作り直させるのではなく、SpecProjector が出した地図 2 の JSON（足す要素を含む版）の表示を切り替える。
 - 要素は用語と表示の id（`c1`・`n1`）で表す。用語が未生成の要素は「〈種類〉 〈番号〉（名前は未生成）」（SpecProjector 基本設計 8.2）。
-- 要素を選んだときのポップアップ: 用語、確定の状態、意味（資料の抜粋）、その要素を起点にしたシナリオ。1 つのコマンドがイベントを複数発生させるとシナリオはイベントごとに分かれるので（ScenarioExtractor 仕様 2.2）、シナリオが複数あるときは一覧から選ぶ。
+- 要素を選んだときのポップアップ: 用語、確定の状態、意味（資料の抜粋）、その要素を起点にしたシナリオ。1 つのコマンドがイベントを複数発生させるとシナリオはイベントごとに分かれるので（CommandExtractor 仕様 2.2）、シナリオが複数あるときは一覧から選ぶ。
 - 壊れた箇所の印: 地図の JSON の印の欄が空でなければ、要素とつながりに印を描く。初回は欄が常に空である。
 - 実装の名前と所在（Eng のみ）。
 
@@ -210,7 +210,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - 読むのは `src/lib/read_outputs.ts` の `readRunOutputs(fs: FileSystemPort, outDir: string): Promise<RunOutputs>` とする。ファイルを読むので `src/viewer/` には置かず、書く側の `src/lib/write_outputs.ts` と対にする。
 - 読むファイルは 2 節の表のものだけである。`system_map.mmd`、シナリオごとの `solver_report.json`・`ambiguity.md` は画面で使わないので読まない。
   - 2026-10-31（PR #31）の時点では「`spec.json` も使わないので読まない」としていたが、誤りだった。論点の関わる操作・実行列の値・実行しなかった検査の名前は、SpecProjector が `spec.json`（`FormalSpecification`）の表示名から文にしている（`view_model.ts` の `verificationView`・`issueView`）。同じ文を出すには `spec.json` が要るので、読むファイルに足した（6.5）。
-- シナリオのディレクトリは、`run_report.json` の `scenarios` から `scenarios/<safeName(scenarioId)>/` として引く。`FileSystemPort.list` は順序を保証しないので、ディレクトリの一覧からは引かない。読むファイルはシナリオの `kind` で決める（`COMPLETED`: `spec.json`・`spec.md`・`matrix.md`・`flow.mmd`・`spec.als`・`ledger.json`、`AMBIGUOUS`: `ambiguity.json`、`STOPPED`: なし）。`run_report.json` が無いか読めないときは、シナリオのファイルを読まない。
+- シナリオのディレクトリは、`run_report.json` の `commands` から `commands/<safeName(commandId)>/` として引く。`FileSystemPort.list` は順序を保証しないので、ディレクトリの一覧からは引かない。読むファイルはシナリオの `kind` で決める（`COMPLETED`: `spec.json`・`spec.md`・`matrix.md`・`flow.mmd`・`spec.als`・`ledger.json`、`AMBIGUOUS`: `ambiguity.json`、`STOPPED`: なし）。`run_report.json` が無いか読めないときは、シナリオのファイルを読まない。
 - ファイルごとの結果は、次の 3 通りのどれかで持つ。読めなかったことを `null` 1 つにまとめないのは、無いのか壊れているのかで表示する理由が違うためである。
   - `{ kind: "OK", value }`: JSON はパースした値、Markdown・Mermaid・Alloy は文字列。
   - `{ kind: "MISSING" }`: ファイルが無い。
@@ -245,18 +245,18 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 ### 6.5 シナリオ一覧とシナリオの詳細
 - **SpecProjector の文を使う**: 検証の状態は SpecProjector の `verificationView`（1 行目と箇条書きの文）で、論点は `issueGroupsOf`（見出しごとの組。論点の 3 つの文と確定の状態の印、関わる操作、実行列、選択肢、従属する反例の数）で作る。LLM の文は `llmText`、確定の状態の印は `statusMark`、未検証の理由は `UNVERIFIED_REASON_TEXT`、曖昧さの種類は `AMBIGUITY_KIND_TEXT`（`render_ambiguities.ts`）を使う。
   - そのために `view_model.ts` から `verificationView`・`UNVERIFIED_REASON_TEXT` を export し、`buildViewModel` の中にあった論点の番号の振り方と見出しの組み分けを `issueDisplayIds`・`issueGroupsOf` に切り出して export した（`buildViewModel` はこれを呼ぶ。振る舞いは変えていない）。どれも引数から文を作るだけで I/O を持たない。
-- **`buildViewModel` は使わない**: `buildViewModel` は `ProjectionContext.scenario`（`ScenarioTarget`）を受け取るが、出力には `ScenarioTarget` が無い。実行の報告の行から `ScenarioTarget` を作り直すと、出力に無い値（起点の識別子など）を推測で埋めることになるため、使わない。
+- **`buildViewModel` は使わない**: `buildViewModel` は `ProjectionContext.commandTarget`（`CommandTarget`）を受け取るが、出力には `CommandTarget` が無い。実行の報告の行から `CommandTarget` を作り直すと、出力に無い値（起点の識別子など）を推測で埋めることになるため、使わない。
 - **論点の表示の id**: `buildViewModel` と同じく、`ledger.json` の `issues` の並びで `S-01-L-001` … を振る（SpecProjector 基本設計 8.7）。
-- **シナリオの名前の引き方**: SpecProjector は起点の識別子で辞書を引くが（`titleOf`）、実行の報告の行には起点の識別子が無い。画面は `implementation_map.json` の `SCENARIO` の行（`displayId` が一致するもの）の `glossaryEntryId` で `glossary.json` の項目を引く。項目の種類が行の `inletType` と同じで、用語が生成されているときだけ名前にする。題の形は `titleOf` と同じ「`S-01 〈表示名〉〈確定の状態の印〉`」とする。
+- **シナリオの名前の引き方**: SpecProjector は起点の識別子で辞書を引くが（`titleOf`）、実行の報告の行には起点の識別子が無い。画面は `implementation_map.json` の `COMMAND_TARGET` の行（`displayId` が一致するもの）の `glossaryEntryId` で `glossary.json` の項目を引く。項目の種類が行の `inletType` と同じで、用語が生成されているときだけ名前にする。題の形は `titleOf` と同じ「`S-01 〈表示名〉〈確定の状態の印〉`」とする。
   - 名前を出せないときは、理由を分けて書く。`implementation_map.json` が無い:「（名前を引けない: 実装との対応表が無い）」。`glossary.json` が無い:「（名前を引けない: 辞書が無い）」。項目が無い・種類が違う・用語が未生成:「（名前は未生成）」（SpecProjector と同じ）。対応表や辞書が無いことを「未生成」と書くと、事実と違うためである。
-- **意図の候補**: `intents.json` の `scenarios` を `scenarioId` で引き、`llmText` の文に `statusMark(intentStatus)` を足す（SpecProjector の仕様書と同じ）。`intents.json` が無いか、そのシナリオの候補が無ければ「意図の候補が無い」と書く。
+- **意図の候補**: `intents.json` の `commands` を `commandId` で引き、`llmText` の文に `statusMark(intentStatus)` を足す（SpecProjector の仕様書と同じ）。`intents.json` が無いか、そのシナリオの候補が無ければ「意図の候補が無い」と書く。
 - **Bounded Context と期待イベント**: 実行の報告の行の `boundedContext`・`expectedEvent` は全体マップの識別子なので、そのまま出さない。辞書の項目（種類が `BOUNDED_CONTEXT`・`EVENT` で id が一致するもの）の表示名に確定の状態の印を足して出す。引けないときはシナリオの名前と同じ規則で理由を書く。
 - **起点の種類・アクター・画面のルート**: 起点の種類は `COMMAND` を「操作」、`POLICY` を「反応」と書く。アクターは `actor.name` を出す。画面のルートは `null` なら出さない。
   - アクターの名前は認可のコードから拾った役割の名前で、辞書の用語が無い。PdM に出してよいかは確かめている（2026-10-31）。
 - **シナリオの表の文**: 検証の列は、仕様になったシナリオだけ「論点が見つかった」「指定の範囲で、行った検査では見つからなかった」「未検証（理由）」と書く。件数の列は「論点 N 件」、曖昧さで止まったシナリオは `PdM` で「エンジニアの確認待ち: N 件」、`Eng` で「曖昧さ N 件」。途中で止まったシナリオは件数を出さない。
 - **タブの代わりに出す文**: 曖昧さで止まったシナリオは 3.2 の文。途中で止まったシナリオは「このシナリオは途中で止まったため、仕様にならなかった。」とし、`Eng` では止まった段とエラーの名前を足す。
-- **起点の所在（Eng のみ）**: 対応表の `SCENARIO` の行の `implementation.locations` を、文字列にせずそのまま持つ。`PdM` では持たない（`null`）。
-- **公開する関数**: `buildScenarioList(outputs, viewRole)` と `buildScenarioDetails(outputs, viewRole)`（`src/viewer/scenarios.ts`）。どちらも `checkRunOutputs` を通った入力を受け取り、通っていない入力では例外を投げる。1.2 の `buildRunView` は、4 つの画面がそろった段階でこれらを束ねる。
+- **起点の所在（Eng のみ）**: 対応表の `COMMAND_TARGET` の行の `implementation.locations` を、文字列にせずそのまま持つ。`PdM` では持たない（`null`）。
+- **公開する関数**: `buildCommandList(outputs, viewRole)` と `buildCommandDetails(outputs, viewRole)`（`src/viewer/commands.ts`）。どちらも `checkRunOutputs` を通った入力を受け取り、通っていない入力では例外を投げる。1.2 の `buildRunView` は、4 つの画面がそろった段階でこれらを束ねる。
 
 ### 6.6 詳細のタブ（仕様書・操作の一覧表・形式仕様のソース）
 - **Markdown をブロックの木に分ける**: `src/viewer/markdown.ts` の `parseMarkdown(text)` が、`spec.md`・`matrix.md` を見出し・段落・箇条書き・番号付きの箇条書き・表・引用・コードブロックのブロックの並びに分ける。描く側はブロックを要素にし、文字列は `textContent` で入れる（6.4）。
@@ -292,7 +292,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - **用語辞典から地図 2 へのリンク**（4 節）: 項目の表示の id が俯瞰図の要素の id と同じなので、描く側はそれで地図 2 の要素を指す。どの地図 2 に出るかは、`system_map.json` の `details` のノードで描く側が引く。
 
 ### 6.9 流れ図のグラフと層の配置
-- **公開する関数**: `src/viewer/graph.ts` の `parseFlow(text)`（`flow.mmd` をグラフに戻す）、`layoutLayers(nodeCount, edges)`（層に並べる）、`buildFlowView(text)`（その 2 つを続けて行う）。シナリオの詳細の流れ図のタブ（`ScenarioTabsView.flow`）は `buildFlowView` で作る。全体地図（3.4）も同じ `layoutLayers` で並べる。
+- **公開する関数**: `src/viewer/graph.ts` の `parseFlow(text)`（`flow.mmd` をグラフに戻す）、`layoutLayers(nodeCount, edges)`（層に並べる）、`buildFlowView(text)`（その 2 つを続けて行う）。シナリオの詳細の流れ図のタブ（`CommandTabsView.flow`）は `buildFlowView` で作る。全体地図（3.4）も同じ `layoutLayers` で並べる。
 - **読む範囲**: `render_flow.ts` が出す行だけを読む。1 行目の「flowchart TD」、「%%」の注意の行（論点カタログが古いとき）、ノード `id["文"]`、つながり `a --> b`、空行である。ノードの識別子の形も `render_flow.ts` の振り方（起点の `s`、操作ごとに `_0`・`_1` …・`_r`）に限る。それ以外の行があれば、画面を作るのをやめずに、流れ図のタブだけを「流れ図の N 行目を読めない」の理由にする（`UNREADABLE`）。読み方を推測で広げると、SpecProjector の流れ図の書き方が変わったときに、違う図を黙って出すためである。
 - **ノードの指し方**: ノードとつながりは並びの位置（0 から）で指す。`flow.mmd` のノードの識別子は形式仕様の操作の識別子（`op1` など）を含むので、ビューモデルにも読めない理由の文にも入れない（4 節、SpecProjector 基本設計 3.2）。ノードの種類（起点・操作・条件と書き込み・結果）は識別子の形から決めて持つ。
 - **文の戻し方**: `mermaidLabel`（`escape.ts`）の `#quot;`・`#lt;`・`#gt;` を、1 回の置き換えで `"`・`<`・`>` に戻す。限界が 2 つある。`mermaidLabel` は `#` を逃がさないので、文にもともと「#quot;」と書いてあれば `"` に戻る。改行は空白にされているので戻せない。どちらも SpecProjector の側で逃がし方を変えないと直せないので、画面の側では補わない（仕様 1.2）。
@@ -316,13 +316,13 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
   - 項目を引けないときは理由（`entryNote`）を書く。辞書が無い:「用語と意味を出せない: 辞書が無い」。対応表が無い:「用語と意味を引けない: 実装との対応表が無い」。対応表はあるが引けない（対応表に行が無いか、辞書に項目が無い）:「用語と意味を引けない: 辞書に項目が無い」。
   - 辞書の項目の id は、対応表の行の `glossaryEntryId` を表示の id から逆に引いて得る（`glossary.ts` の `displayIdsOf` を export して使う）。引けないときは、意図の候補・シナリオの数・起点のシナリオを出さず、理由（`lookupNote`。「〜を引けない: 実装との対応表が無い」「〜に行が無い」）を書く。
   - Bounded Context の箱には、意図の候補（`intents.json` の文と確定の状態の印。用語辞典と同じく表示の id から辞書の項目を引いて探す）と、属するシナリオの数（実行の報告の行の `boundedContext`）を持つ。
-  - コマンドとポリシーには、その要素を起点にしたシナリオの表示の id の一覧を持つ（対応表の `SCENARIO` の行の `glossaryEntryId` が起点の辞書の項目。6.5）。対応表が無ければ一覧を出さず、理由を書く。
+  - コマンドとポリシーには、その要素を起点にしたシナリオの表示の id の一覧を持つ（対応表の `COMMAND_TARGET` の行の `glossaryEntryId` が起点の辞書の項目。6.5）。対応表が無ければ一覧を出さず、理由を書く。
 - **Bounded Context が 1 つ**のときは、`startWithDetail` を `true` にする（描く側は地図 2 から開く。3.4）。
 - **表示の役割**: 実装の名前と所在は、画面の役割が `Eng` で、JSON に `implementation` があるときだけ持つ。JSON は出力を作ったときの役割で書かれているので（6.4）、画面の役割が `PdM` なら JSON にあっても持たない。
 - **壊れた印**: ノードとつながりの `broken` が `null` でなければ、印を描くための `broken: true` を持つ。初回は常に `false` である（3.4）。
 
 ### 6.11 画面すべてを束ねる（`buildRunView`）
-- **公開する関数**: `buildRunView(outputs, viewRole)`（`src/viewer/run_view.ts`）。`buildScenarioList`・`buildScenarioDetails`・`buildIssueList`・`buildGlossaryView`・`buildMapView` を同じ入力と役割で呼び、`RunView`（`viewRole`・`scenarioList`・`scenarioDetails`・`issues`・`glossary`・`map`）にまとめる。束ねるだけで、判定や文を足さない。
+- **公開する関数**: `buildRunView(outputs, viewRole)`（`src/viewer/run_view.ts`）。`buildCommandList`・`buildCommandDetails`・`buildIssueList`・`buildGlossaryView`・`buildMapView` を同じ入力と役割で呼び、`RunView`（`viewRole`・`commandList`・`commandDetails`・`issues`・`glossary`・`map`）にまとめる。束ねるだけで、判定や文を足さない。
 - **事前条件**: 最初に `checkRunOutputs` を呼び、破れがあれば理由（`reason` とファイル）を並べた例外を投げる。画面ごとの関数も通っていない入力で例外を投げるが、どの画面の例外か分かりにくいため、入口で先に止める。起動アプリは `buildRunView` の前に `checkRunOutputs` を呼び、破れがあれば画面を作らずに `problems` を出す（1.2）。
 - **リンクの表を持たない**: 1.2 では「画面どうしのリンクの表」を返すとしていたが、リンクの鍵を表示の id にしたので（6.7）、各ビューモデルが持つ表示の id でリンクを張れる。シナリオ一覧の行と詳細は `displayId`、論点は `S-01-L-001`、地図と用語辞典は `c1`・`n1` で対応する。同じ対応を別の表に写すと、2 か所の値がずれうるため、表は作らない。
 - **表示の役割**: `viewRole` は起動アプリの引数をそのまま持つ。出力を書いたときの役割（`system_map.json` の `viewRole`）との関係は、6.4 の答えを待っている。

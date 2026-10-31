@@ -3,7 +3,7 @@
 // Step 1〜3 と Step 5 は決定的。Step 4（用語）だけが LLM を使う。LLM が無ければ用語はすべて NOT_GENERATED（UNREACHABLE）。
 
 import type { JsonValue } from "../types/index.js";
-import type { EventStormingMap, RepositoryArtifacts, RepositoryDocument } from "../types/scenario.js";
+import type { EventStormingMap, RepositoryArtifacts, RepositoryDocument } from "../types/command.js";
 import type { Glossary, GlossaryEntry } from "../types/glossary.js";
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
 import { canonicalJson } from "../lib/canonical_json.js";

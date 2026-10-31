@@ -15,7 +15,7 @@ import { buildGlossaryView } from "../src/viewer/glossary.js";
 import { buildIssueList } from "../src/viewer/issues.js";
 import { buildMapView } from "../src/viewer/map.js";
 import { buildRunView } from "../src/viewer/run_view.js";
-import { buildScenarioDetails, buildScenarioList } from "../src/viewer/scenarios.js";
+import { buildCommandDetails, buildCommandList } from "../src/viewer/commands.js";
 
 const OPEN_SOURCE = [
   "let open = false;",
@@ -57,8 +57,8 @@ test("4 つの画面とシナリオの詳細を、画面ごとの関数と同じ
     for (const viewRole of ["BUSINESS", "IMPLEMENTATION"] as const) {
       const view = buildRunView(outputs, viewRole);
       assert.equal(view.viewRole, viewRole);
-      assert.deepEqual(view.scenarioList, buildScenarioList(outputs, viewRole));
-      assert.deepEqual(view.scenarioDetails, buildScenarioDetails(outputs, viewRole));
+      assert.deepEqual(view.commandList, buildCommandList(outputs, viewRole));
+      assert.deepEqual(view.commandDetails, buildCommandDetails(outputs, viewRole));
       assert.deepEqual(view.issues, buildIssueList(outputs, viewRole));
       assert.deepEqual(view.glossary, buildGlossaryView(outputs, viewRole));
       assert.deepEqual(view.map, buildMapView(outputs, viewRole));
@@ -70,10 +70,10 @@ test("シナリオの詳細は、シナリオ一覧の行と同じ順・同じ�
   await withOutputs(async (out) => {
     const outputs = await readRunOutputs(fs, out);
     const view = buildRunView(outputs, "BUSINESS");
-    assert.ok(view.scenarioList.rows.length > 0);
+    assert.ok(view.commandList.rows.length > 0);
     assert.deepEqual(
-      view.scenarioDetails.map((d) => d.displayId),
-      view.scenarioList.rows.map((r) => r.displayId),
+      view.commandDetails.map((d) => d.displayId),
+      view.commandList.rows.map((r) => r.displayId),
     );
   });
 });

@@ -44,14 +44,14 @@ const REPO: Record<string, string> = {
   "src/g.ts": AMBIGUOUS_SOURCE,
 };
 
-interface Scenario {
-  scenarioId: string;
+interface CommandTarget {
+  commandId: string;
   displayId: string;
   kind: string;
 }
 
 /** 一時ディレクトリでリポジトリにかけ、出力先と報告のシナリオを渡す。終わったら消す。 */
-async function withOutputs(body: (out: string, scenarios: Scenario[]) => Promise<void>): Promise<void> {
+async function withOutputs(body: (out: string, commands: CommandTarget[]) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "specula-viewer-"));
   try {
     await mkdir(join(root, "repo", "src"), { recursive: true });
@@ -60,7 +60,7 @@ async function withOutputs(body: (out: string, scenarios: Scenario[]) => Promise
     const io = { stdout: (): void => {}, stderr: (): void => {} };
     assert.equal(await main([join(root, "repo"), "--out", out], io), 0);
     const report = JSON.parse(await readFile(join(out, "run_report.json"), "utf8"));
-    await body(out, report.scenarios as Scenario[]);
+    await body(out, report.commands as CommandTarget[]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -68,16 +68,16 @@ async function withOutputs(body: (out: string, scenarios: Scenario[]) => Promise
 
 const fs = new NodeFsAdapter();
 
-function scenarioOfKind(scenarios: Scenario[], kind: string): Scenario {
-  const found = scenarios.find((s) => s.kind === kind);
-  assert.ok(found, `${kind} のシナリオが無い: ${JSON.stringify(scenarios)}`);
+function commandOfKind(commands: CommandTarget[], kind: string): CommandTarget {
+  const found = commands.find((s) => s.kind === kind);
+  assert.ok(found, `${kind} のシナリオが無い: ${JSON.stringify(commands)}`);
   return found;
 }
 
 test("書いた出力をすべて読み戻せて、事前条件を満たす", async () => {
-  await withOutputs(async (out, scenarios) => {
-    scenarioOfKind(scenarios, "COMPLETED");
-    scenarioOfKind(scenarios, "AMBIGUOUS");
+  await withOutputs(async (out, commands) => {
+    commandOfKind(commands, "COMPLETED");
+    commandOfKind(commands, "AMBIGUOUS");
 
     const outputs = await readRunOutputs(fs, out);
     for (const read of [outputs.report, outputs.systemMap, outputs.glossary, outputs.intents, outputs.implementationMap]) {
@@ -85,16 +85,16 @@ test("書いた出力をすべて読み戻せて、事前条件を満たす", as
     }
     // シナリオは報告の順・同じ id で、kind から決まるファイルがそろう
     assert.deepEqual(
-      outputs.scenarios.map((s) => [s.scenarioId, s.displayId, s.kind]),
-      scenarios.map((s) => [s.scenarioId, s.displayId, s.kind]),
+      outputs.commands.map((s) => [s.commandId, s.displayId, s.kind]),
+      commands.map((s) => [s.commandId, s.displayId, s.kind]),
     );
-    for (const scenario of outputs.scenarios) {
-      if (scenario.kind === "COMPLETED") {
-        for (const read of [scenario.spec, scenario.document, scenario.matrix, scenario.flow, scenario.source, scenario.ledger]) {
+    for (const commandTarget of outputs.commands) {
+      if (commandTarget.kind === "COMPLETED") {
+        for (const read of [commandTarget.spec, commandTarget.document, commandTarget.matrix, commandTarget.flow, commandTarget.source, commandTarget.ledger]) {
           assert.equal(read.kind, "OK");
         }
-      } else if (scenario.kind === "AMBIGUOUS") {
-        assert.equal(scenario.ambiguity.kind, "OK");
+      } else if (commandTarget.kind === "AMBIGUOUS") {
+        assert.equal(commandTarget.ambiguity.kind, "OK");
       }
     }
 
@@ -113,7 +113,7 @@ test("実行の報告が無ければ、シナリオを読まずに REPORT_MISSIN
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
     assert.equal(outputs.report.kind, "MISSING");
-    assert.deepEqual(outputs.scenarios, []);
+    assert.deepEqual(outputs.commands, []);
     const check = checkRunOutputs(outputs);
     assert.equal(check.ok, false);
     assert.deepEqual(
@@ -144,7 +144,7 @@ test("basis が実行の報告と違うファイルは BASIS_MISMATCH", async ()
     const check = checkRunOutputs(await readRunOutputs(fs, out));
     assert.equal(check.ok, false);
     assert.deepEqual(
-      check.problems.map((p) => [p.reason, p.file, p.scenario]),
+      check.problems.map((p) => [p.reason, p.file, p.commandTarget]),
       [["BASIS_MISMATCH", "intents.json", null]],
     );
     assert.ok(check.problems[0]?.detail.includes("documentsHash"));
@@ -169,38 +169,38 @@ test("basis を持たない古い出力は NO_BASIS", async () => {
 });
 
 test("壊れた JSON と、無いシナリオのファイルは、シナリオの表示の id を付けて返す（内部の識別子は出さない）", async () => {
-  await withOutputs(async (out, scenarios) => {
-    const completed = scenarioOfKind(scenarios, "COMPLETED");
-    const ambiguous = scenarioOfKind(scenarios, "AMBIGUOUS");
-    await writeFile(join(out, "scenarios", safeName(completed.scenarioId), "ledger.json"), "{ not json", "utf8");
-    await rm(join(out, "scenarios", safeName(ambiguous.scenarioId), "ambiguity.json"));
-    await rm(join(out, "scenarios", safeName(completed.scenarioId), "flow.mmd"));
-    await rm(join(out, "scenarios", safeName(completed.scenarioId), "spec.json"));
+  await withOutputs(async (out, commands) => {
+    const completed = commandOfKind(commands, "COMPLETED");
+    const ambiguous = commandOfKind(commands, "AMBIGUOUS");
+    await writeFile(join(out, "commands", safeName(completed.commandId), "ledger.json"), "{ not json", "utf8");
+    await rm(join(out, "commands", safeName(ambiguous.commandId), "ambiguity.json"));
+    await rm(join(out, "commands", safeName(completed.commandId), "flow.mmd"));
+    await rm(join(out, "commands", safeName(completed.commandId), "spec.json"));
 
     const outputs = await readRunOutputs(fs, out);
-    const completedRead = outputs.scenarios.find((s) => s.scenarioId === completed.scenarioId);
+    const completedRead = outputs.commands.find((s) => s.commandId === completed.commandId);
     assert.equal(completedRead?.kind === "COMPLETED" ? completedRead.ledger.kind : null, "INVALID");
 
     const check = checkRunOutputs(outputs);
     assert.equal(check.ok, false);
     // 並びは報告のシナリオの順、シナリオの中はファイルの決まった順
-    const expected = scenarios.flatMap((s) =>
-      s.scenarioId === completed.scenarioId
+    const expected = commands.flatMap((s) =>
+      s.commandId === completed.commandId
         ? [
-            ["SCENARIO_FILE_MISSING", "spec.json", s.displayId],
-            ["SCENARIO_FILE_MISSING", "flow.mmd", s.displayId],
+            ["COMMAND_FILE_MISSING", "spec.json", s.displayId],
+            ["COMMAND_FILE_MISSING", "flow.mmd", s.displayId],
             ["INVALID_JSON", "ledger.json", s.displayId],
           ]
-        : s.scenarioId === ambiguous.scenarioId
-          ? [["SCENARIO_FILE_MISSING", "ambiguity.json", s.displayId]]
+        : s.commandId === ambiguous.commandId
+          ? [["COMMAND_FILE_MISSING", "ambiguity.json", s.displayId]]
           : [],
     );
     assert.deepEqual(
-      check.problems.map((p) => [p.reason, p.file, p.scenario]),
+      check.problems.map((p) => [p.reason, p.file, p.commandTarget]),
       expected,
     );
     for (const problem of check.problems) {
-      assert.ok(!problem.detail.includes(completed.scenarioId) && !problem.detail.includes(ambiguous.scenarioId));
+      assert.ok(!problem.detail.includes(completed.commandId) && !problem.detail.includes(ambiguous.commandId));
     }
   });
 });

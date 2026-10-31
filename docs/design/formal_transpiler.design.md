@@ -20,7 +20,7 @@ transpileFormal(
   previous?: FormalSpecification | null,
 ): Promise<TranspilerResult>;
 ```
-- `deps.llm` は省略できる。省略したときは、表示名と質問の文をすべて `NOT_GENERATED`（理由 `UNREACHABLE`、detail「LLM のポートが渡されていない」）にする（ScenarioExtractor と同じ扱い）。ソースは LLM によらないので、そのまま作る。
+- `deps.llm` は省略できる。省略したときは、表示名と質問の文をすべて `NOT_GENERATED`（理由 `UNREACHABLE`、detail「LLM のポートが渡されていない」）にする（CommandExtractor と同じ扱い）。ソースは LLM によらないので、そのまま作る。
 - `previous`（前版の正本）との差分は 2 回目以降の処理で、現在の範囲外である。初回は `null` で呼ぶ。`null` でないときも差分は作らず、`previousDiff` に「範囲外」と記録する（4 節）。
 
 ### 1.3 構成
@@ -155,7 +155,7 @@ fact Steps { always (op1 or op2 or ... or stutter) }
 ### 4.3 型
 ```typescript
 interface FormalSpecification {
-  scenarioId: string;
+  commandId: string;
   source: string;                                  // Alloy 6 のソース
   stateVariables: Array<{
     id: string;                                    // "v1"
@@ -254,7 +254,7 @@ interface AmbiguityIssue {
 }
 
 interface AmbiguityReport {
-  scenarioId: string;
+  commandId: string;
   issues: AmbiguityIssue[];       // ユニットの並び順
   counts: Record<AmbiguityIssue["kind"], number>;
 }

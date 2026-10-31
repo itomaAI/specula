@@ -12,20 +12,20 @@ import type { EntryKind, Glossary, GlossaryLocation } from "../types/glossary.js
 import type { IntentCatalog } from "../types/intent.js";
 import type { VerificationOutcome } from "../types/ledger.js";
 import type { ImplementationMap, ViewRole } from "../types/projection.js";
-import type { RunReport, ScenarioRunResult } from "../types/run.js";
+import type { RunReport, CommandRunResult } from "../types/run.js";
 import type {
   FileRead,
   RunOutputs,
   RunSummaryView,
-  ScenarioDetailView,
-  ScenarioKind,
-  ScenarioListView,
-  ScenarioRowView,
+  CommandDetailView,
+  CommandKind,
+  CommandListView,
+  CommandRowView,
 } from "./types.js";
 import { buildFlowView } from "./graph.js";
 import { parseMarkdown } from "./markdown.js";
 
-const KIND_TEXT: Readonly<Record<ScenarioKind, string>> = {
+const KIND_TEXT: Readonly<Record<CommandKind, string>> = {
   COMPLETED: "仕様になった",
   AMBIGUOUS: "曖昧さで止まった",
   STOPPED: "途中で止まった",
@@ -81,28 +81,28 @@ function labelOfEntry(glossary: Glossary | null, id: string | null, kind: EntryK
   return { ok: true, text: `${entry.term.label}${statusMark(entry.termStatus)}` };
 }
 
-/** 対応表の SCENARIO の行。対応表が無ければ null、行が無ければ undefined。 */
-function scenarioMapRow(sources: Sources, displayId: string) {
+/** 対応表の COMMAND_TARGET の行。対応表が無ければ null、行が無ければ undefined。 */
+function commandMapRow(sources: Sources, displayId: string) {
   if (sources.implementationMap === null) return null;
-  return sources.implementationMap.entries.find((entry) => entry.kind === "SCENARIO" && entry.displayId === displayId);
+  return sources.implementationMap.entries.find((entry) => entry.kind === "COMMAND_TARGET" && entry.displayId === displayId);
 }
 
 /** 題（設計 6.5）。形は SpecProjector の titleOf と同じ。 */
-function titleOf(sources: Sources, row: ScenarioRunResult): string {
-  const mapRow = scenarioMapRow(sources, row.displayId);
+function titleOf(sources: Sources, row: CommandRunResult): string {
+  const mapRow = commandMapRow(sources, row.displayId);
   if (mapRow === null) return `${row.displayId}${NO_MAP}`;
   const label = labelOfEntry(sources.glossary, mapRow?.glossaryEntryId ?? null, row.inletType);
   return label.ok ? `${row.displayId} ${label.text}` : `${row.displayId}${label.text}`;
 }
 
-function inletLocationsOf(sources: Sources, row: ScenarioRunResult, viewRole: ViewRole): GlossaryLocation[] | null {
+function inletLocationsOf(sources: Sources, row: CommandRunResult, viewRole: ViewRole): GlossaryLocation[] | null {
   if (viewRole !== "IMPLEMENTATION") return null;
-  return scenarioMapRow(sources, row.displayId)?.implementation.locations ?? [];
+  return commandMapRow(sources, row.displayId)?.implementation.locations ?? [];
 }
 
 /** 意図の候補（SpecProjector の仕様書と同じ文）。 */
-function intentOf(sources: Sources, row: ScenarioRunResult): { text: string; userIntent: string | null } {
-  const item = sources.intents?.scenarios.find((candidate) => candidate.scenarioId === row.scenarioId);
+function intentOf(sources: Sources, row: CommandRunResult): { text: string; userIntent: string | null } {
+  const item = sources.intents?.commands.find((candidate) => candidate.commandId === row.commandId);
   if (item === undefined) return { text: NO_INTENT, userIntent: null };
   return { text: `${llmText(item.intent)}${statusMark(item.intentStatus)}`, userIntent: item.userIntent ?? null };
 }
@@ -116,14 +116,14 @@ function ambiguityCountText(total: number, viewRole: ViewRole): string {
   return viewRole === "BUSINESS" ? `エンジニアの確認待ち: ${total} 件` : `曖昧さ ${total} 件`;
 }
 
-function verificationTextOf(row: ScenarioRunResult): string | null {
+function verificationTextOf(row: CommandRunResult): string | null {
   if (row.kind !== "COMPLETED") return null;
   if (row.outcome !== "UNVERIFIED") return OUTCOMES.find((o) => o.outcome === row.outcome)!.text;
   const reason = row.unverifiedReason === null ? "理由は記録されていない" : UNVERIFIED_REASON_TEXT[row.unverifiedReason];
   return `未検証（${reason}）`;
 }
 
-function countTextOf(row: ScenarioRunResult, viewRole: ViewRole): string | null {
+function countTextOf(row: CommandRunResult, viewRole: ViewRole): string | null {
   if (row.kind === "COMPLETED") return `論点 ${row.issueCount} 件`;
   if (row.kind === "AMBIGUOUS") return ambiguityCountText(ambiguityTotal(row.counts), viewRole);
   return null;
@@ -135,8 +135,8 @@ function summaryOf(report: RunReport, viewRole: ViewRole): RunSummaryView {
   if (report.inspectionScope.invariantChecks.status === "NOT_APPLICABLE") {
     inspectionScope.push("不変条件の検査はしていない（初回は不変条件を作らないため）。");
   }
-  if (report.inspectionScope.scenariosWithoutVerification.length > 0) {
-    inspectionScope.push(`検証の結果が無いシナリオ: ${report.inspectionScope.scenariosWithoutVerification.join("、")}`);
+  if (report.inspectionScope.commandsWithoutVerification.length > 0) {
+    inspectionScope.push(`検証の結果が無いシナリオ: ${report.inspectionScope.commandsWithoutVerification.join("、")}`);
   }
   const sum = (counts: { UNREACHABLE: number; INVALID_OUTPUT: number }): number => counts.UNREACHABLE + counts.INVALID_OUTPUT;
   return {
@@ -145,7 +145,7 @@ function summaryOf(report: RunReport, viewRole: ViewRole): RunSummaryView {
     boundedContextCount: report.system.boundedContextCount,
     commandCount: report.system.commandCount,
     eventCount: report.system.eventCount,
-    scenarioCounts: { COMPLETED: report.totals.completed, AMBIGUOUS: report.totals.ambiguous, STOPPED: report.totals.stopped },
+    commandTargetCounts: { COMPLETED: report.totals.completed, AMBIGUOUS: report.totals.ambiguous, STOPPED: report.totals.stopped },
     ambiguity: {
       total,
       text: ambiguityCountText(total, viewRole),
@@ -162,9 +162,9 @@ function summaryOf(report: RunReport, viewRole: ViewRole): RunSummaryView {
 }
 
 /** シナリオ一覧（設計 3.1）。行は実行の報告の順。 */
-export function buildScenarioList(outputs: RunOutputs, viewRole: ViewRole): ScenarioListView {
+export function buildCommandList(outputs: RunOutputs, viewRole: ViewRole): CommandListView {
   const sources = sourcesOf(outputs);
-  const rows: ScenarioRowView[] = sources.report.scenarios.map((row) => ({
+  const rows: CommandRowView[] = sources.report.commands.map((row) => ({
     displayId: row.displayId,
     title: titleOf(sources, row),
     kind: row.kind,
@@ -183,9 +183,9 @@ export function buildScenarioList(outputs: RunOutputs, viewRole: ViewRole): Scen
 }
 
 /** シナリオの詳細（設計 3.2）。実行の報告の順に、すべてのシナリオの分を返す。 */
-export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): ScenarioDetailView[] {
+export function buildCommandDetails(outputs: RunOutputs, viewRole: ViewRole): CommandDetailView[] {
   const sources = sourcesOf(outputs);
-  return sources.report.scenarios.map((row): ScenarioDetailView => {
+  return sources.report.commands.map((row): CommandDetailView => {
     const intent = intentOf(sources, row);
     const base = {
       displayId: row.displayId,
@@ -203,7 +203,7 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
     };
 
     if (row.kind === "COMPLETED") {
-      const files = outputs.scenarios.find((s) => s.displayId === row.displayId);
+      const files = outputs.commands.find((s) => s.displayId === row.displayId);
       if (files?.kind !== "COMPLETED") {
         throw new Error(`${row.displayId} のファイルが読めていない。先に checkRunOutputs を通してください。`);
       }
@@ -245,4 +245,4 @@ export function buildScenarioDetails(outputs: RunOutputs, viewRole: ViewRole): S
 
 // 仕様不備一覧（issues.ts）も同じ題と件数の文を出すために使う（設計 6.7）。
 // 用語辞典（glossary.ts）は、用語の文を同じ形にするために labelOfEntry を使う（設計 6.8）。
-export { ambiguityCountText, ambiguityTotal, labelOfEntry, sourcesOf, titleOf as scenarioTitleOf, valueOf };
+export { ambiguityCountText, ambiguityTotal, labelOfEntry, sourcesOf, titleOf as commandTitleOf, valueOf };

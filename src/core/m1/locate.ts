@@ -2,7 +2,7 @@
 // 呼び出し先を AST から決められないものは、推測せずに理由を返す（EXTERNAL_CALL として記録される）。
 
 import { InletNotFoundError } from "../../types/context.js";
-import type { ScenarioTarget } from "../../types/scenario.js";
+import type { CommandTarget } from "../../types/command.js";
 import { type AstNode, describeCallee, exportsOf, identifierName, isAstNode, lineOf, stringValue, walk } from "../m0/ast.js";
 import type { LoadedFile, SourceLoader } from "./source_loader.js";
 
@@ -41,7 +41,7 @@ export function refKey(ref: FunctionRef): string {
 }
 
 /** 起点の関数を見つける。見つからなければ InletNotFoundError（別の関数を起点にしない）。 */
-export async function locateInlet(loader: SourceLoader, target: ScenarioTarget): Promise<FunctionRef> {
+export async function locateInlet(loader: SourceLoader, target: CommandTarget): Promise<FunctionRef> {
   const { file: path, symbol, line } = target.inletTrigger.handler;
   if (!(await loader.exists(path))) throw new InletNotFoundError(path, symbol, "ファイルが無い");
   const file = await loader.load(path);

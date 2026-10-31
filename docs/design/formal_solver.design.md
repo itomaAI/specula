@@ -215,7 +215,7 @@ interface SolverPort {
 ```typescript
 interface SolverReport {
   reportId: string;                     // 下の注を参照
-  scenarioId: string;
+  commandId: string;
   specSourceHash: string;               // FormalTranspiler のソースの SHA-256
   status: "CHECKED" | "UNVERIFIED";
   reason: null | { kind: "NO_SOLVER" | "UNREACHABLE" | "TIMEOUT" | "ENGINE_ERROR"; detail: string };

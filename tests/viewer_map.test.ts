@@ -96,11 +96,11 @@ test("実際の出力: 俯瞰図の要素と文をそのまま使い、地図 2 
 
     // Bounded Context の箱: 属するシナリオの数は実行の報告の行の数と同じ（この入力は Bounded Context が 1 つ）
     if (view.contextMap.nodes.length === 1) {
-      assert.equal(view.contextMap.nodes[0]!.popup.scenarioCount, report.scenarios.length);
+      assert.equal(view.contextMap.nodes[0]!.popup.commandTargetCount, report.commands.length);
     }
     // コマンドとポリシーの起点のシナリオは、実行の報告にある表示の id だけ
-    const known = new Set(report.scenarios.map((row) => row.displayId));
-    const starts = view.details.flatMap((detail) => detail.core.nodes).flatMap((node) => node.popup.scenarios ?? []);
+    const known = new Set(report.commands.map((row) => row.displayId));
+    const starts = view.details.flatMap((detail) => detail.core.nodes).flatMap((node) => node.popup.commands ?? []);
     assert.ok(starts.length > 0, "起点のシナリオが 1 つも引けない");
     for (const id of starts) assert.ok(known.has(id), id);
 
@@ -128,7 +128,7 @@ function entry(id: string, kind: PresentedEntryKind, contextId: string | null, l
   };
 }
 
-const INTERNAL_IDS = ["ctxA", "ctxB", "cmdB", "polAB", "scenario-1"];
+const INTERNAL_IDS = ["ctxA", "ctxB", "cmdB", "polAB", "commandTarget-1"];
 
 function syntheticGlossary(basis: Glossary["basis"]): Glossary {
   return {
@@ -145,7 +145,7 @@ function syntheticGlossary(basis: Glossary["basis"]): Glossary {
 }
 
 function syntheticImplementationMap(basis: ImplementationMap["basis"]): ImplementationMap {
-  const row = (displayId: string, kind: PresentedEntryKind | "SCENARIO", internalId: string, glossaryEntryId: string) => ({
+  const row = (displayId: string, kind: PresentedEntryKind | "COMMAND_TARGET", internalId: string, glossaryEntryId: string) => ({
     displayId,
     kind,
     internalId,
@@ -158,7 +158,7 @@ function syntheticImplementationMap(basis: ImplementationMap["basis"]): Implemen
       row("c2", "BOUNDED_CONTEXT", "ctxB", "ctxB"),
       row("n1", "COMMAND", "cmdB", "cmdB"),
       row("n2", "POLICY", "polAB", "polAB"),
-      row("C-01", "SCENARIO", "scenario-1", "cmdB"),
+      row("C-01", "COMMAND_TARGET", "commandTarget-1", "cmdB"),
     ],
     basis,
   };
@@ -167,7 +167,7 @@ function syntheticImplementationMap(basis: ImplementationMap["basis"]): Implemen
 function syntheticIntents(basis: IntentCatalog["basis"]): IntentCatalog {
   return {
     contexts: [{ contextId: "ctxB", intent: { status: "GENERATED", text: "出荷を手配する", recordKey: "k" }, intentStatus: "CANDIDATE" }],
-    scenarios: [],
+    commands: [],
     basis,
   };
 }
@@ -209,7 +209,7 @@ function withSynthetic(outputs: RunOutputs, options: { map: boolean; implementat
   const report = outputs.report.value;
   return {
     ...outputs,
-    report: { kind: "OK", value: { ...report, scenarios: report.scenarios.map((row) => ({ ...row, boundedContext: "ctxB" })) } },
+    report: { kind: "OK", value: { ...report, commands: report.commands.map((row) => ({ ...row, boundedContext: "ctxB" })) } },
     glossary: { kind: "OK", value: syntheticGlossary(basis) },
     intents: { kind: "OK", value: syntheticIntents(basis) },
     implementationMap: options.map ? { kind: "OK", value: syntheticImplementationMap(basis) } : { kind: "MISSING" },
@@ -229,9 +229,9 @@ test("地図 1 と地図 2: またぐポリシーのつながり、箱のポッ�
     const [c1, c2] = view.contextMap.nodes;
     assert.equal(c1!.popup.entry?.term, "受注");
     assert.equal(c1!.popup.intent, "意図の候補が無い");
-    assert.equal(c1!.popup.scenarioCount, 0);
+    assert.equal(c1!.popup.commandTargetCount, 0);
     assert.equal(c2!.popup.intent, "出荷を手配する");
-    assert.equal(c2!.popup.scenarioCount, report.scenarios.length);
+    assert.equal(c2!.popup.commandTargetCount, report.commands.length);
     assert.equal(c2!.popup.lookupNote, null);
 
     const detail = view.details[1]!;
@@ -245,17 +245,17 @@ test("地図 1 と地図 2: またぐポリシーのつながり、箱のポッ�
     assert.deepEqual(detail.core.layout.layerOf, [1, 0]);
 
     const [command, policy] = detail.core.nodes;
-    assert.deepEqual(command!.popup.scenarios, ["C-01"]);
+    assert.deepEqual(command!.popup.commands, ["C-01"]);
     assert.equal(command!.popup.entry?.meaning, "出荷を指示するの説明。");
     assert.deepEqual(policy!.crossing, { from: "c1", to: "c2" });
-    assert.deepEqual(policy!.popup.scenarios, []);
+    assert.deepEqual(policy!.popup.commands, []);
     // またぎは要素の crossing で持ち、ポップアップの項目には持たない
     assert.equal(policy!.popup.entry?.crossing, null);
 
     // 足す要素ありの版: アクターは JSON の文だけ。壊れた印は broken が null でないつながり
     const actor = detail.supporting.nodes[2]!;
     assert.equal(actor.label, "アクター n4");
-    assert.deepEqual(actor.popup, { entry: null, entryNote: null, intent: null, scenarioCount: null, scenarios: null, lookupNote: null });
+    assert.deepEqual(actor.popup, { entry: null, entryNote: null, intent: null, commandTargetCount: null, commands: null, lookupNote: null });
     assert.deepEqual(
       detail.supporting.edges.map((edge) => [edge.text, edge.broken]),
       [
@@ -294,10 +294,10 @@ test("実装との対応表が無いとき: 用語・意図の候補・起点の
     assert.equal(c2.popup.entry, null);
     assert.equal(c2.popup.entryNote, "用語と意味を引けない: 実装との対応表が無い");
     assert.equal(c2.popup.intent, null);
-    assert.equal(c2.popup.scenarioCount, null);
+    assert.equal(c2.popup.commandTargetCount, null);
     assert.equal(c2.popup.lookupNote, "意図の候補と属するシナリオの数を引けない: 実装との対応表が無い");
     const command = view.details[1]!.core.nodes[0]!;
-    assert.equal(command.popup.scenarios, null);
+    assert.equal(command.popup.commands, null);
     assert.equal(command.popup.lookupNote, "起点のシナリオを引けない: 実装との対応表が無い");
     // 地図そのものは出す
     assert.equal(command.label, "コマンド: 出荷を指示する");

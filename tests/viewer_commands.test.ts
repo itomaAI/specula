@@ -13,7 +13,7 @@ import { issueDisplayIds, issueGroupsOf, verificationView } from "../src/core/m5
 import { readRunOutputs } from "../src/lib/read_outputs.js";
 import type { RunReport } from "../src/types/run.js";
 import { checkRunOutputs } from "../src/viewer/check.js";
-import { buildScenarioDetails, buildScenarioList } from "../src/viewer/scenarios.js";
+import { buildCommandDetails, buildCommandList } from "../src/viewer/commands.js";
 import type { RunOutputs } from "../src/viewer/types.js";
 
 // 旗を 1 つ持つ関数（仕様になる）と、値が決まらない書き込みと外への作用がある関数（曖昧さで止まる）。cli.test と同じ。
@@ -51,7 +51,7 @@ const fs = new NodeFsAdapter();
 
 /** 一時ディレクトリでリポジトリにかけ、出力先と実行の報告を渡す。終わったら消す。 */
 async function withOutputs(body: (out: string, report: RunReport) => Promise<void>): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "specula-viewer-scenarios-"));
+  const root = await mkdtemp(join(tmpdir(), "specula-viewer-commands-"));
   try {
     await mkdir(join(root, "repo", "src"), { recursive: true });
     for (const [path, text] of Object.entries(REPO)) await writeFile(join(root, "repo", path), text, "utf8");
@@ -72,13 +72,13 @@ async function checkedOutputs(out: string): Promise<RunOutputs> {
   return outputs;
 }
 
-function rowOfKind<K extends RunReport["scenarios"][number]["kind"]>(
+function rowOfKind<K extends RunReport["commands"][number]["kind"]>(
   report: RunReport,
   kind: K,
-): Extract<RunReport["scenarios"][number], { kind: K }> {
-  const found = report.scenarios.find((s) => s.kind === kind);
+): Extract<RunReport["commands"][number], { kind: K }> {
+  const found = report.commands.find((s) => s.kind === kind);
   assert.ok(found, `${kind} のシナリオが無い`);
-  return found as Extract<RunReport["scenarios"][number], { kind: K }>;
+  return found as Extract<RunReport["commands"][number], { kind: K }>;
 }
 
 test("シナリオ一覧: すべてのシナリオが実行の報告の順に出て、件数の文が役割で変わる", async () => {
@@ -88,10 +88,10 @@ test("シナリオ一覧: すべてのシナリオが実行の報告の順に出
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
     const ambiguousTotal = Object.values(ambiguous.counts).reduce((sum, n) => sum + n, 0);
 
-    const pdm = buildScenarioList(outputs, "BUSINESS");
+    const pdm = buildCommandList(outputs, "BUSINESS");
     assert.deepEqual(
       pdm.rows.map((r) => [r.displayId, r.kind]),
-      report.scenarios.map((s) => [s.displayId, s.kind]),
+      report.commands.map((s) => [s.displayId, s.kind]),
     );
     const pdmCompleted = pdm.rows.find((r) => r.displayId === completed.displayId)!;
     assert.equal(pdmCompleted.kindText, "仕様になった");
@@ -105,7 +105,7 @@ test("シナリオ一覧: すべてのシナリオが実行の報告の順に出
     assert.equal(pdm.showContextColumn, report.system.boundedContextCount > 1);
     assert.ok(pdm.summary.inspectionScope[0]?.includes("シナリオどうしの矛盾は見ていない"));
 
-    const eng = buildScenarioList(outputs, "IMPLEMENTATION");
+    const eng = buildCommandList(outputs, "IMPLEMENTATION");
     assert.equal(eng.rows.find((r) => r.displayId === ambiguous.displayId)!.countText, `曖昧さ ${ambiguousTotal} 件`);
     assert.deepEqual(
       eng.summary.ambiguity.byKind?.map((k) => [k.kind, k.count]),
@@ -117,12 +117,12 @@ test("シナリオ一覧: すべてのシナリオが実行の報告の順に出
 test("BUSINESS の一覧と詳細の冒頭には、内部の識別子と所在が出ない", async () => {
   await withOutputs(async (out, report) => {
     const outputs = await checkedOutputs(out);
-    const list = buildScenarioList(outputs, "BUSINESS");
+    const list = buildCommandList(outputs, "BUSINESS");
     // 論点と検証の状態は SpecProjector の文そのもの（次のテストで同じことを確かめる）なので、ここでは冒頭だけを見る
-    const headers = buildScenarioDetails(outputs, "BUSINESS").map((detail) => ({ ...detail, verification: null, issueGroups: null, tabs: null }));
+    const headers = buildCommandDetails(outputs, "BUSINESS").map((detail) => ({ ...detail, verification: null, issueGroups: null, tabs: null }));
     const text = JSON.stringify({ list, headers });
-    for (const scenario of report.scenarios) {
-      assert.ok(!text.includes(scenario.scenarioId), `内部の識別子が出ている: ${scenario.scenarioId}`);
+    for (const commandTarget of report.commands) {
+      assert.ok(!text.includes(commandTarget.commandId), `内部の識別子が出ている: ${commandTarget.commandId}`);
     }
     assert.ok(!text.includes("src/a.ts") && !text.includes("src/g.ts"));
     assert.ok(list.rows.every((r) => r.inletLocations === null));
@@ -133,10 +133,10 @@ test("BUSINESS の一覧と詳細の冒頭には、内部の識別子と所在�
 test("IMPLEMENTATION では起点の所在を一覧と詳細に持つ", async () => {
   await withOutputs(async (out) => {
     const outputs = await checkedOutputs(out);
-    const list = buildScenarioList(outputs, "IMPLEMENTATION");
+    const list = buildCommandList(outputs, "IMPLEMENTATION");
     assert.ok(list.rows.every((r) => Array.isArray(r.inletLocations)));
     assert.ok(list.rows.some((r) => (r.inletLocations ?? []).some((l) => l.file.endsWith("src/a.ts"))));
-    assert.ok(buildScenarioDetails(outputs, "IMPLEMENTATION").every((d) => Array.isArray(d.inletLocations)));
+    assert.ok(buildCommandDetails(outputs, "IMPLEMENTATION").every((d) => Array.isArray(d.inletLocations)));
   });
 });
 
@@ -145,13 +145,13 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     const outputs = await checkedOutputs(out);
     const completed = rowOfKind(report, "COMPLETED");
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
-    const details = buildScenarioDetails(outputs, "BUSINESS");
+    const details = buildCommandDetails(outputs, "BUSINESS");
     assert.deepEqual(
       details.map((d) => d.displayId),
-      report.scenarios.map((s) => s.displayId),
+      report.commands.map((s) => s.displayId),
     );
 
-    const files = outputs.scenarios.find((s) => s.displayId === completed.displayId);
+    const files = outputs.commands.find((s) => s.displayId === completed.displayId);
     assert.ok(files?.kind === "COMPLETED" && files.spec.kind === "OK" && files.ledger.kind === "OK");
     const spec = files.spec.value;
     const ledger = files.ledger.value;
@@ -176,7 +176,7 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
     assert.equal(flow.nodes.length, 1 + spec.operations.reduce((sum, operation) => sum + operation.steps.length + 2, 0));
     assert.equal(flow.nodes[0]?.kind, "START");
     assert.equal(flow.layout.layers[0]?.length, 1);
-    const engDetail = buildScenarioDetails(outputs, "IMPLEMENTATION").find((d) => d.displayId === completed.displayId)!;
+    const engDetail = buildCommandDetails(outputs, "IMPLEMENTATION").find((d) => d.displayId === completed.displayId)!;
     const engSource = engDetail.tabs?.source;
     assert.ok(typeof engSource === "string" && engSource.length > 0);
     assert.ok(!/^\s*--\s*@source:/m.test(engSource));
@@ -196,17 +196,17 @@ test("詳細: 仕様になったシナリオは SpecProjector と同じ検証の
 test("辞書や対応表が無いときは、名前を「未生成」ではなく引けない理由で出す", async () => {
   await withOutputs(async (out, report) => {
     await rm(join(out, "glossary.json"));
-    const noGlossary = buildScenarioList(await checkedOutputs(out), "BUSINESS");
+    const noGlossary = buildCommandList(await checkedOutputs(out), "BUSINESS");
     for (const row of noGlossary.rows) {
       assert.equal(row.title, `${row.displayId}（名前を引けない: 辞書が無い）`);
       assert.equal(row.boundedContext, "（名前を引けない: 辞書が無い）");
     }
 
     await rm(join(out, "implementation_map.json"));
-    const noMap = buildScenarioList(await checkedOutputs(out), "IMPLEMENTATION");
+    const noMap = buildCommandList(await checkedOutputs(out), "IMPLEMENTATION");
     assert.deepEqual(
       noMap.rows.map((r) => r.title),
-      report.scenarios.map((s) => `${s.displayId}（名前を引けない: 実装との対応表が無い）`),
+      report.commands.map((s) => `${s.displayId}（名前を引けない: 実装との対応表が無い）`),
     );
     // 対応表が無ければ所在は空（IMPLEMENTATION でも推測で埋めない）
     assert.ok(noMap.rows.every((r) => Array.isArray(r.inletLocations) && r.inletLocations.length === 0));
@@ -217,7 +217,7 @@ test("事前条件を通っていない入力では例外を投げる", async ()
   await withOutputs(async (out) => {
     await rm(join(out, "run_report.json"));
     const outputs = await readRunOutputs(fs, out);
-    assert.throws(() => buildScenarioList(outputs, "BUSINESS"), /checkRunOutputs/);
-    assert.throws(() => buildScenarioDetails(outputs, "BUSINESS"), /checkRunOutputs/);
+    assert.throws(() => buildCommandList(outputs, "BUSINESS"), /checkRunOutputs/);
+    assert.throws(() => buildCommandDetails(outputs, "BUSINESS"), /checkRunOutputs/);
   });
 });

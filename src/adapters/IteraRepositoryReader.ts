@@ -1,12 +1,12 @@
-// リポジトリのディレクトリを Itera OS の VFS から読み、ScenarioExtractor に渡す RepositoryArtifacts を作る（Itera OS の入口用。全体設計 4.1）。
+// リポジトリのディレクトリを Itera OS の VFS から読み、CommandExtractor に渡す RepositoryArtifacts を作る（Itera OS の入口用。全体設計 4.1）。
 // NodeRepositoryReader と同じ規則で集める（拡張子・仕様の資料・読まないディレクトリ・相対パス・辞書順）。
 //
 // - FileSystemPort はファイルとディレクトリを区別できないので、読む口は狭い RepositorySource として受ける。
 //   起動アプリが MetaOS.fs から作って渡す（isDirectory は `MetaOS.fs.stat(path).kind === "directory"`）。MetaOS は参照しない。
 // - list が名前を返すかパスを返すかは保証されていないので、名前にそろえる（IteraVfsAdapter と同じ）。
 
-import type { RepositoryArtifacts } from "../types/scenario.js";
-import { readTsconfig } from "../core/scenario_extractor.js";
+import type { RepositoryArtifacts } from "../types/command.js";
+import { readTsconfig } from "../core/command_extractor.js";
 import { REPOSITORY_EXTENSIONS, REPOSITORY_SKIPPED_DIRS } from "./NodeRepositoryReader.js";
 import { collectDocuments, documentKindOf } from "./repository_documents.js";
 

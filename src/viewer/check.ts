@@ -21,8 +21,8 @@ function basisOf(value: unknown): Basis | null {
 
 export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
   const problems: RunOutputsProblem[] = [];
-  const add = (reason: RunOutputsProblem["reason"], file: string, scenario: string | null, detail: string): void => {
-    problems.push({ reason, file, scenario, detail });
+  const add = (reason: RunOutputsProblem["reason"], file: string, commandTarget: string | null, detail: string): void => {
+    problems.push({ reason, file, commandTarget, detail });
   };
 
   // 実行の報告は必須（仕様 2.1）。basis の基準にする。
@@ -64,26 +64,26 @@ export function checkRunOutputs(outputs: RunOutputs): RunOutputsCheck {
   }
 
   // シナリオのファイル。同じ実行の書き出しなら、シナリオの kind から決まるファイルは必ずある（設計 6.1）。
-  for (const scenario of outputs.scenarios) {
+  for (const commandTarget of outputs.commands) {
     const files: Array<[string, FileRead<unknown>]> =
-      scenario.kind === "COMPLETED"
+      commandTarget.kind === "COMPLETED"
         ? [
-            ["spec.json", scenario.spec],
-            ["spec.md", scenario.document],
-            ["matrix.md", scenario.matrix],
-            ["flow.mmd", scenario.flow],
-            ["spec.als", scenario.source],
-            ["ledger.json", scenario.ledger],
+            ["spec.json", commandTarget.spec],
+            ["spec.md", commandTarget.document],
+            ["matrix.md", commandTarget.matrix],
+            ["flow.mmd", commandTarget.flow],
+            ["spec.als", commandTarget.source],
+            ["ledger.json", commandTarget.ledger],
           ]
-        : scenario.kind === "AMBIGUOUS"
-          ? [["ambiguity.json", scenario.ambiguity]]
+        : commandTarget.kind === "AMBIGUOUS"
+          ? [["ambiguity.json", commandTarget.ambiguity]]
           : [];
     for (const [file, read] of files) {
       // INVALID になるのは JSON のファイルだけ（readRunOutputs は文字列のファイルをパースしない）。
       if (read.kind === "MISSING") {
-        add("SCENARIO_FILE_MISSING", file, scenario.displayId, "実行の報告にあるシナリオのファイルが無い。");
+        add("COMMAND_FILE_MISSING", file, commandTarget.displayId, "実行の報告にあるシナリオのファイルが無い。");
       } else if (read.kind === "INVALID") {
-        add("INVALID_JSON", file, scenario.displayId, read.reason);
+        add("INVALID_JSON", file, commandTarget.displayId, read.reason);
       }
     }
   }

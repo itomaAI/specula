@@ -41,7 +41,7 @@ export interface LedgerOption {
 }
 
 export interface LedgerIssue {
-  /** "LEDGER-<scenarioId>-001" */
+  /** "LEDGER-<commandId>-001" */
   id: string;
   /** 本体の反例の種類。 */
   kind: FindingKind;
@@ -69,7 +69,7 @@ export interface LedgerIssue {
 }
 
 export interface DomainLedgerCatalog {
-  scenarioId: string;
+  commandId: string;
   basis: {
     reportId: string;
     /** 元にした形式仕様正本のソースの SHA-256。いまの正本と違えば、このカタログは古い。 */
@@ -97,11 +97,11 @@ export const ROOT_PRIORITY: readonly FindingKind[] = [
 /** M3 の報告と M2 の形式仕様の組が契約を破っている。オーケストレーターは「M4 で止まった」と理由付きで残す。 */
 export class LedgerContractError extends Error {
   constructor(
-    readonly scenarioId: string,
-    readonly reason: "SCENARIO_MISMATCH" | "SPEC_HASH_MISMATCH" | "UNKNOWN_OPERATION" | "UNKNOWN_STATE_VARIABLE",
+    readonly commandId: string,
+    readonly reason: "COMMAND_MISMATCH" | "SPEC_HASH_MISMATCH" | "UNKNOWN_OPERATION" | "UNKNOWN_STATE_VARIABLE",
     readonly detail: string,
   ) {
-    super(`M4 の入力の契約が破れている（${scenarioId}）: ${reason}: ${detail}`);
+    super(`M4 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "LedgerContractError";
   }
 }

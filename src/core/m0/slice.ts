@@ -1,4 +1,4 @@
-// Stage 4: ScenarioSlicerResolver（ScenarioExtractor の設計 3.4）。
+// Stage 4: CommandSlicerResolver（CommandExtractor の設計 3.4）。
 // 全体マップから、コマンドかポリシーを起点にしたシナリオを切り出す。LLM を使わない（意図の候補は IntentSynthesizer が作る）。
 //
 // 決めたこと（初回）:
@@ -15,11 +15,11 @@ import type {
   Actor,
   Command,
   EventStormingMap,
-  ScenarioSelection,
-  ScenarioTarget,
+  CommandSelection,
+  CommandTarget,
   SliceResult,
   SourceLocation,
-} from "../../types/scenario.js";
+} from "../../types/command.js";
 import { compareIds } from "./boundary.js";
 
 interface Inlet {
@@ -38,7 +38,7 @@ interface Draft {
   readModelId?: string;
 }
 
-export function slice(map: EventStormingMap, selection: ScenarioSelection | undefined): SliceResult {
+export function slice(map: EventStormingMap, selection: CommandSelection | undefined): SliceResult {
   const inlets = inletsOf(map);
   const findInlet = (ref: string): Inlet | undefined =>
     inlets.find((inlet) => inlet.id === ref || `${inlet.handler.file}#${inlet.handler.symbol}` === ref);
@@ -95,14 +95,14 @@ export function slice(map: EventStormingMap, selection: ScenarioSelection | unde
 
   // ---- 組み立て（識別子の辞書順）----
   const drafts = [...userDrafts, ...extractedDrafts]
-    .map((draft) => ({ draft, id: scenarioIdOf(draft.inlet, draft.eventId) }))
+    .map((draft) => ({ draft, id: commandIdOf(draft.inlet, draft.eventId) }))
     .sort((a, b) => compareIds(a.id, b.id));
 
-  const scenarios: ScenarioTarget[] = [];
+  const commands: CommandTarget[] = [];
   for (const { draft, id } of drafts) {
     const actor = actorOf(map, draft.inlet.command.actorId);
     const model = draft.readModelId === undefined ? undefined : map.readModels.find((m) => m.id === draft.readModelId);
-    scenarios.push({
+    commands.push({
       id,
       boundedContext: draft.inlet.command.contextId,
       origin: draft.origin,
@@ -124,7 +124,7 @@ export function slice(map: EventStormingMap, selection: ScenarioSelection | unde
     });
   }
 
-  return { scenarios, rejected };
+  return { commands, rejected };
 }
 
 function inletsOf(map: EventStormingMap): Inlet[] {
@@ -142,8 +142,8 @@ function inletsOf(map: EventStormingMap): Inlet[] {
   return inlets.sort((a, b) => compareIds(a.id, b.id));
 }
 
-function scenarioIdOf(inlet: Inlet, eventId: string): string {
-  return inlet.command.eventIds.length === 1 ? `SCN-${inlet.id}` : `SCN-${inlet.id}-${eventId}`;
+function commandIdOf(inlet: Inlet, eventId: string): string {
+  return inlet.command.eventIds.length === 1 ? `CT-${inlet.id}` : `CT-${inlet.id}-${eventId}`;
 }
 
 function actorOf(map: EventStormingMap, actorId: string): Actor {

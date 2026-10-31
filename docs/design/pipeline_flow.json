@@ -17,7 +17,7 @@
         "分類": "データ型 (Data Type)",
         "内容": "RepositoryArtifacts.documents。README・docs/ の Markdown・スキーマ定義。1 ファイルと合計の大きさに上限があり、超えた分は記録して読まない"
       },
-      "markdown": "### データ型: 仕様の資料（`RepositoryArtifacts.documents`）\n\nGlossaryBuilder が節に分けて用語の手がかりにし、IntentSynthesizer は GlossaryBuilder が選んだ節だけを使う。ScenarioExtractor は読まない（構造の判断は言葉の意味に頼らない）。"
+      "markdown": "### データ型: 仕様の資料（`RepositoryArtifacts.documents`）\n\nGlossaryBuilder が節に分けて用語の手がかりにし、IntentSynthesizer は GlossaryBuilder が選んだ節だけを使う。CommandExtractor は読まない（構造の判断は言葉の意味に頼らない）。"
     },
     {
       "id": "T_SRC",
@@ -54,9 +54,9 @@
       "markdown": "### データ型: 画面キャプチャ（任意）\n\nシナリオに画面があるときだけ、ContextExtractor が UI の事実を対応付けるために使う。"
     },
     {
-      "id": "M_SCN",
+      "id": "M_CT",
       "kind": "module",
-      "name": "ScenarioExtractor",
+      "name": "CommandExtractor",
       "category": "全体マップの作成とシナリオの切り出し",
       "in": "リポジトリの構造 / package.json / 画面のルート",
       "out": "EventStormingMap + SliceResult",
@@ -66,17 +66,17 @@
       "height": 84,
       "details": {
         "分類": "演算モジュール (Module)",
-        "公開関数": "discoverSystemContext と sliceScenarios",
+        "公開関数": "discoverSystemContext と sliceCommands",
         "LLM の担当": "なし（名前は GlossaryBuilder、意図の候補は IntentSynthesizer が作る）"
       },
-      "markdown": "### モジュール: `ScenarioExtractor`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）をコードから決定論的に作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。\n- 構造の判断は言葉の意味に頼らない。"
+      "markdown": "### モジュール: `CommandExtractor`\n\n- 全体マップ（Bounded Context・コマンド・ドメインイベント・ポリシー）をコードから決定論的に作る。\n- コマンドまたはポリシーを起点に、期待イベント 1 つごとにシナリオを切り出す。\n- 構造の判断は言葉の意味に頼らない。"
     },
     {
       "id": "T_TGT",
       "kind": "type",
-      "name": "ScenarioTarget",
+      "name": "CommandTarget",
       "category": "個別シナリオ",
-      "in": "ScenarioExtractor",
+      "in": "CommandExtractor",
       "out": "ContextExtractor・IntentSynthesizer・SpecProjector",
       "x": 260,
       "y": 160,
@@ -86,14 +86,14 @@
         "分類": "データ型 (Data Type)",
         "内容": "起点（inletTrigger）、アクター、readModel（画面があるときだけ）、期待イベント 1 つ、出どころ（origin）"
       },
-      "markdown": "### データ型: `ScenarioTarget`\n\n起点と期待イベントを 1 つずつ持つシナリオ。SpecProjector は、起点の辞書の項目を引いて仕様書の題を作る。"
+      "markdown": "### データ型: `CommandTarget`\n\n起点と期待イベントを 1 つずつ持つシナリオ。SpecProjector は、起点の辞書の項目を引いて仕様書の題を作る。"
     },
     {
       "id": "M_EXT",
       "kind": "module",
       "name": "ContextExtractor",
       "category": "起点からの事実の抽出",
-      "in": "ScenarioTarget + SourceArtifacts（+ 画面キャプチャ）",
+      "in": "CommandTarget + SourceArtifacts（+ 画面キャプチャ）",
       "out": "RawContextModel",
       "x": 490,
       "y": 160,
@@ -216,7 +216,7 @@
       "kind": "type",
       "name": "EventStormingMap",
       "category": "システム全体のマップ",
-      "in": "ScenarioExtractor",
+      "in": "CommandExtractor",
       "out": "GlossaryBuilder・IntentSynthesizer・SpecProjector（全体の俯瞰図）",
       "x": 30,
       "y": 300,
@@ -226,7 +226,7 @@
         "分類": "データ型 (Data Type)",
         "内容": "Bounded Context・コマンド・ドメインイベント・ポリシー・readModel・アクター。名前と意図は持たない"
       },
-      "markdown": "### データ型: `EventStormingMap`\n\nScenarioExtractor が作る全体マップ。GlossaryBuilder が用語を付け、SpecProjector が全体の俯瞰図を作るときにも使う。"
+      "markdown": "### データ型: `EventStormingMap`\n\nCommandExtractor が作る全体マップ。GlossaryBuilder が用語を付け、SpecProjector が全体の俯瞰図を作るときにも使う。"
     },
     {
       "id": "M_GLOS",
@@ -387,8 +387,8 @@
     }
   ],
   "edges": [
-    { "from": "M_SCN", "to": "T_TGT" },
-    { "from": "M_SCN", "to": "T_MAP" },
+    { "from": "M_CT", "to": "T_TGT" },
+    { "from": "M_CT", "to": "T_MAP" },
     { "from": "T_TGT", "to": "M_EXT" },
     { "from": "T_SRC", "to": "M_EXT" },
     { "from": "T_VIS", "to": "M_EXT" },

@@ -7,7 +7,7 @@
 import { statusMark } from "../core/m5/labels.js";
 import type { Glossary, GlossaryEntry, PresentedEntryKind } from "../types/glossary.js";
 import type { ImplementationMap, ViewRole } from "../types/projection.js";
-import { labelOfEntry, sourcesOf } from "./scenarios.js";
+import { labelOfEntry, sourcesOf } from "./commands.js";
 import type {
   GlossaryContextSectionView,
   GlossaryEntryView,

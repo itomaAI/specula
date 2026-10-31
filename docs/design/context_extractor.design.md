@@ -11,18 +11,18 @@
 - **Zero-I/O Core の遵守**: 本モジュールは `node:fs` や `window.MetaOS.fs` を直接インポートしてはならない。ソースは `FileSystemPort` から読み取り専用で取得する（追跡で必要になったファイルだけを読む）。
 - **依存方向の一方向性**: 本モジュールは `src/ports/` のインターフェースのみに依存し、`src/adapters/` の具象環境実装を一切参照しない。
 - **LLM を使わない**: 事実の抽出はすべて AST から決定論的に行う。
-- **パス**: `ScenarioTarget` のパスはリポジトリのルートからの相対パスである。本モジュールはこの相対パスをそのまま `FileSystemPort` に渡す。ルートを付け足すのは呼び出し元の責任とし、ポートだけを使う小さな包み `withRoot(fs, root)`（`src/lib/rooted_file_system.ts`）を用意する。
+- **パス**: `CommandTarget` のパスはリポジトリのルートからの相対パスである。本モジュールはこの相対パスをそのまま `FileSystemPort` に渡す。ルートを付け足すのは呼び出し元の責任とし、ポートだけを使う小さな包み `withRoot(fs, root)`（`src/lib/rooted_file_system.ts`）を用意する。
 
 ### 1.2 公開する関数
 ```typescript
-extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<RawContextModel>;
+extractContext(target: CommandTarget, deps: { fs: FileSystemPort }): Promise<RawContextModel>;
 ```
 
 ### 1.3 構成
 起点から呼び出しをたどる `CallTracer` が中心にあり、たどり着いたファイルにだけ各層のアナライザーをかける。初回の実装で作ったのは CallTracer・LogicAnalyzer（API を除く）・SliceBuilder（因果接続を除く）である。作っていない部分は `RawContextModel.coverage` に理由つきで残す（2.6）。
 
 ```
-[ScenarioTarget.inletTrigger.handler]
+[CommandTarget.inletTrigger.handler]
               │
               ▼
       [CallTracer]  ── 呼び出しをたどる（import を解決）
@@ -55,7 +55,7 @@ extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<Ra
 
 ## 2. 各部の詳細設計 (Detailed Design)
 
-構文解析はすべて `@babel/parser`（Plugins: `typescript`, `jsx`）で行う。外部バイナリやネイティブCLIを使わず、Node.js と Itera OS で同じに動く。AST の基本的な道具（子の列挙、識別子の名前、呼び出しの分類）は ScenarioExtractor のもの（`src/core/m0/ast.ts`・`signals.ts`）を使う。同じ規則を 2 か所に書かないためである。
+構文解析はすべて `@babel/parser`（Plugins: `typescript`, `jsx`）で行う。外部バイナリやネイティブCLIを使わず、Node.js と Itera OS で同じに動く。AST の基本的な道具（子の列挙、識別子の名前、呼び出しの分類）は CommandExtractor のもの（`src/core/m0/ast.ts`・`signals.ts`）を使う。同じ規則を 2 か所に書かないためである。
 
 ### 2.1 CallTracer（呼び出しの追跡）
 - **読み込み**: 追跡でたどり着いたファイルだけを `fs.read` で読み、パースした結果をその実行の中で使い回す。パースに失敗したら `SyntaxExtractionError`（ファイル・行・列・原因）を投げる。
@@ -67,7 +67,7 @@ extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<Ra
   - 見つからないときは `InletNotFoundError` を投げる。別の関数を起点にしない。
 - **たどる呼び出し**: 関数本体の呼び出し式のうち、呼び出し先を AST から関数の定義まで決められるものをたどり、`CALL` のユニットを作る。
   - 同じファイルで定義された関数。
-  - 相対パスの `import` で取り込んだ関数（再公開と名前空間の import を含む）。相対パスは ScenarioExtractor の解決と同じ候補の順（`.ts`・`.tsx`・`.js`・`.jsx` など）で `fs.exists` を確かめて決める。
+  - 相対パスの `import` で取り込んだ関数（再公開と名前空間の import を含む）。相対パスは CommandExtractor の解決と同じ候補の順（`.ts`・`.tsx`・`.js`・`.jsx` など）で `fs.exists` を確かめて決める。
 - **たどらない呼び出し**: 次は `EXTERNAL_CALL` として所在と理由（`details.reason`）を記録し、中へは入らない。追跡しなかった呼び出しは、すべてこのどれかになる。
 
 | 理由 | 対象 |
@@ -80,7 +80,7 @@ extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<Ra
 
 - **入れ子の関数には入らない**: コールバックなどとして渡された関数の中はたどらない。その関数を受け取った呼び出しが `EXTERNAL_CALL` として残り、`args` に関数の原文が入るので、FormalTranspiler はそれを手がかりに扱いを決められる。入れ子の関数の中の書き込みが、実行されるか分からないまま経路に入るのを避けるためである。
 - **再帰と重複**: 関数は `<ファイル>#<関数名>` で識別する。いま追跡している関数の並び（呼び出しの積み重ね）に同じ関数があれば、その場で `RECURSION` として記録して止まる。追跡した関数は 1 度だけ解析し、その要約（3.3）を使い回す。
-- **非同期境界**: イベントの発行（`emit`・`dispatch`・`publish` など）を ScenarioExtractor と同じ規則（`classifyCall`）で見つけたら、`ASYNC_CUT` として記録し、受け手の処理へは入らない。初回の実装では `ASYNC_CUT` を出口にせず、経路の途中のユニットとして残す。メッセージキューや DB イベントトリガーの発火点の判定は、TriggerAnalyzer と合わせて後で足す。
+- **非同期境界**: イベントの発行（`emit`・`dispatch`・`publish` など）を CommandExtractor と同じ規則（`classifyCall`）で見つけたら、`ASYNC_CUT` として記録し、受け手の処理へは入らない。初回の実装では `ASYNC_CUT` を出口にせず、経路の途中のユニットとして残す。メッセージキューや DB イベントトリガーの発火点の判定は、TriggerAnalyzer と合わせて後で足す。
 
 ### 2.2 UIAnalyzer (フロントエンド構文・視覚解析)
 初回の実装では作っていない（2.6）。次の設計は、作るときの方針として残す。
@@ -102,7 +102,7 @@ CallTracer がたどった各関数に対して動く。画面を持たないシ
 - **分岐 (`BRANCH_CONDITION`)**: `if`・`switch` の各 `case`・ループ（`while`・`for`・`for…of`・`for…in`）・`try`/`catch`。条件の式は原文のまま持つ（意味づけしない）。式の中の短絡評価（`a && f()`）と三項演算子は、初回の実装では分岐として分けない。
 - **出口**: `return`（`RETURN`）と `throw`（`THROW`）。関数の終わりまで来た経路には、関数の閉じかっこの位置に暗黙の `RETURN`（`details.implicit: true`）を置く。呼び出し先の関数の `throw` で、呼び出し元が `catch` しないものは、起点の出口として扱う。
 - **API**: ルート定義（`app.get`, `app.post`, `httpsCallable`, Next.js route handlers）からHTTPメソッドとパスを `API_ENDPOINT` として抽出し、リクエストバリデーション（zod, Joi, 型定義）から入力パラメータを抽出する。初回の実装では作っていない（2.6）。
-- **データ変更 (`DATA_MUTATION`)**: ORM メソッド、Firestore SDK 操作など。ScenarioExtractor と同じ規則（`classifyCall`）で見つける。
+- **データ変更 (`DATA_MUTATION`)**: ORM メソッド、Firestore SDK 操作など。CommandExtractor と同じ規則（`classifyCall`）で見つける。
 
 ### 2.4 TriggerAnalyzer (非同期バッチ・イベントトリガー解析)
 初回の実装では作っていない（2.6）。
@@ -167,7 +167,7 @@ UI 側の API 呼び出しと処理側のエンドポイントパスを突合し
 ### 3.5 決定論的な並び
 - ユニットはファイル → 行 → 列 → 種類の順に並べる。識別子は所在から作る（`<ファイル>:<行>:<列>:<種類>`）。メソッドの呼び出しの所在はプロパティの名前の位置にする。`a.b().c()` の 2 つの呼び出しの識別子が重ならないためである。
 - スライスは出口のユニットの並びの順に並べる。
-- スライスの識別子は `<scenarioId>#<呼び出しのユニットの識別子>>…><出口のユニットの識別子>` である。呼ばれた関数の `throw` が出口になるときは、起点から出口までの `CALL` の識別子を `>` でつなぐ。同じ出口に別の呼び出しから至るとき、識別子が重ならないためである。それでも重なったときは、後のものに `~2` から番号を付ける。
+- スライスの識別子は `<commandId>#<呼び出しのユニットの識別子>>…><出口のユニットの識別子>` である。呼ばれた関数の `throw` が出口になるときは、起点から出口までの `CALL` の識別子を `>` でつなぐ。同じ出口に別の呼び出しから至るとき、識別子が重ならないためである。それでも重なったときは、後のものに `~2` から番号を付ける。
 - 同じ入力からは、同じ `RawContextModel` が出る。
 
 ### 3.6 エラーハンドリング
@@ -198,7 +198,7 @@ interface ExtractionUnit {
 }
 
 interface UseCaseSlice {
-  sliceId: string;                 // "<scenarioId>#<呼び出しのユニットの識別子>>…><出口のユニットの識別子>"
+  sliceId: string;                 // "<commandId>#<呼び出しのユニットの識別子>>…><出口のユニットの識別子>"
   conditions: Array<{ unitId: string; expression: string; holds: boolean }>;
   outlet: { unitId: string; kind: "RETURN" | "THROW" | "RESPONSE" | "ASYNC_CUT" };
   writes: string[];                // この経路で通る STATE_WRITE と DATA_MUTATION の識別子（経路の順）
@@ -206,7 +206,7 @@ interface UseCaseSlice {
 }
 
 interface RawContextModel {
-  scenarioId: string;
+  commandId: string;
   inlet: {
     kind: "COMMAND" | "POLICY";
     handler: { file: string; symbol: string; line: number }; // 追跡を始めた関数（POLICY ではリスナーとして渡された関数）
@@ -236,7 +236,7 @@ interface RawContextModel {
 | `EXTERNAL_CALL`・`RECURSION` | `callee`・`args`・`receiver`（`CALL` と同じ）、`reason`: たどらなかった理由（2.1 の表。`RECURSION` は `"RECURSION"`） |
 | `DATA_MUTATION`・`ASYNC_CUT` | `callee`・`args`・`receiver`（`CALL` と同じ） |
 
-- 既存の型からの変更: `intent` を外した（当時は `ScenarioTarget` が持った。2026-10-30 からは `IntentSynthesizer` の出力が持つ）。`entryPoint` を `inlet` にした（起点の所在を持つ）。`UseCaseSlice` の `precondition`・`outcome`（文字列）を、条件の一覧と出口に分けた。`isAsyncCutEnforced` は `ASYNC_CUT` のユニットで表すので外した。
+- 既存の型からの変更: `intent` を外した（当時は `CommandTarget` が持った。2026-10-30 からは `IntentSynthesizer` の出力が持つ）。`entryPoint` を `inlet` にした（起点の所在を持つ）。`UseCaseSlice` の `precondition`・`outcome`（文字列）を、条件の一覧と出口に分けた。`isAsyncCutEnforced` は `ASYNC_CUT` のユニットで表すので外した。
 - 初回の実装での変更: 種類に `CALL` を足した（`unitIds` の「呼び出し」に当たる種類が一覧に無かったため）。`unresolved` の各項目に `unitId` を足した。`coverage` を足した（2.6）。スライスの識別子の形を変えた（3.5）。
 
 ---

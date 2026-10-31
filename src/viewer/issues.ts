@@ -8,8 +8,8 @@ import { statusMark } from "../core/m5/labels.js";
 import { AMBIGUITY_KIND_TEXT } from "../core/m5/render_ambiguities.js";
 import { issueDisplayIds, issueGroupsOf, llmText } from "../core/m5/view_model.js";
 import type { ViewRole } from "../types/projection.js";
-import { ambiguityCountText, ambiguityTotal, scenarioTitleOf, sourcesOf, valueOf } from "./scenarios.js";
-import type { AmbiguityItemView, IssueListView, RunOutputs, ScenarioAmbiguitiesView, ScenarioIssuesView } from "./types.js";
+import { ambiguityCountText, ambiguityTotal, commandTitleOf, sourcesOf, valueOf } from "./commands.js";
+import type { AmbiguityItemView, IssueListView, RunOutputs, CommandAmbiguitiesView, CommandIssuesView } from "./types.js";
 
 function unread(displayId: string): Error {
   return new Error(`${displayId} のファイルが読めていない。先に checkRunOutputs を通してください。`);
@@ -18,12 +18,12 @@ function unread(displayId: string): Error {
 /** 仕様不備一覧（設計 3.3）。論点と曖昧さを、それぞれ実行の報告の順に並べる。途中で止まったシナリオは不備を持たない。 */
 export function buildIssueList(outputs: RunOutputs, viewRole: ViewRole): IssueListView {
   const sources = sourcesOf(outputs);
-  const scenarios: ScenarioIssuesView[] = [];
-  const ambiguities: ScenarioAmbiguitiesView[] = [];
+  const commands: CommandIssuesView[] = [];
+  const ambiguities: CommandAmbiguitiesView[] = [];
 
-  for (const row of sources.report.scenarios) {
+  for (const row of sources.report.commands) {
     if (row.kind === "STOPPED") continue;
-    const files = outputs.scenarios.find((s) => s.displayId === row.displayId);
+    const files = outputs.commands.find((s) => s.displayId === row.displayId);
 
     if (row.kind === "COMPLETED") {
       if (files?.kind !== "COMPLETED") throw unread(row.displayId);
@@ -40,9 +40,9 @@ export function buildIssueList(outputs: RunOutputs, viewRole: ViewRole): IssueLi
           .map((operation) => spec.operations.findIndex((candidate) => candidate.id === operation))
           .filter((index) => index >= 0);
       }
-      scenarios.push({
+      commands.push({
         displayId: row.displayId,
-        title: scenarioTitleOf(sources, row),
+        title: commandTitleOf(sources, row),
         issueCount: ledger.issues.length,
         groups: issueGroupsOf(spec, ledger, displayIds),
         operationRows,
@@ -56,7 +56,7 @@ export function buildIssueList(outputs: RunOutputs, viewRole: ViewRole): IssueLi
     const total = ambiguityTotal(row.counts);
     ambiguities.push({
       displayId: row.displayId,
-      title: scenarioTitleOf(sources, row),
+      title: commandTitleOf(sources, row),
       total,
       countText: ambiguityCountText(total, viewRole),
       // 並びと番号は SpecProjector の曖昧さの一覧と同じ（report.issues の並び。C-02-A-001 …）。
@@ -77,8 +77,8 @@ export function buildIssueList(outputs: RunOutputs, viewRole: ViewRole): IssueLi
   }
 
   return {
-    issueTotal: scenarios.reduce((sum, s) => sum + s.issueCount, 0),
-    scenarios,
+    issueTotal: commands.reduce((sum, s) => sum + s.issueCount, 0),
+    commands,
     ambiguityTotal: ambiguities.reduce((sum, a) => sum + a.total, 0),
     ambiguities,
   };

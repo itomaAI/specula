@@ -1,12 +1,12 @@
 // 1 回の実行の画面すべてのビューモデルを束ねる（SpecViewer 基本設計 1.2・6.11）。
-// 画面ごとの組み立ては scenarios.ts・issues.ts・glossary.ts・map.ts にあり、ここでは呼ぶだけで判定を足さない。
+// 画面ごとの組み立ては commands.ts・issues.ts・glossary.ts・map.ts にあり、ここでは呼ぶだけで判定を足さない。
 
 import type { ViewRole } from "../types/projection.js";
 import { checkRunOutputs } from "./check.js";
 import { buildGlossaryView } from "./glossary.js";
 import { buildIssueList } from "./issues.js";
 import { buildMapView } from "./map.js";
-import { buildScenarioDetails, buildScenarioList } from "./scenarios.js";
+import { buildCommandDetails, buildCommandList } from "./commands.js";
 import type { RunOutputs, RunView } from "./types.js";
 
 /**
@@ -17,13 +17,13 @@ import type { RunOutputs, RunView } from "./types.js";
 export function buildRunView(outputs: RunOutputs, viewRole: ViewRole): RunView {
   const check = checkRunOutputs(outputs);
   if (!check.ok) {
-    const where = check.problems.map((p) => `${p.reason} ${p.scenario === null ? "" : `${p.scenario}/`}${p.file}`);
+    const where = check.problems.map((p) => `${p.reason} ${p.commandTarget === null ? "" : `${p.commandTarget}/`}${p.file}`);
     throw new Error(`画面を作れない（事前条件の破れ）: ${where.join(", ")}`);
   }
   return {
     viewRole,
-    scenarioList: buildScenarioList(outputs, viewRole),
-    scenarioDetails: buildScenarioDetails(outputs, viewRole),
+    commandList: buildCommandList(outputs, viewRole),
+    commandDetails: buildCommandDetails(outputs, viewRole),
     issues: buildIssueList(outputs, viewRole),
     glossary: buildGlossaryView(outputs, viewRole),
     map: buildMapView(outputs, viewRole),

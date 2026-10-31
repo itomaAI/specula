@@ -1,13 +1,13 @@
-# ScenarioExtractor 基本設計書
+# CommandExtractor 基本設計書
 
-本設計書は、シナリオ同定モジュールの仕様書（`scenario_extractor.spec.md`）に規定されたイベントストーミング全体マップ構築および個別シナリオ切り出しを、全体基本設計書（`system_solution.design.md`）の規約に準拠して**どのように技術的・構造的に実現するか（How）**を定義する。
+本設計書は、シナリオ同定モジュールの仕様書（`command_extractor.spec.md`）に規定されたイベントストーミング全体マップ構築および個別シナリオ切り出しを、全体基本設計書（`system_solution.design.md`）の規約に準拠して**どのように技術的・構造的に実現するか（How）**を定義する。
 
 ---
 
 ## 1. アーキテクチャと基本制約
 
 ### 1.1 基本制約の遵守
-- **配置場所**: `specula/src/core/scenario_extractor.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
+- **配置場所**: `specula/src/core/command_extractor.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。
 - **Zero-I/O Core の遵守**:
   - 本モジュールはファイルシステム（`fs`）やネットワーク呼び出しを直接行わない。
   - 解析対象のリポジトリメタ情報（ファイル一覧、パッケージ定義、ソーステキスト等）は呼び出し元からインメモリデータ構造（または Port）経由で注入されて動作する純粋な計算・解析エンジンとする。
@@ -25,7 +25,7 @@
 
 ```typescript
 discoverSystemContext(repo: RepositoryArtifacts): EventStormingMap;
-sliceScenarios(map: EventStormingMap, selection?: ScenarioSelection): SliceResult;
+sliceCommands(map: EventStormingMap, selection?: CommandSelection): SliceResult;
 ```
 
 LLM を呼ばなくなったので、どちらも同期の関数にする（2026-10-30 に `deps.llm` を外し、`Promise` を返すのをやめた。呼び出し元の変更は実装の PR で行う）。
@@ -39,7 +39,7 @@ LLM を呼ばなくなったので、どちらも同期の関数にする（2026
 - **置く（分解）**: システム全体から Bounded Context（プロジェクト）を同定して全体マップを作り（Stage 1〜3）、全体マップから個別シナリオ（タスク）を切り出す（Stage 4）。
 - **畳む（集約）と移す（伝播）**: 検証と人間の合意の後に行う操作であり、2 回目以降の実行で前回の合意結果を入力として受け取って行う。初回の実行を対象とする現在の設計には含めない（全体仕様 1.5）。
 
-モジュール内部は以下の 4 つの独立したサブパイプラインで構成する。Stage 1〜3 が `discoverSystemContext`、Stage 4 が `sliceScenarios` である。
+モジュール内部は以下の 4 つの独立したサブパイプラインで構成する。Stage 1〜3 が `discoverSystemContext`、Stage 4 が `sliceCommands` である。
 
 ```
 [リポジトリ見取り図データ (Files, Package, Schemas)]
@@ -67,11 +67,11 @@ LLM を呼ばなくなったので、どちらも同期の関数にする（2026
                            │ EventStormingMap
                            ▼
 ┌────────────────────────────────────────────────────────┐
-│ Stage 4: ScenarioSlicerResolver (具象シナリオ生成)     │
+│ Stage 4: CommandSlicerResolver (具象シナリオ生成)     │
 │  - コマンド / ポリシーを起点とする因果スライスカット   │
 │  - 画面ファイルパス、画像参照のバインド                │
 │  - 利用者が定義したシナリオの照合と正規化              │
-│  ➔ 【出力 2: ScenarioTarget[]】                        │
+│  ➔ 【出力 2: CommandTarget[]】                        │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -123,14 +123,14 @@ LLM を呼ばなくなったので、どちらも同期の関数にする（2026
      - 対応するリスナーのコードが無いポリシーは作らない。
 - **出力**: **`EventStormingMap`**。
 
-### 3.4 Stage 4: ScenarioSlicerResolver (具象シナリオ生成)
-- **入力**: `EventStormingMap`、画面キャプチャ一覧、シナリオの選択（`ScenarioSelection`。存在する場合）。
+### 3.4 Stage 4: CommandSlicerResolver (具象シナリオ生成)
+- **入力**: `EventStormingMap`、画面キャプチャ一覧、シナリオの選択（`CommandSelection`。存在する場合）。
 - **スライシングロジック**:
   1. **アトミック因果スライス**:
      - マップ上の各 **`Command`** または **`Policy`** を単一のエントリーポイント（Inlet）として切り出す。
      - 1 つのシナリオの期待イベントは 1 つである。起点のコマンドがイベントを複数発生させるときは、イベントごとに別のシナリオにする。ポリシーが起点のときは、ポリシーが起動するコマンドの発生させるイベントを期待イベントとし、同じく 1 イベントにつき 1 シナリオとする。
      - 紐づく Actor、Read Model（画面パス）、起点の所在（ハンドラのファイルと関数名）、期待イベントを 1 つのタプルとして結合する。
-     - シナリオの識別子は `SCN-<起点の識別子>` とする。起点が複数のシナリオに分かれるときだけ、`SCN-<起点の識別子>-<イベントの識別子>` とする。この識別子は実装の所在を含むので、利用者向けの表示には出さない（表示の id は全体基本設計書で定める）。
+     - シナリオの識別子は `CT-<起点の識別子>` とする。起点が複数のシナリオに分かれるときだけ、`CT-<起点の識別子>-<イベントの識別子>` とする。この識別子は実装の所在を含むので、利用者向けの表示には出さない（表示の id は全体基本設計書で定める）。
   2. **具象パスの解決 (Path Resolver)**:
      - 画面ルート（例: `/mypage`）から実際のソースコードファイルパス（例: `src/app/(dashboard)/mypage/page.tsx`）および画面画像パスを確定。
   3. **絞り込みと利用者定義のシナリオ**:
@@ -138,13 +138,13 @@ LLM を呼ばなくなったので、どちらも同期の関数にする（2026
      - `selection.filter` があれば、それに合うシナリオだけを出力する。
      - `selection.userDefined` の各シナリオは、起点が全体マップにあることを確かめてから正規化し、`origin: 'USER_DEFINED'` で出力する。起点が全体マップに無いときは、そのシナリオを出力せず、`rejected` に理由を付けて返す。
      - 抽出したシナリオは `origin: 'EXTRACTED'`。同じ起点のシナリオが両方にあるときは、利用者が定義したものを残す。
-- **出力**: **`SliceResult`**（`ScenarioTarget[]` と、受け付けなかった利用者定義のシナリオ）。
+- **出力**: **`SliceResult`**（`CommandTarget[]` と、受け付けなかった利用者定義のシナリオ）。
 
 ---
 
 ## 4. データ構造と保持形式 (Data Persistence Model)
 
-本モジュールの出力に、LLM が作る文字列（`LlmText`）は無い。型の正は `src/types/scenario.ts` である。
+本モジュールの出力に、LLM が作る文字列（`LlmText`）は無い。型の正は `src/types/command.ts` である。
 
 ### 4.0 入力 (`RepositoryArtifacts`)
 ```typescript
@@ -205,10 +205,10 @@ interface SourceLocation { file: string; symbol: string; line: number }
 - `signal` は、イベントのもとになったシグナルの、コードから機械的に決まる値である。`GlossaryBuilder` が名前を付けるときの手がかりと、資料の節を選ぶときの手がかりに使う。
 - `diagnostics` は、抽出の経過を報告に出すために持つ。構文の解析に失敗したファイルはマップに入れず、ここに記録して先へ進む。
 
-### 4.2 個別シナリオ保持形式 (`ScenarioTarget`)
+### 4.2 個別シナリオ保持形式 (`CommandTarget`)
 ```typescript
-interface ScenarioTarget {
-  id: string;                      // "SCN-<起点の識別子>"（起点が複数のシナリオに分かれるときは "-<イベントの識別子>" を足す）
+interface CommandTarget {
+  id: string;                      // "CT-<起点の識別子>"（起点が複数のシナリオに分かれるときは "-<イベントの識別子>" を足す）
   boundedContext: string;          // Bounded Context の識別子（例: "DEFAULT_CONTEXT"）
   origin: "EXTRACTED" | "USER_DEFINED";
   userIntent?: string;             // 利用者定義のシナリオで利用者が書いた目的
@@ -230,13 +230,13 @@ interface ScenarioTarget {
   expectedEvent: string;           // 期待イベントの識別子（1 シナリオに 1 つ）
 }
 
-interface ScenarioSelection {
+interface CommandSelection {
   filter?: { boundedContext?: string; inlets?: string[] };          // 起点の識別子か "ファイル#関数名"
   userDefined?: Array<{ inlet: string; intent?: string; route?: string }>; // inlet も同じ形
 }
 
 interface SliceResult {
-  scenarios: ScenarioTarget[];
+  commands: CommandTarget[];
   rejected: Array<{ inlet: string; reason: string }>; // 受け付けなかった利用者定義のシナリオと、その理由
 }
 ```
@@ -277,4 +277,4 @@ interface SliceResult {
    - リポジトリ構造が標準的でない場合でも例外でクラッシュさせず、単一 Bounded Context として最低限のシナリオスライスを成立させる。
    - ただし、見つからない要素（画面、ポリシー、実装に現れない役割）を決まった値で埋めることはフォールバックではない。見つからないものは「無い」と出力する。
 2. **決定論的正規化**:
-   - `EventStormingMap` の全配列、および `ScenarioTarget[]` のソート順は、IDの辞書順で安定ソートされ、何度実行しても同一の出力を保証する。
+   - `EventStormingMap` の全配列、および `CommandTarget[]` のソート順は、IDの辞書順で安定ソートされ、何度実行しても同一の出力を保証する。

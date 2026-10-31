@@ -4,7 +4,7 @@
 
 import type { FileSystemPort } from "../ports/FileSystemPort.js";
 import type { ExtractionCoverage, RawContextModel, UseCaseSlice } from "../types/context.js";
-import type { ScenarioTarget } from "../types/scenario.js";
+import type { CommandTarget } from "../types/command.js";
 import { locateInlet } from "./m1/locate.js";
 import { PathWalker } from "./m1/paths.js";
 import { SourceLoader } from "./m1/source_loader.js";
@@ -14,7 +14,7 @@ import { UnitCollector } from "./m1/units.js";
  * シナリオ 1 つの事実を抜き出す。
  * 失敗: 起点が無ければ InletNotFoundError、たどったファイルの構文が読めなければ SyntaxExtractionError（どちらも推測で続けない）。
  */
-export async function extractContext(target: ScenarioTarget, deps: { fs: FileSystemPort }): Promise<RawContextModel> {
+export async function extractContext(target: CommandTarget, deps: { fs: FileSystemPort }): Promise<RawContextModel> {
   const loader = new SourceLoader(deps.fs);
   const units = new UnitCollector();
   const inlet = await locateInlet(loader, target);
@@ -52,7 +52,7 @@ export async function extractContext(target: ScenarioTarget, deps: { fs: FileSys
     .map((unit) => ({ unitId: unit.id, location: { ...unit.location }, reason: String(unit.details?.["reason"] ?? "") }));
 
   const model: RawContextModel = {
-    scenarioId: target.id,
+    commandId: target.id,
     inlet: {
       kind: target.inletType,
       handler: { file: inlet.file.path, symbol: inlet.symbol, line: inlet.line },
@@ -67,7 +67,7 @@ export async function extractContext(target: ScenarioTarget, deps: { fs: FileSys
 }
 
 /** 初回の範囲で解析しなかった層（報告に出す）。 */
-function coverageOf(target: ScenarioTarget): ExtractionCoverage {
+function coverageOf(target: CommandTarget): ExtractionCoverage {
   return {
     analyzed: ["LOGIC"],
     notAnalyzed: [

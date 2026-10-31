@@ -5,13 +5,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { displayIdsOf, runPipeline } from "../src/core/orchestrator.js";
-import { discoverSystemContext, sliceScenarios } from "../src/core/scenario_extractor.js";
+import { discoverSystemContext, sliceCommands } from "../src/core/command_extractor.js";
 import { projectSystemMap } from "../src/core/spec_projector.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import type { LanguageModelPort } from "../src/ports/LanguageModelPort.js";
 import type { EngineInfo, SolverPort, SolverResponse } from "../src/ports/SolverPort.js";
 import type { SystemProjectionRequest } from "../src/types/projection.js";
-import type { RepositoryArtifacts } from "../src/types/scenario.js";
+import type { RepositoryArtifacts } from "../src/types/command.js";
 
 class MemoryFs implements FileSystemPort {
   constructor(
@@ -94,15 +94,15 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
 
   assert.equal(report.system.mode, "PUBLIC_FUNCTIONS");
   assert.equal(report.system.commandCount, 3);
-  assert.equal(report.slice.scenarioCount, 3);
+  assert.equal(report.slice.commandTargetCount, 3);
   assert.deepEqual(report.slice.rejected, []);
   assert.deepEqual(
-    report.scenarios.map((scenario) => scenario.kind),
+    report.commands.map((commandTarget) => commandTarget.kind),
     ["COMPLETED", "AMBIGUOUS", "STOPPED"],
-    JSON.stringify(report.scenarios),
+    JSON.stringify(report.commands),
   );
 
-  const [completed, ambiguous, stopped] = report.scenarios;
+  const [completed, ambiguous, stopped] = report.commands;
   assert.ok(completed?.kind === "COMPLETED");
   assert.equal(completed.outcome, "UNVERIFIED");
   assert.equal(completed.unverifiedReason, "NO_SOLVER");
@@ -125,10 +125,10 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
     verification: { FOUND: 0, NONE_FOUND_WITHIN_SCOPE: 0, UNVERIFIED: 1 },
   });
 
-  // シナリオの行の項目は ScenarioTarget の欄を写したもの（全体設計 2.1）。止まったシナリオも同じ欄を持つ。
-  const targets = sliceScenarios(discoverSystemContext(REPO)).scenarios;
+  // シナリオの行の項目は CommandTarget の欄を写したもの（全体設計 2.1）。止まったシナリオも同じ欄を持つ。
+  const targets = sliceCommands(discoverSystemContext(REPO)).commands;
   assert.deepEqual(
-    report.scenarios.map((scenario) => [scenario.scenarioId, scenario.inletType, scenario.actor, scenario.route, scenario.expectedEvent]),
+    report.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.inletType, commandTarget.actor, commandTarget.route, commandTarget.expectedEvent]),
     targets.map((target) => [
       target.id,
       target.inletType,
@@ -139,15 +139,15 @@ test("3 つのシナリオが、M5 まで進む・M2 で止まる・M1 で止ま
   );
   // 画面の無いライブラリなので、画面のルートはどれも null
   assert.deepEqual(
-    report.scenarios.map((scenario) => scenario.route),
+    report.commands.map((commandTarget) => commandTarget.route),
     [null, null, null],
   );
 
   // 検査の範囲: 未検証・曖昧さで止まった・途中で止まったのどれも、検証の結果を持たない
   assert.deepEqual(report.inspectionScope, {
-    unit: "PER_SCENARIO",
+    unit: "PER_COMMAND",
     invariantChecks: { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" },
-    scenariosWithoutVerification: ["C-01", "C-02", "C-03"],
+    commandsWithoutVerification: ["C-01", "C-02", "C-03"],
   });
 
   // 元にした入力は辞書の basis の写し（意図の候補・実装との対応表と同じ）
@@ -165,21 +165,21 @@ test("検査の範囲: 検証の結果を持つシナリオは、検証の結果
     },
   };
   const { report } = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver });
-  const [completed] = report.scenarios;
+  const [completed] = report.commands;
   assert.ok(completed?.kind === "COMPLETED");
   assert.notEqual(completed.outcome, "UNVERIFIED", JSON.stringify(completed));
-  assert.deepEqual(report.inspectionScope.scenariosWithoutVerification, ["C-02", "C-03"]);
+  assert.deepEqual(report.inspectionScope.commandsWithoutVerification, ["C-02", "C-03"]);
   assert.deepEqual(report.inspectionScope.invariantChecks, { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" });
 });
 
 test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナリオは 3 形式のビューを持つ", async () => {
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(
-    result.scenarios.map((scenario) => [scenario.scenarioId, scenario.kind]),
-    result.report.scenarios.map((scenario) => [scenario.scenarioId, scenario.kind]),
+    result.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.kind]),
+    result.report.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.kind]),
   );
 
-  const completed = result.scenarios[0];
+  const completed = result.commands[0];
   assert.ok(completed?.kind === "COMPLETED");
   assert.equal(completed.solverReport.status, "UNVERIFIED");
   assert.equal(completed.ledger.basis.reportId, completed.solverReport.reportId);
@@ -187,11 +187,11 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   assert.equal(completed.matrix.format, "MATRIX");
   assert.equal(completed.flow.format, "FLOW");
   for (const view of [completed.document, completed.matrix, completed.flow]) {
-    assert.equal(view.scenarioId, completed.scenarioId);
+    assert.equal(view.commandId, completed.commandId);
     assert.equal(view.basis.ledgerIsStale, false);
   }
 
-  const ambiguous = result.scenarios[1];
+  const ambiguous = result.commands[1];
   assert.ok(ambiguous?.kind === "AMBIGUOUS");
   assert.equal(ambiguous.ambiguity.issues.length, 3);
   assert.equal(ambiguous.view.format, "AMBIGUITY_DOCUMENT");
@@ -225,8 +225,8 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
   // 実装との対応表: シナリオは表示の id の順。曖昧さは止まったシナリオの分、状態変数と論点は最後まで進んだシナリオの分だけ。
   const entries = result.implementationMap.entries;
   assert.deepEqual(
-    entries.filter((entry) => entry.kind === "SCENARIO").map((entry) => [entry.displayId, entry.internalId]),
-    result.scenarios.map((scenario) => [scenario.displayId, scenario.scenarioId]),
+    entries.filter((entry) => entry.kind === "COMMAND_TARGET").map((entry) => [entry.displayId, entry.internalId]),
+    result.commands.map((commandTarget) => [commandTarget.displayId, commandTarget.commandId]),
   );
   assert.deepEqual(
     entries.filter((entry) => entry.kind === "AMBIGUITY").map((entry) => entry.displayId),
@@ -239,8 +239,8 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだシナ�
 
 test("意図の候補を 1 回だけ作り、すべての Bounded Context とシナリオに 1 つずつ載せ、報告に要約を書く", async () => {
   const unreachable = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
-  assert.deepEqual(unreachable.report.intents, { contextCount: 1, scenarioCount: 3, notGenerated: { UNREACHABLE: 4, INVALID_OUTPUT: 0 } });
-  for (const item of [...unreachable.intents.contexts, ...unreachable.intents.scenarios]) {
+  assert.deepEqual(unreachable.report.intents, { contextCount: 1, commandTargetCount: 3, notGenerated: { UNREACHABLE: 4, INVALID_OUTPUT: 0 } });
+  for (const item of [...unreachable.intents.contexts, ...unreachable.intents.commands]) {
     assert.equal(item.intentStatus, "NOT_GENERATED");
   }
 
@@ -257,13 +257,13 @@ test("意図の候補を 1 回だけ作り、すべての Bounded Context とシ
     },
   };
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: intentLlm, solver: null });
-  assert.deepEqual(result.report.intents, { contextCount: 1, scenarioCount: 3, notGenerated: { UNREACHABLE: 0, INVALID_OUTPUT: 0 } });
+  assert.deepEqual(result.report.intents, { contextCount: 1, commandTargetCount: 3, notGenerated: { UNREACHABLE: 0, INVALID_OUTPUT: 0 } });
   assert.deepEqual(result.intents.contexts.map((item) => item.contextId), ["DEFAULT_CONTEXT"]);
   assert.deepEqual(
-    result.intents.scenarios.map((item) => item.scenarioId),
-    result.report.scenarios.map((scenario) => scenario.scenarioId).sort(),
+    result.intents.commands.map((item) => item.commandId),
+    result.report.commands.map((commandTarget) => commandTarget.commandId).sort(),
   );
-  for (const item of [...result.intents.contexts, ...result.intents.scenarios]) {
+  for (const item of [...result.intents.contexts, ...result.intents.commands]) {
     assert.equal(item.intentStatus, "CANDIDATE");
     assert.equal(item.intent.status, "GENERATED");
   }
@@ -278,8 +278,8 @@ test("同じ入力から同じ報告とビューができる", async () => {
   assert.deepEqual(second.report, first.report);
   assert.equal(second.systemViews.mermaid.content, first.systemViews.mermaid.content);
   assert.deepEqual(second.systemViews.json, first.systemViews.json);
-  const a = first.scenarios[0];
-  const b = second.scenarios[0];
+  const a = first.commands[0];
+  const b = second.commands[0];
   assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");
   assert.equal(b.document.content, a.document.content);
 });
@@ -298,7 +298,7 @@ test("選択で起点を絞ると、そのシナリオだけを回す", async ()
     { selection: { filter: { inlets: ["src/g.ts#go"] } } },
   );
   assert.deepEqual(
-    result.report.scenarios.map((scenario) => scenario.kind),
+    result.report.commands.map((commandTarget) => commandTarget.kind),
     ["AMBIGUOUS"],
   );
   assert.equal(result.report.totals.ambiguous, 1);
@@ -307,29 +307,29 @@ test("選択で起点を絞ると、そのシナリオだけを回す", async ()
 test("表示の id を切り出しの順に C-01 … と振り、報告と成果物とビューに同じ id を載せる", async () => {
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(
-    result.report.scenarios.map((scenario) => scenario.displayId),
+    result.report.commands.map((commandTarget) => commandTarget.displayId),
     ["C-01", "C-02", "C-03"],
   );
   assert.deepEqual(
-    result.scenarios.map((scenario) => [scenario.scenarioId, scenario.displayId]),
-    result.report.scenarios.map((scenario) => [scenario.scenarioId, scenario.displayId]),
+    result.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.displayId]),
+    result.report.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.displayId]),
   );
 
-  const completed = result.scenarios[0];
+  const completed = result.commands[0];
   assert.ok(completed?.kind === "COMPLETED");
   for (const view of [completed.document, completed.matrix, completed.flow]) {
     assert.equal(view.displayId, "C-01");
     assert.equal(view.viewRole, "BUSINESS");
     assert.ok(view.content.includes("C-01"), view.format);
-    assert.ok(!view.content.includes(completed.scenarioId), view.format);
+    assert.ok(!view.content.includes(completed.commandId), view.format);
   }
 });
 
 test("既定の役割は BUSINESS で仕様書に付録が無く、IMPLEMENTATION を渡すと付録が付く", async () => {
   const pdm = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   const eng = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null }, { viewRole: "IMPLEMENTATION" });
-  const a = pdm.scenarios[0];
-  const b = eng.scenarios[0];
+  const a = pdm.commands[0];
+  const b = eng.commands[0];
   assert.ok(a?.kind === "COMPLETED" && b?.kind === "COMPLETED");
   assert.ok(!a.document.content.includes("## 付録"));
   assert.ok(b.document.content.includes("## 付録: 形式仕様のソース"));
@@ -344,7 +344,7 @@ test("選択で絞っても、表示の id は回したシナリオの中で C-0
     { fs: sourceFs(), llm: NO_LLM, solver: null },
     { selection: { filter: { inlets: ["src/g.ts#go"] } } },
   );
-  assert.deepEqual(result.report.scenarios.map((scenario) => scenario.displayId), ["C-01"]);
+  assert.deepEqual(result.report.commands.map((commandTarget) => commandTarget.displayId), ["C-01"]);
 });
 
 test("displayIdsOf: 2 桁を最小にし、100 件以上なら件数の桁にそろえる", () => {

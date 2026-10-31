@@ -135,7 +135,7 @@ export async function verifySpecification(
   );
   return {
     reportId,
-    scenarioId: spec.scenarioId,
+    commandId: spec.commandId,
     specSourceHash,
     status: stop === null ? "CHECKED" : "UNVERIFIED",
     reason: stop === null ? null : { kind: stop.reason, detail: stop.detail },

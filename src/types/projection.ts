@@ -4,10 +4,10 @@ import type { AmbiguityReport, FormalSpecification } from "./formal.js";
 import type { Glossary, GlossaryLocation } from "./glossary.js";
 import type { IntentCatalog } from "./intent.js";
 import type { DomainLedgerCatalog } from "./ledger.js";
-import type { ScenarioTarget } from "./scenario.js";
+import type { CommandTarget } from "./command.js";
 
 /** シナリオ 1 つのビューの形式。 */
-export type ScenarioViewFormat = "DOCUMENT" | "MATRIX" | "FLOW";
+export type CommandViewFormat = "DOCUMENT" | "MATRIX" | "FLOW";
 
 /** 全体の俯瞰図の形式。 */
 export type SystemViewFormat = "SYSTEM_MERMAID" | "SYSTEM_JSON";
@@ -21,7 +21,7 @@ export type SystemViewFormat = "SYSTEM_MERMAID" | "SYSTEM_JSON";
 export type ViewRole = "BUSINESS" | "IMPLEMENTATION";
 
 export interface ProjectionRequest {
-  format: ScenarioViewFormat;
+  format: CommandViewFormat;
   viewRole: ViewRole;
   /** シナリオの表示の id（"C-01"）。オーケストレーターが切り出しの順に振る。 */
   displayId: string;
@@ -52,7 +52,7 @@ export interface SystemProjectionRequest {
 /** シナリオの射影で、表示の用語と意図の候補を引くための入力（M5 の設計 5）。 */
 export interface ProjectionContext {
   /** 起点のコマンドまたはポリシーの、辞書の項目を引くため。 */
-  scenario: ScenarioTarget;
+  commandTarget: CommandTarget;
   /** null のときは、起点の用語を「名前は未生成」として表す（単体で呼んだときと試験のときだけ）。 */
   glossary: Glossary | null;
   /** null のときは「意図の候補が無い」と書く。 */
@@ -61,11 +61,11 @@ export interface ProjectionContext {
 
 export interface SpecificationView {
   /** 内部の識別子。出力の置き場所を決めるためだけに使い、content には出さない。全体の俯瞰図は null。 */
-  scenarioId: string | null;
+  commandId: string | null;
   /** 表示の id（"C-01"）。全体の俯瞰図は null。 */
   displayId: string | null;
   viewRole: ViewRole;
-  format: ScenarioViewFormat | "AMBIGUITY_DOCUMENT" | SystemViewFormat;
+  format: CommandViewFormat | "AMBIGUITY_DOCUMENT" | SystemViewFormat;
   mediaType: "text/markdown" | "text/vnd.mermaid" | "application/json";
   /** 改行は "\n"、末尾は改行 1 つ。 */
   content: string;
@@ -83,7 +83,7 @@ export interface SpecificationView {
 export interface ImplementationMapInput {
   /** シナリオの表示の id（"C-01"）。 */
   displayId: string;
-  scenario: ScenarioTarget;
+  commandTarget: CommandTarget;
   /** FormalTranspiler で止まったシナリオは null。 */
   spec: FormalSpecification | null;
   /** 曖昧さで止まったときだけある。 */
@@ -97,7 +97,7 @@ export type ImplementationMapEntryKind =
   | "COMMAND"
   | "EVENT"
   | "POLICY"
-  | "SCENARIO"
+  | "COMMAND_TARGET"
   | "AMBIGUITY"
   | "STATE_VARIABLE"
   | "LEDGER_ISSUE";
@@ -130,9 +130,9 @@ export interface ImplementationMap {
  */
 export class ProjectionContractError extends Error {
   constructor(
-    readonly scenarioId: string,
+    readonly commandId: string,
     readonly reason:
-      | "SCENARIO_MISMATCH"
+      | "COMMAND_MISMATCH"
       | "UNKNOWN_OPERATION"
       | "UNKNOWN_STATE_VARIABLE"
       // 表現形式が関数の受け付けるものでない。表示の役割が BUSINESS・IMPLEMENTATION のどちらでもないときも、この理由にする
@@ -143,7 +143,7 @@ export class ProjectionContractError extends Error {
       | "UNKNOWN_CONTEXT",
     readonly detail: string,
   ) {
-    super(`M5 の入力の契約が破れている（${scenarioId}）: ${reason}: ${detail}`);
+    super(`M5 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "ProjectionContractError";
   }
 }

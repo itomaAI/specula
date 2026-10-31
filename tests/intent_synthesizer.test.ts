@@ -1,5 +1,5 @@
 // IntentSynthesizer のテスト（IntentSynthesizer の設計 1.2・2・3、仕様 3）。
-// 全体マップとシナリオは ScenarioExtractor、辞書は GlossaryBuilder で小さな偽のリポジトリから作り、偽の LLM を渡す。
+// 全体マップとシナリオは CommandExtractor、辞書は GlossaryBuilder で小さな偽のリポジトリから作り、偽の LLM を渡す。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,12 +7,12 @@ import assert from "node:assert/strict";
 import { buildGlossary } from "../src/core/glossary_builder.js";
 import { EXCERPT_CHARS } from "../src/core/glossary/match.js";
 import { MAX_INTENT_CHARS, synthesizeIntents } from "../src/core/intent_synthesizer.js";
-import { discoverSystemContext, sliceScenarios } from "../src/core/scenario_extractor.js";
+import { discoverSystemContext, sliceCommands } from "../src/core/command_extractor.js";
 import type { LanguageModelPort, OutputCheck } from "../src/ports/LanguageModelPort.js";
 import type { JsonValue, LlmRequest, LlmText } from "../src/types/index.js";
 import type { Glossary } from "../src/types/glossary.js";
 import { IntentContractError } from "../src/types/intent.js";
-import type { RepositoryArtifacts, RepositoryDocument, ScenarioSelection } from "../src/types/scenario.js";
+import type { RepositoryArtifacts, RepositoryDocument, CommandSelection } from "../src/types/command.js";
 
 class FakeLlm implements LanguageModelPort {
   readonly calls: LlmRequest[] = [];
@@ -69,10 +69,10 @@ function repoOf(documents: RepositoryDocument[] = DOCUMENTS, files: Record<strin
   return { files: Object.entries(files).map(([path, text]) => ({ path, text })), documents, omittedDocuments: [] };
 }
 
-async function inputsOf(selection?: ScenarioSelection, llm: LanguageModelPort | undefined = undefined) {
+async function inputsOf(selection?: CommandSelection, llm: LanguageModelPort | undefined = undefined) {
   const repo = repoOf();
   const map = discoverSystemContext(repo);
-  const slice = sliceScenarios(map, selection);
+  const slice = sliceCommands(map, selection);
   const glossary = await buildGlossary(map, repo, { llm: termLlm() });
   return { repo, map, slice, glossary, llm };
 }
@@ -87,9 +87,9 @@ test("網羅: すべての Bounded Context とシナリオに 1 つずつ、id �
   const catalog = await synthesizeIntents(map, slice, glossary, repo, { llm: intentLlm() });
 
   assert.deepEqual(catalog.contexts.map((item) => item.contextId), map.boundedContexts.map((context) => context.id).sort());
-  assert.deepEqual(catalog.scenarios.map((item) => item.scenarioId), slice.scenarios.map((scenario) => scenario.id).sort());
-  assert.ok(slice.scenarios.length >= 2, JSON.stringify(slice.scenarios.map((scenario) => scenario.id)));
-  for (const item of [...catalog.contexts, ...catalog.scenarios]) {
+  assert.deepEqual(catalog.commands.map((item) => item.commandId), slice.commands.map((commandTarget) => commandTarget.id).sort());
+  assert.ok(slice.commands.length >= 2, JSON.stringify(slice.commands.map((commandTarget) => commandTarget.id)));
+  for (const item of [...catalog.contexts, ...catalog.commands]) {
     assert.equal(item.intentStatus, "CANDIDATE");
     assert.equal(item.intent.status, "GENERATED");
   }
@@ -99,7 +99,7 @@ test("網羅: すべての Bounded Context とシナリオに 1 つずつ、id �
 test("LLM が無ければ、すべて NOT_GENERATED（UNREACHABLE）。文で埋めない。確定の状態も NOT_GENERATED", async () => {
   const { repo, map, slice, glossary } = await inputsOf();
   const catalog = await synthesizeIntents(map, slice, glossary, repo, {});
-  for (const item of [...catalog.contexts, ...catalog.scenarios]) {
+  for (const item of [...catalog.contexts, ...catalog.commands]) {
     assert.deepEqual(item.intent, { status: "NOT_GENERATED", reason: "UNREACHABLE", detail: "LLM が渡されていない" });
     assert.equal(item.intentStatus, "NOT_GENERATED");
   }
@@ -109,12 +109,12 @@ test("確定の状態は欄ごとに決まる: 書けた欄は CANDIDATE、届�
   const { repo, map, slice, glossary } = await inputsOf();
   const llm = intentLlm((request) => (request.task === "intent.context" ? "利用者の登録を受け持つ。" : null));
   const catalog = await synthesizeIntents(map, slice, glossary, repo, { llm });
-  assert.ok(catalog.contexts.length > 0 && catalog.scenarios.length > 0);
+  assert.ok(catalog.contexts.length > 0 && catalog.commands.length > 0);
   for (const item of catalog.contexts) {
     assert.equal(item.intent.status, "GENERATED");
     assert.equal(item.intentStatus, "CANDIDATE");
   }
-  for (const item of catalog.scenarios) {
+  for (const item of catalog.commands) {
     assert.ok(item.intent.status === "NOT_GENERATED" && item.intent.reason === "UNREACHABLE");
     assert.equal(item.intentStatus, "NOT_GENERATED");
   }
@@ -127,36 +127,36 @@ test("呼ぶ順と処理の名前: Bounded Context、続いてシナリオ、そ
   const contextCalls = map.boundedContexts.length;
   assert.deepEqual(
     llm.calls.map((call) => call.task),
-    [...Array(contextCalls).fill("intent.context"), ...Array(slice.scenarios.length).fill("intent.scenario")],
+    [...Array(contextCalls).fill("intent.context"), ...Array(slice.commands.length).fill("intent.scenario")],
   );
   assert.ok(llm.calls.every((call) => call.promptVersion === "1"));
-  const scenarioInlets = llm.calls.slice(contextCalls).map((call) => inputOf(call)["inlet"]);
-  const expected = [...slice.scenarios]
+  const commandInlets = llm.calls.slice(contextCalls).map((call) => inputOf(call)["inlet"]);
+  const expected = [...slice.commands]
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-    .map((scenario) => ({ file: scenario.inletTrigger.handler.file, symbol: scenario.inletTrigger.handler.symbol }));
-  assert.deepEqual(scenarioInlets, expected);
+    .map((commandTarget) => ({ file: commandTarget.inletTrigger.handler.file, symbol: commandTarget.inletTrigger.handler.symbol }));
+  assert.deepEqual(commandInlets, expected);
 });
 
 test("手がかり: シナリオの抜粋は起点の項目の節を先に、期待イベントの項目の節を続け、重複を除いて最大 3 節", async () => {
   const { repo, map, slice, glossary } = await inputsOf();
   const llm = intentLlm();
   await synthesizeIntents(map, slice, glossary, repo, { llm });
-  const scenarioCalls = llm.calls.filter((call) => call.task === "intent.scenario");
-  const sorted = [...slice.scenarios].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  for (const [index, scenario] of sorted.entries()) {
-    const call = scenarioCalls[index];
+  const commandCalls = llm.calls.filter((call) => call.task === "intent.scenario");
+  const sorted = [...slice.commands].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const [index, commandTarget] of sorted.entries()) {
+    const call = commandCalls[index];
     assert.ok(call !== undefined);
-    const expected = [...new Set([...sourcesOf(glossary, scenario.inletTrigger.id), ...sourcesOf(glossary, scenario.expectedEvent)])].slice(0, 3);
-    assert.deepEqual(sectionsOf(call), expected, scenario.id);
+    const expected = [...new Set([...sourcesOf(glossary, commandTarget.inletTrigger.id), ...sourcesOf(glossary, commandTarget.expectedEvent)])].slice(0, 3);
+    assert.deepEqual(sectionsOf(call), expected, commandTarget.id);
     const input = inputOf(call);
-    assert.equal(input["inletType"], scenario.inletType);
-    assert.equal(input["actor"], scenario.actor.name);
+    assert.equal(input["inletType"], commandTarget.inletType);
+    assert.equal(input["actor"], commandTarget.actor.name);
     assert.equal(input["route"], null);
     const expectedEvent = input["expectedEvent"] as { signal: { kind: string } };
     assert.ok(["DB_MUTATION", "EVENT_EMIT", "PUBLIC_FUNCTION"].includes(expectedEvent.signal.kind));
   }
   // register の起点は README と docs/register.md の節を選んでいる（抜粋がある場合を通す）。
-  assert.ok(scenarioCalls.some((call) => sectionsOf(call).includes("docs/register.md#Register")));
+  assert.ok(commandCalls.some((call) => sectionsOf(call).includes("docs/register.md#Register")));
 
   const contextCall = llm.calls.find((call) => call.task === "intent.context");
   assert.ok(contextCall !== undefined);
@@ -202,7 +202,7 @@ test("出力の検査: 2 行・空・200 字を超えるものは INVALID_OUTPUT
   ];
   for (const [answer, status] of cases) {
     const catalog = await synthesizeIntents(map, slice, glossary, repo, { llm: intentLlm(() => answer) });
-    for (const item of [...catalog.contexts, ...catalog.scenarios]) {
+    for (const item of [...catalog.contexts, ...catalog.commands]) {
       assert.equal(item.intent.status, status, JSON.stringify(answer).slice(0, 40));
       assert.equal(item.intentStatus, status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED");
       if (item.intent.status === "NOT_GENERATED") assert.equal(item.intent.reason, "INVALID_OUTPUT");
@@ -212,14 +212,14 @@ test("出力の検査: 2 行・空・200 字を超えるものは INVALID_OUTPUT
 
 test("利用者が書いた目的は userIntent にそのまま写し、候補の欄に入れない", async () => {
   const { repo, map, slice, glossary } = await inputsOf({ userDefined: [{ inlet: "src/users.ts#register", intent: "利用者を増やす" }] });
-  const defined = slice.scenarios.find((scenario) => scenario.origin === "USER_DEFINED");
+  const defined = slice.commands.find((commandTarget) => commandTarget.origin === "USER_DEFINED");
   assert.ok(defined !== undefined);
   const catalog = await synthesizeIntents(map, slice, glossary, repo, { llm: intentLlm() });
-  const item = catalog.scenarios.find((scenario) => scenario.scenarioId === defined.id);
+  const item = catalog.commands.find((commandTarget) => commandTarget.commandId === defined.id);
   assert.ok(item !== undefined);
   assert.equal(item.userIntent, "利用者を増やす");
   assert.ok(item.intent.status === "GENERATED" && item.intent.text === "利用者を登録したい。");
-  for (const other of catalog.scenarios.filter((scenario) => scenario.scenarioId !== defined.id)) {
+  for (const other of catalog.commands.filter((commandTarget) => commandTarget.commandId !== defined.id)) {
     assert.equal("userIntent" in other, false);
   }
 });

@@ -1,5 +1,5 @@
 // 仕様不備一覧のビューモデルのテスト（SpecViewer 仕様 3.2・3.3、基本設計 3.3・6.7）。
-// viewer_scenarios.test と同じく、コマンドラインの入口で一時ディレクトリに実際の出力を書き、読み戻してから組み立てる。
+// viewer_commands.test と同じく、コマンドラインの入口で一時ディレクトリに実際の出力を書き、読み戻してから組み立てる。
 // この入力では検査のエンジンが無く論点が出ないので、論点の経路は読み戻した論点カタログに論点を 1 件足して確かめる。
 
 import { test } from "node:test";
@@ -18,7 +18,7 @@ import type { LedgerIssue } from "../src/types/ledger.js";
 import type { RunReport } from "../src/types/run.js";
 import { checkRunOutputs } from "../src/viewer/check.js";
 import { buildIssueList } from "../src/viewer/issues.js";
-import type { RunOutputs, ScenarioOutputs } from "../src/viewer/types.js";
+import type { RunOutputs, CommandOutputs } from "../src/viewer/types.js";
 
 // 旗を 1 つ持つ関数（仕様になる）と、値が決まらない書き込みと外への作用がある関数（曖昧さで止まる）。cli.test と同じ。
 const OPEN_SOURCE = [
@@ -74,20 +74,20 @@ async function checkedOutputs(out: string): Promise<RunOutputs> {
   return outputs;
 }
 
-function rowOfKind<K extends RunReport["scenarios"][number]["kind"]>(
+function rowOfKind<K extends RunReport["commands"][number]["kind"]>(
   report: RunReport,
   kind: K,
-): Extract<RunReport["scenarios"][number], { kind: K }> {
-  const found = report.scenarios.find((s) => s.kind === kind);
+): Extract<RunReport["commands"][number], { kind: K }> {
+  const found = report.commands.find((s) => s.kind === kind);
   assert.ok(found, `${kind} のシナリオが無い`);
-  return found as Extract<RunReport["scenarios"][number], { kind: K }>;
+  return found as Extract<RunReport["commands"][number], { kind: K }>;
 }
 
 /** 仕様になったシナリオの論点カタログの末尾に、最後の操作に関わる「到達しない操作」の論点を 1 件足す。 */
 function withAddedIssue(outputs: RunOutputs, displayId: string): RunOutputs {
   return {
     ...outputs,
-    scenarios: outputs.scenarios.map((s): ScenarioOutputs => {
+    commands: outputs.commands.map((s): CommandOutputs => {
       if (s.displayId !== displayId || s.kind !== "COMPLETED" || s.spec.kind !== "OK" || s.ledger.kind !== "OK") return s;
       const operations = s.spec.value.operations;
       const last = operations[operations.length - 1];
@@ -119,13 +119,13 @@ test("論点: SpecProjector と同じ組で、論点がある仕様になった�
     const outputs = withAddedIssue(await checkedOutputs(out), completed.displayId);
     const list = buildIssueList(outputs, "BUSINESS");
 
-    const files = outputs.scenarios.find((s) => s.displayId === completed.displayId);
+    const files = outputs.commands.find((s) => s.displayId === completed.displayId);
     assert.ok(files?.kind === "COMPLETED" && files.spec.kind === "OK" && files.ledger.kind === "OK");
     const spec = files.spec.value;
     const ledger = files.ledger.value;
     const displayIds = issueDisplayIds(ledger, completed.displayId);
 
-    const view = list.scenarios.find((s) => s.displayId === completed.displayId);
+    const view = list.commands.find((s) => s.displayId === completed.displayId);
     assert.ok(view, "論点のあるシナリオが出ていない");
     assert.equal(view.issueCount, ledger.issues.length);
     assert.deepEqual(view.groups, issueGroupsOf(spec, ledger, displayIds));
@@ -134,16 +134,16 @@ test("論点: SpecProjector と同じ組で、論点がある仕様になった�
     // 足した論点は最後の操作に関わるので、一覧表の最後の行を指す
     const added = displayIds.get("LEDGER-test-999")!;
     assert.deepEqual(view.operationRows[added], [spec.operations.length - 1]);
-    assert.equal(list.issueTotal, list.scenarios.reduce((sum, s) => sum + s.issueCount, 0));
+    assert.equal(list.issueTotal, list.commands.reduce((sum, s) => sum + s.issueCount, 0));
     // 論点の無いシナリオ・曖昧さで止まったシナリオは論点の側に出ない
-    for (const s of list.scenarios) {
+    for (const s of list.commands) {
       assert.ok(s.issueCount > 0);
-      assert.equal(report.scenarios.find((r) => r.displayId === s.displayId)?.kind, "COMPLETED");
+      assert.equal(report.commands.find((r) => r.displayId === s.displayId)?.kind, "COMPLETED");
     }
     // 内部の識別子は出ない
     const text = JSON.stringify(list);
     assert.ok(!text.includes("LEDGER-"));
-    for (const scenario of report.scenarios) assert.ok(!text.includes(scenario.scenarioId), scenario.scenarioId);
+    for (const commandTarget of report.commands) assert.ok(!text.includes(commandTarget.commandId), commandTarget.commandId);
   });
 });
 
@@ -155,7 +155,7 @@ test("曖昧さ: BUSINESS はシナリオごとの件数だけで、質問・箇
 
     assert.deepEqual(
       list.ambiguities.map((a) => a.displayId),
-      report.scenarios.filter((s) => s.kind === "AMBIGUOUS").map((s) => s.displayId),
+      report.commands.filter((s) => s.kind === "AMBIGUOUS").map((s) => s.displayId),
     );
     const view = list.ambiguities.find((a) => a.displayId === ambiguous.displayId)!;
     assert.equal(view.total, total);
@@ -164,7 +164,7 @@ test("曖昧さ: BUSINESS はシナリオごとの件数だけで、質問・箇
     assert.equal(list.ambiguityTotal, list.ambiguities.reduce((sum, a) => sum + a.total, 0));
     const text = JSON.stringify(list.ambiguities);
     assert.ok(!text.includes("src/g.ts"));
-    for (const scenario of report.scenarios) assert.ok(!text.includes(scenario.scenarioId), scenario.scenarioId);
+    for (const commandTarget of report.commands) assert.ok(!text.includes(commandTarget.commandId), commandTarget.commandId);
   });
 });
 
@@ -172,7 +172,7 @@ test("曖昧さ: IMPLEMENTATION は SpecProjector の曖昧さの一覧と同じ
   await withOutputs(async (out, report) => {
     const ambiguous = rowOfKind(report, "AMBIGUOUS");
     const outputs = await checkedOutputs(out);
-    const files = outputs.scenarios.find((s) => s.displayId === ambiguous.displayId);
+    const files = outputs.commands.find((s) => s.displayId === ambiguous.displayId);
     assert.ok(files?.kind === "AMBIGUOUS" && files.ambiguity.kind === "OK");
     const source: AmbiguityReport = files.ambiguity.value;
     assert.ok(source.issues.length > 0);

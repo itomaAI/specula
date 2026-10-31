@@ -9,7 +9,7 @@ import { NodeFsAdapter } from "../src/adapters/NodeFsAdapter.js";
 import { withRoot } from "../src/lib/rooted_file_system.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import { InletNotFoundError, SyntaxExtractionError, type RawContextModel } from "../src/types/context.js";
-import type { ScenarioTarget } from "../src/types/scenario.js";
+import type { CommandTarget } from "../src/types/command.js";
 
 class MemoryFs implements FileSystemPort {
   readonly reads: string[] = [];
@@ -31,9 +31,9 @@ class MemoryFs implements FileSystemPort {
   }
 }
 
-function target(file: string, symbol: string, line = 1, inletType: "COMMAND" | "POLICY" = "COMMAND"): ScenarioTarget {
+function target(file: string, symbol: string, line = 1, inletType: "COMMAND" | "POLICY" = "COMMAND"): CommandTarget {
   return {
-    id: "SCN-1",
+    id: "CT-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
     inletType,
@@ -77,8 +77,8 @@ test("ガード節: 出口ごとに 1 つのスライスになり、続く経路
   assert.deepEqual(
     model.slices.map((slice) => [slice.sliceId, slice.outlet.kind]),
     [
-      ["SCN-1#src/a.ts:3:5:THROW", "THROW"],
-      ["SCN-1#src/a.ts:5:3:RETURN", "RETURN"],
+      ["CT-1#src/a.ts:3:5:THROW", "THROW"],
+      ["CT-1#src/a.ts:5:3:RETURN", "RETURN"],
     ],
   );
   assert.deepEqual(conditionsOf(model), [[["x < 0", true]], [["x < 0", false]]]);
@@ -200,8 +200,8 @@ test("呼ばれた関数の throw: catch されなければ呼び出した側の
   assert.deepEqual(
     model.slices.map((slice) => [slice.sliceId, slice.outlet.kind]),
     [
-      ["SCN-1#src/a.ts:12:3:RETURN", "RETURN"],
-      ["SCN-1#src/a.ts:11:3:CALL>src/b.ts:3:5:THROW", "THROW"],
+      ["CT-1#src/a.ts:12:3:RETURN", "RETURN"],
+      ["CT-1#src/a.ts:11:3:CALL>src/b.ts:3:5:THROW", "THROW"],
     ],
   );
   assert.deepEqual(conditionsOf(model), [[], [["v > 10", true]]]);
@@ -277,7 +277,7 @@ test("POLICY: リスナーの登録の行から、渡された関数をたどる
   const model = await extractContext(target("src/listen.ts", "setup", 3, "POLICY"), { fs });
   checkInvariants(model);
   assert.deepEqual(model.inlet, { kind: "POLICY", handler: { file: "src/handlers.ts", symbol: "onSaved", line: 1 } });
-  assert.deepEqual(model.slices.map((slice) => slice.sliceId), ["SCN-1#src/handlers.ts:2:3:RETURN"]);
+  assert.deepEqual(model.slices.map((slice) => slice.sliceId), ["CT-1#src/handlers.ts:2:3:RETURN"]);
 });
 
 test("クラスのメソッドを起点にでき、this のフィールドは状態になる", async () => {
@@ -363,7 +363,7 @@ test("同じ入力からは同じ RawContextModel が出る", async () => {
 
 test("specula 自身の discoverSystemContext にかけると、例外なしで出口ごとのスライスが出る", async () => {
   const fs = withRoot(new NodeFsAdapter(), process.cwd());
-  const model = await extractContext(target("src/core/scenario_extractor.ts", "discoverSystemContext"), { fs });
+  const model = await extractContext(target("src/core/command_extractor.ts", "discoverSystemContext"), { fs });
   checkInvariants(model);
   assert.ok(model.slices.length >= 1);
   assert.ok(model.units.some((unit) => unit.kind === "CALL"), "M0 の中の関数をたどっている");

@@ -13,14 +13,14 @@ import {
   type ProjectionContext,
   type ViewRole,
 } from "../src/types/projection.js";
-import type { ScenarioTarget } from "../src/types/scenario.js";
+import type { CommandTarget } from "../src/types/command.js";
 
 // シナリオの内部の識別子は、実際には起点のファイルと関数を含む。ビューに出ないことを確かめるため、その形にする。
-const SCENARIO_ID = "SCN-src/pay.ts#charge";
+const COMMAND_ID = "CT-src/pay.ts#charge";
 const INLET_ID = "CMD-src/pay.ts#charge";
 
-const SCENARIO: ScenarioTarget = {
-  id: SCENARIO_ID,
+const COMMAND_TARGET: CommandTarget = {
+  id: COMMAND_ID,
   boundedContext: "DEFAULT_CONTEXT",
   origin: "EXTRACTED",
   inletType: "COMMAND",
@@ -52,7 +52,7 @@ const GLOSSARY: Glossary = {
 const NOT_GENERATED: LlmText = { status: "NOT_GENERATED", reason: "INVALID_OUTPUT", detail: "compute を含む詳細" };
 
 const REPORT: AmbiguityReport = {
-  scenarioId: SCENARIO_ID,
+  commandId: COMMAND_ID,
   issues: [
     {
       kind: "UNDETERMINED_VALUE",
@@ -74,7 +74,7 @@ const REPORT: AmbiguityReport = {
   counts: { UNDETERMINED_VALUE: 1, EXTERNAL_EFFECT: 1, CONFLICTING_SLICES: 0 },
 };
 
-const CONTEXT: ProjectionContext = { scenario: SCENARIO, glossary: GLOSSARY, intents: null };
+const CONTEXT: ProjectionContext = { commandTarget: COMMAND_TARGET, glossary: GLOSSARY, intents: null };
 
 function request(viewRole: ViewRole = "BUSINESS"): AmbiguityProjectionRequest {
   return { format: "AMBIGUITY_DOCUMENT", viewRole, displayId: "C-02" };
@@ -84,7 +84,7 @@ test("M5 曖昧さ: BUSINESS には「エンジニアの確認待ち: N 件」�
   const view = await projectAmbiguities(REPORT, CONTEXT, request());
   assert.equal(view.format, "AMBIGUITY_DOCUMENT");
   assert.equal(view.mediaType, "text/markdown");
-  assert.equal(view.scenarioId, SCENARIO_ID);
+  assert.equal(view.commandId, COMMAND_ID);
   assert.equal(view.displayId, "C-02");
   assert.equal(view.viewRole, "BUSINESS");
   assert.deepEqual(view.basis, { specSourceHash: null, ledgerReportId: null, ledgerIsStale: null });
@@ -98,7 +98,7 @@ test("M5 曖昧さ: BUSINESS には「エンジニアの確認待ち: N 件」�
     "compute",
     "save(",
     "STATE_WRITE",
-    "SCN-",
+    "CT-",
     "所在",
     "原文",
     "質問:",
@@ -174,8 +174,8 @@ test("M5 曖昧さ: 入力の契約（表現形式・表示の役割・シナリ
     "UNSUPPORTED_FORMAT",
   );
   assert.equal(
-    await reasonOf(() => projectAmbiguities(REPORT, { ...CONTEXT, scenario: { ...SCENARIO, id: "SCN-other" } }, request())),
-    "SCENARIO_MISMATCH",
+    await reasonOf(() => projectAmbiguities(REPORT, { ...CONTEXT, commandTarget: { ...COMMAND_TARGET, id: "CT-other" } }, request())),
+    "COMMAND_MISMATCH",
   );
 });
 

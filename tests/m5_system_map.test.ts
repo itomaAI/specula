@@ -10,7 +10,7 @@ import type { LlmText } from "../src/types/index.js";
 import type { Glossary, GlossaryEntry, GlossaryLocation, PresentedEntryKind } from "../src/types/glossary.js";
 import type { IntentCatalog } from "../src/types/intent.js";
 import { ProjectionContractError, type SystemProjectionRequest, type SystemViewFormat, type ViewRole } from "../src/types/projection.js";
-import type { EventStormingMap } from "../src/types/scenario.js";
+import type { EventStormingMap } from "../src/types/command.js";
 
 const LOC = { file: "src/order.ts", symbol: "f", line: 1 };
 const MAP: EventStormingMap = {
@@ -75,7 +75,7 @@ const LABELS = {
 
 function intentsOf(glossary: Glossary, intent: LlmText): IntentCatalog {
   const intentStatus = intent.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED";
-  return { contexts: [{ contextId: "src_order", intent, intentStatus }], scenarios: [], basis: { ...glossary.basis } };
+  return { contexts: [{ contextId: "src_order", intent, intentStatus }], commands: [], basis: { ...glossary.basis } };
 }
 
 const INTENT: LlmText = { status: "GENERATED", text: "注文を受け付けてから締めるまでを扱う", recordKey: "intent-1" };
@@ -91,7 +91,7 @@ test("俯瞰図（Mermaid）: Bounded Context ごとにまとめ、題とノー�
   const a = await projectSystemMap(MAP, glossary, null, request("SYSTEM_MERMAID"));
   const b = await projectSystemMap(MAP, glossary, null, request("SYSTEM_MERMAID"));
   assert.equal(a.content, b.content);
-  assert.equal(a.scenarioId, null);
+  assert.equal(a.commandId, null);
   assert.equal(a.displayId, null);
   assert.equal(a.viewRole, "BUSINESS");
   assert.equal(a.mediaType, "text/vnd.mermaid");

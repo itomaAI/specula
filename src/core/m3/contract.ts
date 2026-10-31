@@ -10,7 +10,7 @@ const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 export function checkSpecContract(spec: FormalSpecification): void {
   const fail = (reason: SolverContractError["reason"], detail: string): never => {
-    throw new SolverContractError(spec.scenarioId, reason, detail);
+    throw new SolverContractError(spec.commandId, reason, detail);
   };
 
   if (spec.operations.length === 0) fail("NO_OPERATIONS", "operations が空");

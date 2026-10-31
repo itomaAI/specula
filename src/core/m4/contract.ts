@@ -11,11 +11,11 @@ import type { SolverReport } from "../../types/solver.js";
 
 export async function checkLedgerContract(report: SolverReport, spec: FormalSpecification): Promise<void> {
   const fail = (reason: LedgerContractError["reason"], detail: string): never => {
-    throw new LedgerContractError(report.scenarioId, reason, detail);
+    throw new LedgerContractError(report.commandId, reason, detail);
   };
 
-  if (report.scenarioId !== spec.scenarioId) {
-    fail("SCENARIO_MISMATCH", `報告は ${report.scenarioId}、形式仕様は ${spec.scenarioId}`);
+  if (report.commandId !== spec.commandId) {
+    fail("COMMAND_MISMATCH", `報告は ${report.commandId}、形式仕様は ${spec.commandId}`);
   }
 
   const hash = await sha256Hex(spec.source);

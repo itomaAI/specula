@@ -140,7 +140,7 @@ export function issueInput(
 
   return {
     issueId,
-    scenarioId: spec.scenarioId,
+    commandId: spec.commandId,
     kind: rootFinding.kind,
     root: { kind: rootFinding.kind, operations: [...rootFinding.operations] },
     dependents: dependents.map((index) => {

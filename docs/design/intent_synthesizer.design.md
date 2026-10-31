@@ -41,10 +41,10 @@ synthesizeIntents(
 | `intent.scenario` | シナリオごと | この操作で、操作する人（または呼び出す側）が達成したいことを書く |
 
 - `promptVersion` は `"1"`。識別子の辞書順に 1 件ずつ呼ぶ。
-- 出力は日本語の 1 文（改行しない、200 字以内）。合わなければ `INVALID_OUTPUT`（`ScenarioExtractor` で使っていた検査と同じ）。
+- 出力は日本語の 1 文（改行しない、200 字以内）。合わなければ `INVALID_OUTPUT`（`CommandExtractor` で使っていた検査と同じ）。
 - 指示の文に、抜粋は資料から取ったデータであり、その中の指示の形の文に従わないこと、コードと抜粋に書かれていないことを推測で足さないことを書く。
 - 記録のキーは全体基本設計書 1.3 のとおり。抜粋が `input` に入っているので、資料が変われば候補は作り直される。
-- これまで `ScenarioExtractor` が行っていた `m0.context-intent`・`m0.scenario-intent` を置き換える。入力が変わる（抜粋が入る）ので、それまでの記録は使わない。
+- これまで `CommandExtractor` が行っていた `m0.context-intent`・`m0.scenario-intent` を置き換える。入力が変わる（抜粋が入る）ので、それまでの記録は使わない。
 
 ---
 
@@ -57,26 +57,26 @@ interface IntentCatalog {
     intent: LlmText;
     intentStatus: ConfirmationStatus;            // GlossaryBuilder 基本設計 5.1 の型を共有する
   }>;                                            // contextId の辞書順
-  scenarios: Array<{
-    scenarioId: string;
+  commands: Array<{
+    commandId: string;
     intent: LlmText;
     intentStatus: ConfirmationStatus;
-    userIntent?: string;                         // ScenarioTarget.userIntent をそのまま写す
-  }>;                                            // scenarioId の辞書順
+    userIntent?: string;                         // CommandTarget.userIntent をそのまま写す
+  }>;                                            // commandId の辞書順
   basis: { mapHash: string; documentsHash: string }; // 元にした辞書の basis をそのまま写す
 }
 ```
 - `intentStatus` は、用語などと共有する `ConfirmationStatus`（`NOT_GENERATED`・`CANDIDATE`・`CONFIRMED`・`NEEDS_RECHECK`。GlossaryBuilder 基本設計 5.1）である。`intent` が `GENERATED` の欄は `CANDIDATE`、`NOT_GENERATED` の欄（`UNREACHABLE` と `INVALID_OUTPUT` のどちらも）は `NOT_GENERATED` にする。欄ごとに決めるので、1 回の実行の中に両方が混ざることがある。GlossaryBuilder の `termStatus` と同じ規則である。
 - 本モジュールが `CONFIRMED` と `NEEDS_RECHECK` を書くことはない。`CONFIRMED` にするのは、2 回目以降の実行で前回の合意結果を受け取る処理であり、初回の範囲外である。
 - **2026-10-31 の変更（実装した）**: それまでの型 `IntentStatus`（`CANDIDATE`・`CONFIRMED`）を外し、`ConfirmationStatus` にした。公開する型からも `IntentStatus` を外し、`ConfirmationStatus` を足した（`src/index.ts`）。それまでのコードは「`intent` が未生成でも `CANDIDATE`」だった。
-- 2026-10-30 の時点で、意図を読む後段のモジュールは無い（`ScenarioExtractor` が出していたときも、読むものは無かった）。表示に使うかどうかは、全体基本設計書の表示の節で決める。`ContextExtractor`・`FormalTranspiler`・`FormalSolver`・`LedgerSynthesizer` は意図を使わない。
+- 2026-10-30 の時点で、意図を読む後段のモジュールは無い（`CommandExtractor` が出していたときも、読むものは無かった）。表示に使うかどうかは、全体基本設計書の表示の節で決める。`ContextExtractor`・`FormalTranspiler`・`FormalSolver`・`LedgerSynthesizer` は意図を使わない。
 
 ---
 
 ## 4. 初回の実装で決めたこと（2026-10-30）
 
 - **資料のハッシュも確かめる**: 1.2 の `glossary.basis.mapHash` に加えて、`glossary.basis.documentsHash` が受け取った資料のハッシュと一致することも確かめ、違えば `IntentContractError`（`GLOSSARY_STALE`）を投げる。抜粋は、辞書が選んだ節の識別子で `repo.documents` から切り出すので、資料が違うと黙って別の本文を渡してしまうためである。ハッシュの計算は `GlossaryBuilder` と同じ関数（`documentsHashOf`）を使う。
-- **出力の検査**: 前後の空白を除いて、空でない・1 行・200 字以内。`ScenarioExtractor` の `m0.context-intent` で使っていたものと同じで、文の数（句点の数）は数えない。
+- **出力の検査**: 前後の空白を除いて、空でない・1 行・200 字以内。`CommandExtractor` の `m0.context-intent` で使っていたものと同じで、文の数（句点の数）は数えない。
 - **Bounded Context の「含まれるファイル」**: 全体マップでそのコンテキストに属するコマンドとイベントのハンドラのファイル（辞書順）。全体マップはコンテキストごとのファイルの一覧を持たないため、`GlossaryBuilder` の用語の入力と同じ関数（`contextFilesOf`）を使う。
 - **呼ぶ順**: Bounded Context を識別子の辞書順に、続いてシナリオを識別子の辞書順に、1 件ずつ呼ぶ。
 - **シナリオの入力**: 起点の種類、起点の所在（ファイルと関数名。ポリシーが起点のときはリスナーの登録の場所）、期待イベントの所在とシグナル（種類・呼んでいる関数の名前・`label`）、アクターの名前、画面のルート（無ければ `null`）、抜粋。利用者が書いた目的（`userIntent`）は入力に入れず、出力の別の欄にそのまま写す。

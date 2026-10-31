@@ -32,11 +32,11 @@ export async function transpileFormal(
   const collected = collectAmbiguity(checked, states, paths);
 
   if (collected.issues.length > 0) {
-    const questions = await askQuestions(deps.llm, facts.scenarioId, collected.issues);
+    const questions = await askQuestions(deps.llm, facts.commandId, collected.issues);
     return {
       kind: "AMBIGUITY",
       report: {
-        scenarioId: facts.scenarioId,
+        commandId: facts.commandId,
         issues: collected.issues.map((issue, index) => {
           const question = questions[index] as (typeof questions)[number];
           return { ...issue, question, questionStatus: statusOf(question) };
@@ -76,14 +76,14 @@ export async function transpileFormal(
     items.push({ id: operation.id, kind: "OPERATION", name: scope, expression: conditions });
     items.push({ id: operation.outcome, kind: "OUTCOME", name: `${operation.outletKind} ${scope}`.trim(), expression: outlet?.name ?? "" });
   });
-  const labels = await labelVocabulary(deps.llm, facts.scenarioId, items);
+  const labels = await labelVocabulary(deps.llm, facts.commandId, items);
   const labelStatus: Record<string, ConfirmationStatus> = {};
   for (const [id, label] of Object.entries(labels)) labelStatus[id] = statusOf(label);
 
   return {
     kind: "SPEC",
     spec: {
-      scenarioId: facts.scenarioId,
+      commandId: facts.commandId,
       source,
       stateVariables,
       propositions: guards.propositions,

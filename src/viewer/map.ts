@@ -12,7 +12,7 @@ import type { GlossaryLocation } from "../types/glossary.js";
 import type { ViewRole } from "../types/projection.js";
 import { buildGlossaryView, displayIdsOf } from "./glossary.js";
 import { layoutLayers } from "./graph.js";
-import { sourcesOf, valueOf } from "./scenarios.js";
+import { sourcesOf, valueOf } from "./commands.js";
 import type {
   ContextDetailMapView,
   GlossaryEntryView,
@@ -33,7 +33,7 @@ const NO_IMPLEMENTATION_MAP = "用語と意味を引けない: 実装との対�
 const NO_ENTRY = "用語と意味を引けない: 辞書に項目が無い";
 const NO_INTENT = "意図の候補が無い";
 const CONTEXT_LOOKUP = "意図の候補と属するシナリオの数を引けない";
-const SCENARIO_LOOKUP = "起点のシナリオを引けない";
+const COMMAND_LOOKUP = "起点のシナリオを引けない";
 const NO_MAP_TABLE = "実装との対応表が無い";
 const NO_MAP_ROW = "実装との対応表に行が無い";
 
@@ -215,15 +215,15 @@ function popupFactory(outputs: RunOutputs, viewRole: ViewRole): PopupOf {
   const displayIds = displayIdsOf(sources.implementationMap);
   const entryIdOf = new Map<string, string>();
   for (const [entryId, displayId] of displayIds ?? []) entryIdOf.set(displayId, entryId);
-  // 起点の辞書の項目 → シナリオの表示の id（対応表の SCENARIO の行。設計 6.5）。
-  const scenariosOf = new Map<string, string[]>();
+  // 起点の辞書の項目 → シナリオの表示の id（対応表の COMMAND_TARGET の行。設計 6.5）。
+  const commandsOf = new Map<string, string[]>();
   for (const row of sources.implementationMap?.entries ?? []) {
-    if (row.kind !== "SCENARIO" || row.glossaryEntryId === null) continue;
-    scenariosOf.set(row.glossaryEntryId, [...(scenariosOf.get(row.glossaryEntryId) ?? []), row.displayId]);
+    if (row.kind !== "COMMAND_TARGET" || row.glossaryEntryId === null) continue;
+    commandsOf.set(row.glossaryEntryId, [...(commandsOf.get(row.glossaryEntryId) ?? []), row.displayId]);
   }
 
   return (node) => {
-    const empty: MapPopupView = { entry: null, entryNote: null, intent: null, scenarioCount: null, scenarios: null, lookupNote: null };
+    const empty: MapPopupView = { entry: null, entryNote: null, intent: null, commandTargetCount: null, commands: null, lookupNote: null };
     // アクター・リードモデル・アグリゲートは辞書の項目を持たないので、JSON の文だけを出す（設計 6.10）。
     if (!GLOSSARY_KINDS.has(node.kind)) return empty;
     const entry = entries.get(node.id) ?? null;
@@ -239,12 +239,12 @@ function popupFactory(outputs: RunOutputs, viewRole: ViewRole): PopupOf {
         entryNote,
         intent: candidate === undefined ? NO_INTENT : `${llmText(candidate.intent)}${statusMark(candidate.intentStatus)}`,
         // 実行の報告の行の boundedContext は全体マップの識別子で、Bounded Context の辞書の項目の id と同じ（render_system.ts の entryOf）。
-        scenarioCount: sources.report.scenarios.filter((row) => row.boundedContext === entryId).length,
+        commandTargetCount: sources.report.commands.filter((row) => row.boundedContext === entryId).length,
       };
     }
     if (node.kind === "COMMAND" || node.kind === "POLICY") {
-      if (entryId === null) return { ...empty, entry, entryNote, lookupNote: `${SCENARIO_LOOKUP}: ${missing}` };
-      return { ...empty, entry, entryNote, scenarios: [...(scenariosOf.get(entryId) ?? [])] };
+      if (entryId === null) return { ...empty, entry, entryNote, lookupNote: `${COMMAND_LOOKUP}: ${missing}` };
+      return { ...empty, entry, entryNote, commands: [...(commandsOf.get(entryId) ?? [])] };
     }
     return { ...empty, entry, entryNote };
   };

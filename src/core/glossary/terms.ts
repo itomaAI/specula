@@ -8,7 +8,7 @@
 //   （辞書順）とする（全体マップはコンテキストごとのファイルの一覧を持たないため）。
 
 import type { JsonValue } from "../../types/index.js";
-import type { EventStormingMap, RepositoryArtifacts } from "../../types/scenario.js";
+import type { EventStormingMap, RepositoryArtifacts } from "../../types/command.js";
 import type { GlossaryTerm } from "../../types/glossary.js";
 import type { LanguageModelPort, OutputCheck } from "../../ports/LanguageModelPort.js";
 import { compareIds } from "../m0/boundary.js";
@@ -16,7 +16,7 @@ import type { SelectedSection } from "./match.js";
 
 export const GLOSSARY_PROMPT_VERSION = "1";
 
-/** 関数の頭として LLM に渡す行数（ScenarioExtractor で使っていたものと同じ）。 */
+/** 関数の頭として LLM に渡す行数（CommandExtractor で使っていたものと同じ）。 */
 export const SNIPPET_LINES = 12;
 
 export const MAX_LABEL_CHARS = 40;

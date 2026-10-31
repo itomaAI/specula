@@ -10,7 +10,7 @@ import type { IntentCatalog } from "../types/intent.js";
 import type { DomainLedgerCatalog } from "../types/ledger.js";
 import type { ImplementationMap } from "../types/projection.js";
 import type { RunReport, SystemMapBundle } from "../types/run.js";
-import type { FileRead, RunOutputs, ScenarioOutputs } from "../viewer/types.js";
+import type { FileRead, RunOutputs, CommandOutputs } from "../viewer/types.js";
 import { safeName } from "./write_outputs.js";
 
 async function readText(fs: FileSystemPort, path: string): Promise<FileRead<string>> {
@@ -40,14 +40,14 @@ export async function readRunOutputs(fs: FileSystemPort, outDir: string): Promis
   const implementationMap = await readJson<ImplementationMap>(fs, at("implementation_map.json"));
 
   // シナリオのディレクトリは run_report.json の行から引く（list は順序を保証しないため。設計 6.1）。
-  // 形は検査しないが、scenarios が配列でなければシナリオを読まない。
-  const scenarios: ScenarioOutputs[] = [];
-  const rows = report.kind === "OK" && Array.isArray(report.value.scenarios) ? report.value.scenarios : [];
+  // 形は検査しないが、commands が配列でなければシナリオを読まない。
+  const commands: CommandOutputs[] = [];
+  const rows = report.kind === "OK" && Array.isArray(report.value.commands) ? report.value.commands : [];
   for (const row of rows) {
-    const dir = at("scenarios", safeName(row.scenarioId));
-    const base = { scenarioId: row.scenarioId, displayId: row.displayId };
+    const dir = at("commands", safeName(row.commandId));
+    const base = { commandId: row.commandId, displayId: row.displayId };
     if (row.kind === "COMPLETED") {
-      scenarios.push({
+      commands.push({
         ...base,
         kind: "COMPLETED",
         spec: await readJson<FormalSpecification>(fs, `${dir}/spec.json`),
@@ -58,11 +58,11 @@ export async function readRunOutputs(fs: FileSystemPort, outDir: string): Promis
         ledger: await readJson<DomainLedgerCatalog>(fs, `${dir}/ledger.json`),
       });
     } else if (row.kind === "AMBIGUOUS") {
-      scenarios.push({ ...base, kind: "AMBIGUOUS", ambiguity: await readJson<AmbiguityReport>(fs, `${dir}/ambiguity.json`) });
+      commands.push({ ...base, kind: "AMBIGUOUS", ambiguity: await readJson<AmbiguityReport>(fs, `${dir}/ambiguity.json`) });
     } else {
-      scenarios.push({ ...base, kind: "STOPPED" });
+      commands.push({ ...base, kind: "STOPPED" });
     }
   }
 
-  return { report, systemMap, glossary, intents, implementationMap, scenarios };
+  return { report, systemMap, glossary, intents, implementationMap, commands };
 }

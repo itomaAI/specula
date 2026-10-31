@@ -24,7 +24,7 @@ export async function synthesizeLedger(
 ): Promise<DomainLedgerCatalog> {
   await checkLedgerContract(report, spec);
 
-  const groups = groupFindings(report.scenarioId, report.findings);
+  const groups = groupFindings(report.commandId, report.findings);
   const issues: LedgerIssue[] = [];
   // 1 件ずつ順に呼ぶ（記録の保存の順と、LLM への負荷を一定にするため）。
   for (const group of groups) {
@@ -50,7 +50,7 @@ export async function synthesizeLedger(
   }
 
   return {
-    scenarioId: report.scenarioId,
+    commandId: report.commandId,
     basis: {
       reportId: report.reportId,
       specSourceHash: report.specSourceHash,

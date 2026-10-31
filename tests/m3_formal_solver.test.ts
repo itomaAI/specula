@@ -10,7 +10,7 @@ import { verifySpecification } from "../src/core/formal_solver.js";
 import type { FileSystemPort } from "../src/ports/FileSystemPort.js";
 import type { EngineInfo, RawInstance, SolverPort, SolverRequest, SolverResponse } from "../src/ports/SolverPort.js";
 import type { FormalSpecification } from "../src/types/formal.js";
-import type { ScenarioTarget } from "../src/types/scenario.js";
+import type { CommandTarget } from "../src/types/command.js";
 import { SolverContractError } from "../src/types/solver.js";
 
 class MemoryFs implements FileSystemPort {
@@ -31,9 +31,9 @@ class MemoryFs implements FileSystemPort {
   }
 }
 
-function target(file: string, symbol: string): ScenarioTarget {
+function target(file: string, symbol: string): CommandTarget {
   return {
-    id: "SCN-1",
+    id: "CT-1",
     boundedContext: "DEFAULT_CONTEXT",
     origin: "EXTRACTED",
     inletType: "COMMAND",
