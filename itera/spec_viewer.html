@@ -528,7 +528,7 @@
       el('ul', {}, gaps.contextHomonyms.map((x) => el('li', { text: `${x.term}: ${x.entries.map((e) => `${name(e)}（${e.context}）`).join('、')}` }))),
       el('h3', { text: `2 つ以上の資料から節を選んだ項目（${gaps.multiSource.length} 件）` }),
       el('ul', {}, gaps.multiSource.map((x) => el('li', { text: `${name(x)}: ${x.documents.join('、')}` }))),
-      el('details', {}, el('summary', { text: `項目に対応しない資料の名前（${gaps.unmatchedDocumentNames.count} 件）` }),
+      gaps.unmatchedDocumentNames === null ? null : el('details', {}, el('summary', { text: `項目に対応しない資料の名前（${gaps.unmatchedDocumentNames.count} 件）` }),
         el('ul', {}, gaps.unmatchedDocumentNames.items.map((x) => el('li', { text: `${x.name}（${x.sources.map((s) => s.document).join('、')}）` })))),
     );
   }

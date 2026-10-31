@@ -348,8 +348,8 @@ export interface GlossaryGapsView {
   contextHomonyms: Array<{ term: string; entries: Array<{ displayId: string | null; term: string; context: string }> }>;
   /** 2 つ以上の資料から節が選ばれた項目。 */
   multiSource: Array<{ displayId: string | null; term: string; documents: string[] }>;
-  /** 項目に対応しない資料の名前。件数と、開いたときの一覧。 */
-  unmatchedDocumentNames: { count: number; items: Array<{ name: string; sources: GlossarySourceView[] }> };
+  /** 項目に対応しない資料の名前。件数と、開いたときの一覧。IMPLEMENTATION だけが持ち、BUSINESS では null（Q8）。 */
+  unmatchedDocumentNames: { count: number; items: Array<{ name: string; sources: GlossarySourceView[] }> } | null;
 }
 
 /** 用語辞典（設計 3.5）。辞書が無ければ unavailable に理由を入れ、ほかは空にする。 */

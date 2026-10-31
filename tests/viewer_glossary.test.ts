@@ -15,7 +15,7 @@ import type { Glossary, GlossaryEntry, PresentedEntryKind } from "../src/types/g
 import type { ImplementationMap } from "../src/types/projection.js";
 import type { RunReport } from "../src/types/run.js";
 import { checkRunOutputs } from "../src/viewer/check.js";
-import { buildGlossaryView, sourceOf } from "../src/viewer/glossary.js";
+import { buildGlossaryView, hideSourcePaths, sourceOf } from "../src/viewer/glossary.js";
 import type { RunOutputs } from "../src/viewer/types.js";
 
 const OPEN_SOURCE = [
@@ -200,21 +200,59 @@ test("区切り: Bounded Context ごとに俯瞰図の順で並べ、またぐ�
     assert.equal(none!.entries[0]!.termStatus, "NOT_GENERATED");
 
     assert.deepEqual(view.gaps?.undocumented, [{ displayId: "n2", term: "受注のあと出荷する" }]);
-    assert.equal(view.gaps?.unmatchedDocumentNames.count, 1);
-    assert.deepEqual(view.gaps?.unmatchedDocumentNames.items[0]?.sources, [{ document: "docs/a#b.md", heading: "概要 > 使い方" }]);
+    // 項目に対応しない資料の名前は BUSINESS では持たない（Q8）
+    assert.equal(view.gaps?.unmatchedDocumentNames, null);
 
     // 内部の識別子（地図の id）と実装の名前は出ない
     const text = JSON.stringify(view);
     for (const id of IDS) assert.ok(!text.includes(id), id);
     assert.ok(!text.includes("impl_"));
+    assert.ok(!text.includes("fooBar"));
   });
 });
 
-test("IMPLEMENTATION: 項目に実装の名前と所在を持つ", async () => {
+test("IMPLEMENTATION: 項目に実装の名前と所在を持ち、項目に対応しない資料の名前の件数と一覧を持つ", async () => {
   await withOutputs(async (out) => {
     const view = buildGlossaryView(withSynthetic(await checkedOutputs(out), true), "IMPLEMENTATION");
     const command = view.sections.flatMap((s) => s.entries).find((e) => e.displayId === "n1");
     assert.deepEqual(command?.implementation, { names: ["impl_cmdB"], locations: [{ file: "src/x.ts", line: 1 }] });
+    assert.equal(view.gaps?.unmatchedDocumentNames?.count, 1);
+    assert.deepEqual(view.gaps?.unmatchedDocumentNames?.items[0], {
+      name: "fooBar",
+      sources: [{ document: "docs/a#b.md", heading: "概要 > 使い方" }],
+    });
+  });
+});
+
+test("意味の抜粋のコードのパス: BUSINESS では隠し、IMPLEMENTATION では出す（Q6）", async () => {
+  // パスを含むインラインコードは囲みごと置き換え、関数名だけのインラインコードは残す
+  assert.equal(
+    hideSourcePaths("読むのは `src/lib/read_outputs.ts` の `readRunOutputs(fs)` とする。`specula/src/core/` に置く。"),
+    "読むのは （コードのパス） の `readRunOutputs(fs)` とする。（コードのパス） に置く。",
+  );
+  // 囲まれていないパスも置き換える。src/ を区切りに含まない語は残す
+  assert.equal(hideSourcePaths("配置は ./src/a.ts と src/b/。resrc/x と src-map は残す"), "配置は （コードのパス） と （コードのパス）。resrc/x と src-map は残す");
+
+  await withOutputs(async (out) => {
+    const outputs = withSynthetic(await checkedOutputs(out), true);
+    assert.ok(outputs.glossary.kind === "OK");
+    const glossary = outputs.glossary.value;
+    const withPath: RunOutputs = {
+      ...outputs,
+      glossary: {
+        kind: "OK",
+        value: {
+          ...glossary,
+          entries: glossary.entries.map((e) =>
+            e.id === "cmdB" && e.excerpt !== null ? { ...e, excerpt: { ...e.excerpt, text: "`src/ship.ts` で出荷を指示する。" } } : e,
+          ),
+        },
+      },
+    };
+    const meaningIn = (role: "BUSINESS" | "IMPLEMENTATION") =>
+      buildGlossaryView(withPath, role).sections.flatMap((s) => s.entries).find((e) => e.displayId === "n1")?.meaning;
+    assert.equal(meaningIn("BUSINESS"), "（コードのパス） で出荷を指示する。");
+    assert.equal(meaningIn("IMPLEMENTATION"), "`src/ship.ts` で出荷を指示する。");
   });
 });
 
