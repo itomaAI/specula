@@ -3,10 +3,10 @@
 // 検証の状態・論点・LLM の文・確定の状態の印は SpecProjector の関数で作り、文を写し直さない（設計 6.5）。
 // ビューモデルには内部の識別子を入れない。内部の識別子は辞書と意図の候補を引くためだけに使う（設計 4 節）。
 
-import { stripSourceComments } from "../core/m5/escape.js";
-import { statusMark } from "../core/m5/labels.js";
-import { AMBIGUITY_KIND_TEXT } from "../core/m5/render_ambiguities.js";
-import { UNVERIFIED_REASON_TEXT, issueDisplayIds, issueGroupsOf, llmText, verificationView } from "../core/m5/view_model.js";
+import { stripSourceComments } from "../core/spec_projector/escape.js";
+import { statusMark } from "../core/spec_projector/labels.js";
+import { AMBIGUITY_KIND_TEXT } from "../core/spec_projector/render_ambiguities.js";
+import { UNVERIFIED_REASON_TEXT, issueDisplayIds, issueGroupsOf, llmText, verificationView } from "../core/spec_projector/view_model.js";
 import type { AmbiguityKind } from "../types/formal.js";
 import type { EntryKind, Glossary, GlossaryLocation } from "../types/glossary.js";
 import type { IntentCatalog } from "../types/intent.js";

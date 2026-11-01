@@ -1,7 +1,7 @@
-// オーケストレーター（全体設計 2・2.1）。M0〜M5 をつなぎ、コマンドごとの結果を実行の報告にまとめる。
+// オーケストレーター（全体設計 2・2.1）。各モジュールをつなぎ、コマンドごとの結果を実行の報告にまとめる。
 // コアに属するので、ファイルには書かない（成果物と報告を値で返す。書き込みは入口が行う）。
 //
-// - コマンドは M0 の切り出しの順に 1 つずつ進める。表示の id（C-01 …）もこの順に振る（全体設計 2.2）。
+// - コマンドは CommandExtractor の切り出しの順に 1 つずつ進める。表示の id（C-01 …）もこの順に振る（全体設計 2.2）。
 // - 各段の入力の契約のエラーだけを「その段で止まった」として残し、次のコマンドへ進む。
 //   それ以外の例外（環境の故障）は投げ直して、実行全体を止める。
 
@@ -49,11 +49,11 @@ const OUTCOMES: readonly VerificationOutcome[] = ["FOUND", "NONE_FOUND_WITHIN_SC
 
 /** 段ごとに、止めてよい契約のエラーの型。 */
 const CONTRACT_ERRORS: Record<StoppedStage, ReadonlyArray<new (...args: never[]) => Error>> = {
-  M1: [InletNotFoundError, SyntaxExtractionError],
-  M2: [TranspileContractError],
-  M3: [SolverContractError],
-  M4: [LedgerContractError],
-  M5: [ProjectionContractError],
+  CONTEXT_EXTRACTOR: [InletNotFoundError, SyntaxExtractionError],
+  FORMAL_TRANSPILER: [TranspileContractError],
+  FORMAL_SOLVER: [SolverContractError],
+  LEDGER_SYNTHESIZER: [LedgerContractError],
+  SPEC_PROJECTOR: [ProjectionContractError],
 };
 
 class Stopped {
@@ -240,15 +240,15 @@ async function runCommand(
 ): Promise<[CommandRunResult, CommandArtifacts, CommandViews[]]> {
   const base = rowBaseOf(target, displayId);
 
-  const facts = await stage("M1", () => extractContext(target, { fs: deps.fs }));
-  const transpiled = await stage("M2", () => transpileFormal(facts, { llm: deps.llm }, null));
+  const facts = await stage("CONTEXT_EXTRACTOR", () => extractContext(target, { fs: deps.fs }));
+  const transpiled = await stage("FORMAL_TRANSPILER", () => transpileFormal(facts, { llm: deps.llm }, null));
   const context: ProjectionContext = { commandTarget: target, glossary: inputs.glossary, intents: inputs.intents };
-  // 利用者向けの出力は VIEW_ROLES の順に、両方の役割で作る（全体設計 4.1）。どちらかの射影が契約のエラーなら、コマンドは M5 で止まる。
+  // 利用者向けの出力は VIEW_ROLES の順に、両方の役割で作る（全体設計 4.1）。どちらかの射影が契約のエラーなら、コマンドは SpecProjector で止まる。
   const commandViews: CommandViews[] = [];
   if (transpiled.kind === "AMBIGUITY") {
     const report = transpiled.report;
     for (const viewRole of VIEW_ROLES) {
-      const view = await stage("M5", () =>
+      const view = await stage("SPEC_PROJECTOR", () =>
         projectAmbiguities(report, context, { format: "AMBIGUITY_DOCUMENT", viewRole, displayId }),
       );
       commandViews.push({ commandId: target.id, displayId, kind: "AMBIGUOUS", view });
@@ -260,13 +260,13 @@ async function runCommand(
     ];
   }
   const spec = transpiled.spec;
-  const solverReport = await stage("M3", () => verifySpecification(spec, { solver: deps.solver }, options.solver));
-  const ledger = await stage("M4", () => synthesizeLedger(solverReport, spec, { llm: deps.llm }));
+  const solverReport = await stage("FORMAL_SOLVER", () => verifySpecification(spec, { solver: deps.solver }, options.solver));
+  const ledger = await stage("LEDGER_SYNTHESIZER", () => synthesizeLedger(solverReport, spec, { llm: deps.llm }));
   for (const viewRole of VIEW_ROLES) {
     const request = (format: "DOCUMENT" | "MATRIX" | "FLOW") => ({ format, viewRole, displayId });
-    const document = await stage("M5", () => projectSpecification(spec, ledger, context, request("DOCUMENT")));
-    const matrix = await stage("M5", () => projectSpecification(spec, ledger, context, request("MATRIX")));
-    const flow = await stage("M5", () => projectSpecification(spec, ledger, context, request("FLOW")));
+    const document = await stage("SPEC_PROJECTOR", () => projectSpecification(spec, ledger, context, request("DOCUMENT")));
+    const matrix = await stage("SPEC_PROJECTOR", () => projectSpecification(spec, ledger, context, request("MATRIX")));
+    const flow = await stage("SPEC_PROJECTOR", () => projectSpecification(spec, ledger, context, request("FLOW")));
     commandViews.push({ commandId: target.id, displayId, kind: "COMPLETED", document, matrix, flow });
   }
 

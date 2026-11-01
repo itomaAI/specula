@@ -8,7 +8,7 @@ import type { Glossary, GlossaryEntry } from "../types/glossary.js";
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
 import { canonicalJson } from "../lib/canonical_json.js";
 import { sha256Hex } from "../lib/sha256.js";
-import { compareIds } from "./m0/boundary.js";
+import { compareIds } from "./command_extractor/boundary.js";
 import { collectEntries, contextsOf } from "./glossary/entries.js";
 import { recordGaps } from "./glossary/gaps.js";
 import { cluesOf, meaningOf, selectSections } from "./glossary/match.js";

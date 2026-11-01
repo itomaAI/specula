@@ -1,4 +1,4 @@
-// M4（LedgerSynthesizer）: 検証の報告を、人が判断する論点のカタログにする（M4 の設計・仕様 04）。
+// LedgerSynthesizer: 検証の報告を、人が判断する論点のカタログにする（LedgerSynthesizer の設計・仕様 04）。
 //
 // 流れ: 契約の検査 → 検証の状態の写し → 同じ状態の反例をまとめる → 種類ごとの選択肢 → LLM で論点の文 → カタログ。
 // 論点の数・まとめ方・識別子・選択肢・並びは決定論的に決める。LLM が書くのは論点の文（主張・観測事実・判断質問）だけ。
@@ -10,12 +10,12 @@ import type { ConfirmationStatus, LlmText } from "../types/index.js";
 import type { FormalSpecification } from "../types/formal.js";
 import type { DomainLedgerCatalog, LedgerIssue, LedgerVerification } from "../types/ledger.js";
 import type { Finding, SolverReport } from "../types/solver.js";
-import { checkLedgerContract } from "./m4/contract.js";
-import { groupFindings } from "./m4/group.js";
-import { issueInput, writeIssueTexts } from "./m4/issue_text.js";
-import { optionsFor } from "./m4/options.js";
+import { checkLedgerContract } from "./ledger_synthesizer/contract.js";
+import { groupFindings } from "./ledger_synthesizer/group.js";
+import { issueInput, writeIssueTexts } from "./ledger_synthesizer/issue_text.js";
+import { optionsFor } from "./ledger_synthesizer/options.js";
 
-export { M4_PROMPT_VERSION } from "./m4/issue_text.js";
+export { LEDGER_PROMPT_VERSION } from "./ledger_synthesizer/issue_text.js";
 
 export async function synthesizeLedger(
   report: SolverReport,
@@ -77,7 +77,7 @@ function verificationOf(report: SolverReport): LedgerVerification {
   };
 }
 
-/** 文の確定の状態。確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（M4 の設計 8）。 */
+/** 文の確定の状態。確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（LedgerSynthesizer の設計 8）。 */
 function statusOf(text: LlmText): ConfirmationStatus {
   return text.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED";
 }

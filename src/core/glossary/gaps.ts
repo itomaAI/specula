@@ -1,7 +1,7 @@
 // Step 5: GapRecorder（GlossaryBuilder の設計 3.5）。ずれと同義・多義の候補を記録する。記録するだけで、項目や用語を変えない。
 
 import type { GlossaryEntry, GlossaryGaps } from "../../types/glossary.js";
-import { compareIds } from "../m0/boundary.js";
+import { compareIds } from "../command_extractor/boundary.js";
 import type { SelectedSection } from "./match.js";
 import type { DocumentSection } from "./sections.js";
 

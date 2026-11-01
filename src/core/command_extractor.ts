@@ -1,4 +1,4 @@
-// M0（CommandExtractor）の公開する 2 つの関数（M0 の設計 2）。
+// CommandExtractor の公開する 2 つの関数（CommandExtractor の設計 2）。
 // discoverSystemContext = Stage 1〜3、sliceCommands = Stage 4。コアはファイルを読まず、渡された中身だけを使う。
 //
 // 決めたこと（初回）:
@@ -17,9 +17,9 @@ import type {
   CommandSelection,
   SliceResult,
 } from "../types/command.js";
-import { type ParsedFile, isCodeFile, parseSource } from "./m0/ast.js";
-import { assembleMap, findReadModels } from "./m0/assemble.js";
-import { analyzeBoundaries, compareIds } from "./m0/boundary.js";
+import { type ParsedFile, isCodeFile, parseSource } from "./command_extractor/ast.js";
+import { assembleMap, findReadModels } from "./command_extractor/assemble.js";
+import { analyzeBoundaries, compareIds } from "./command_extractor/boundary.js";
 import {
   ModuleResolver,
   candidatesOf,
@@ -27,8 +27,8 @@ import {
   detectStateSignals,
   normalizePath,
   publicFunctionSignals,
-} from "./m0/signals.js";
-import { slice } from "./m0/slice.js";
+} from "./command_extractor/signals.js";
+import { slice } from "./command_extractor/slice.js";
 
 /** Stage 1〜3: リポジトリの中身から全体マップを作る。 */
 export function discoverSystemContext(repo: RepositoryArtifacts): EventStormingMap {

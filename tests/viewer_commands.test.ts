@@ -9,7 +9,7 @@ import { join } from "node:path";
 
 import { NodeFsAdapter } from "../src/adapters/NodeFsAdapter.js";
 import { main } from "../src/cli.js";
-import { issueDisplayIds, issueGroupsOf, verificationView } from "../src/core/m5/view_model.js";
+import { issueDisplayIds, issueGroupsOf, verificationView } from "../src/core/spec_projector/view_model.js";
 import { readRunOutputs } from "../src/lib/read_outputs.js";
 import type { RunReport } from "../src/types/run.js";
 import { checkRunOutputs } from "../src/viewer/check.js";

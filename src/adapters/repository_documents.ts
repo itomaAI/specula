@@ -12,7 +12,7 @@
 //   （パスの辞書順に入れ、入れると超える資料に来たら、それと以降をすべて omittedDocuments にする）。
 
 import type { RepositoryArtifacts, RepositoryDocument } from "../types/command.js";
-import { boundaryRootOf, compareIds } from "../core/m0/boundary.js";
+import { boundaryRootOf, compareIds } from "../core/command_extractor/boundary.js";
 
 export const DOCUMENT_FILE_LIMIT_BYTES = 64 * 1024;
 export const DOCUMENT_TOTAL_LIMIT_BYTES = 2 * 1024 * 1024;

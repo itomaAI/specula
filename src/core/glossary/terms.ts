@@ -11,7 +11,7 @@ import type { JsonValue } from "../../types/index.js";
 import type { EventStormingMap, RepositoryArtifacts } from "../../types/command.js";
 import type { GlossaryTerm } from "../../types/glossary.js";
 import type { LanguageModelPort, OutputCheck } from "../../ports/LanguageModelPort.js";
-import { compareIds } from "../m0/boundary.js";
+import { compareIds } from "../command_extractor/boundary.js";
 import type { SelectedSection } from "./match.js";
 
 export const GLOSSARY_PROMPT_VERSION = "1";

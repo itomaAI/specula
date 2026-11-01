@@ -1,5 +1,5 @@
-// オーケストレーター（全体設計 2.1）のテスト。エンジンは渡さず（M3 は UNVERIFIED）、LLM は届かない偽のポート。
-// 小さなライブラリ（入口から 3 つの関数を公開）を M0 から通し、3 通りの結果と合計を確かめる。
+// オーケストレーター（全体設計 2.1）のテスト。エンジンは渡さず（FormalSolver は UNVERIFIED）、LLM は届かない偽のポート。
+// 小さなライブラリ（入口から 3 つの関数を公開）を CommandExtractor から通し、3 通りの結果と合計を確かめる。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -41,7 +41,7 @@ const NO_LLM: LanguageModelPort = {
   },
 };
 
-// 真偽値の旗を 1 つ持つ関数（M3 の結合テストと同じ。エンジンがあれば論点 0 件）。
+// 真偽値の旗を 1 つ持つ関数（FormalSolver の結合テストと同じ。エンジンがあれば論点 0 件）。
 const OPEN_SOURCE = [
   "let open = false;",
   "export function openIt() {",
@@ -53,7 +53,7 @@ const OPEN_SOURCE = [
   "}",
 ].join("\n");
 
-// 値が決まらない書き込みと外への作用がある関数（M2 のテストと同じ。AmbiguityReport になる）。
+// 値が決まらない書き込みと外への作用がある関数（FormalTranspiler のテストと同じ。AmbiguityReport になる）。
 const AMBIGUOUS_SOURCE = [
   'let state = "a";',
   "export function go(x: number) {",
@@ -82,13 +82,13 @@ const REPO: RepositoryArtifacts = {
   omittedDocuments: [],
 };
 
-/** M1 が読む口からは src/m.ts を外す（M0 の全体マップにはあるが、起点のファイルが無いので M1 で止まる）。 */
+/** ContextExtractor が読む口からは src/m.ts を外す（CommandExtractor の全体マップにはあるが、起点のファイルが無いので ContextExtractor で止まる）。 */
 function sourceFs(broken: ReadonlySet<string> = new Set()): MemoryFs {
   const { "src/m.ts": _omitted, ...rest } = FILES;
   return new MemoryFs(rest, broken);
 }
 
-test("3 つのコマンドが、M5 まで進む・M2 で止まる・M1 で止まる に分かれ、合計が合う", async () => {
+test("3 つのコマンドが、SpecProjector まで進む・FormalTranspiler で止まる・ContextExtractor で止まる に分かれ、合計が合う", async () => {
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   const { report } = result;
 
@@ -113,7 +113,7 @@ test("3 つのコマンドが、M5 まで進む・M2 で止まる・M1 で止ま
   assert.deepEqual(ambiguous.counts, { UNDETERMINED_VALUE: 1, EXTERNAL_EFFECT: 2, CONFLICTING_SLICES: 0 });
 
   assert.ok(stopped?.kind === "STOPPED");
-  assert.equal(stopped.stage, "M1");
+  assert.equal(stopped.stage, "CONTEXT_EXTRACTOR");
   assert.equal(stopped.error, "InletNotFoundError");
   assert.equal(stopped.reason, "ファイルが無い");
 
@@ -163,7 +163,7 @@ test("3 つのコマンドが、M5 まで進む・M2 で止まる・M1 で止ま
 });
 
 test("検査の範囲: 検証の結果を持つコマンドは、検証の結果が無いコマンドに入れない", async () => {
-  // どの検査にも UNSAT を返す偽のエンジン（M3 のテストの ScriptedSolver と同じ既定の答え）。
+  // どの検査にも UNSAT を返す偽のエンジン（FormalSolver のテストの ScriptedSolver と同じ既定の答え）。
   const engine: EngineInfo = { alloyVersion: "6.test", satSolver: "sat4j", satSolverVersion: null };
   const solver: SolverPort = {
     async run(): Promise<SolverResponse> {
@@ -178,7 +178,7 @@ test("検査の範囲: 検証の結果を持つコマンドは、検証の結果
   assert.deepEqual(report.inspectionScope.invariantChecks, { status: "NOT_APPLICABLE", reason: "NO_ASSERTIONS_FIRST_RUN" });
 });
 
-test("成果物は報告と同じ順・同じ id で、M5 まで進んだコマンドは 3 形式のビューを持つ", async () => {
+test("成果物は報告と同じ順・同じ id で、SpecProjector まで進んだコマンドは 3 形式のビューを持つ", async () => {
   const result = await runPipeline(REPO, { fs: sourceFs(), llm: NO_LLM, solver: null });
   assert.deepEqual(
     result.commands.map((commandTarget) => [commandTarget.commandId, commandTarget.kind]),
@@ -261,7 +261,7 @@ test("成果物は報告と同じ順・同じ id で、M5 まで進んだコマ�
     ["C-02-A-001", "C-02-A-002", "C-02-A-003"],
   );
   assert.ok(entries.filter((entry) => entry.kind === "STATE_VARIABLE").every((entry) => entry.displayId.startsWith("C-01-V-")));
-  assert.ok(!entries.some((entry) => entry.displayId.startsWith("C-03-")), "M1 で止まったコマンドはコマンドの行だけ");
+  assert.ok(!entries.some((entry) => entry.displayId.startsWith("C-03-")), "ContextExtractor で止まったコマンドはコマンドの行だけ");
   assert.deepEqual(result.implementationMap.basis, result.glossary.basis);
 });
 

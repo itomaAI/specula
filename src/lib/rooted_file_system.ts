@@ -1,4 +1,4 @@
-// FileSystemPort にルートのディレクトリを付ける包み（M1 の計画）。
+// FileSystemPort にルートのディレクトリを付ける包み（ContextExtractor の計画）。
 // コアはリポジトリのルートからの相対パス（"src/a.ts"）で読み、ルートの付け足しは呼び出し元がこれで行う。
 // ポートの型だけに依存する（node:fs も MetaOS.fs も知らない）。
 

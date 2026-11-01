@@ -254,11 +254,11 @@ interface SpecificationView {
 
 ### 7.2 ビューに出さないもの
 仕様 3.2 は、形式仕様の識別子や実装の所在をビューに出さないことを求めている。次のものはこの理由で出さず、決まった文に置き換える。
-- **検査の id**（`m3_reach_op1` など）: 操作の識別子を含むため。検査の種類ごとに次の文にし、操作は表示名で書く。
-  - `m3_cover` は「どの操作の条件も成り立たない状態を探す検査」
-  - `m3_overlap_<A>_<B>` は「「〈A〉」と「〈B〉」の条件が重なる状態を探す検査」
-  - `m3_reach_<操作>` は「「〈操作〉」に到達できるかの検査」
-  - `m3_escape_<n>` は「抜けられない状態を探す検査」
+- **検査の id**（`check_reach_op1` など）: 操作の識別子を含むため。検査の種類ごとに次の文にし、操作は表示名で書く。
+  - `check_cover` は「どの操作の条件も成り立たない状態を探す検査」
+  - `check_overlap_<A>_<B>` は「「〈A〉」と「〈B〉」の条件が重なる状態を探す検査」
+  - `check_reach_<操作>` は「「〈操作〉」に到達できるかの検査」
+  - `check_escape_<n>` は「抜けられない状態を探す検査」
   - この形に当てはまらない id は、識別子を出さずに「種類の分からない検査」と書く。
 - **未検証の理由の詳細**（`verification.reason.detail`）: エンジンのメッセージに識別子が入りうるため。理由の種類ごとに固定の文にする（`NO_SOLVER` は「検査のエンジンが用意されていない」、`UNREACHABLE` は「検査のエンジンに届かなかった」、`TIMEOUT` は「検査が制限時間を超えた」、`ENGINE_ERROR` は「検査のエンジンがエラーを返した」）。3.4 の表の「理由（`reason.kind` と `reason.detail`）」は、この固定の文に変えた。
 - **LLM の文が未生成のときの詳細**（`LlmText` の `detail`）: 検出した識別子を含みうるため。「未生成（LLM に届かなかった）」「未生成（LLM の出力が検査を通らなかった）」と、理由の種類だけを書く。
@@ -339,7 +339,7 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
   - 件数は 3 つの種類を固定の順（値が決まらない・外部への作用がある・同じ条件で別の経路に進む）に、0 件のものも書く。曖昧さが 0 件なら「曖昧さは無い。」と書く。
   - 所在は「`〈ファイル〉` L〈行〉」（列は書かない）、原文は言語の名前を付けないコードの囲みにした。
   - 契約は、`format` が `AMBIGUITY_DOCUMENT` でない・役割が `PdM`・`Eng` でないときに `UNSUPPORTED_FORMAT`、`context.commandTarget.id` が `report.commandId` と違うときに `COMMAND_MISMATCH`（7.7）。
-  - オーケストレーターは、曖昧さで止まったコマンドで `projectAmbiguities` を呼び、成果物の `view` に入れる。M5 の段として呼ぶので、契約のエラーならそのコマンドは M5 で止まったことになる。ファイルへの書き出し（CLI と起動アプリ）は、まだ行っていない（`src/lib/write_outputs.ts` は `ambiguity.json` だけを書く）。
+  - オーケストレーターは、曖昧さで止まったコマンドで `projectAmbiguities` を呼び、成果物の `view` に入れる。SpecProjector の段として呼ぶので、契約のエラーならそのコマンドは SpecProjector で止まったことになる。ファイルへの書き出し（CLI と起動アプリ）は、まだ行っていない（`src/lib/write_outputs.ts` は `ambiguity.json` だけを書く）。
 
 ### 8.5 実装との対応表（`implementation_map.json`）
 - `projectImplementationMap` が作る。表示の役割に関係なく、同じ入力からは同じ表を作る。
@@ -347,7 +347,7 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
 - 地図の要素とコマンド: 辞書の項目をそのまま引き、`glossaryEntryId` に項目の id、`implementation` に項目の `implementation` を写す。コマンドの単位は、起点のコマンドの項目を引く。
 - 曖昧さ: `implementation` は `location` から作る（`names` は空、`locations` は 1 件）。辞書の項目とは結び付けない（`glossaryEntryId` は `null`）。
 - 状態変数: 正本の構造に残る出どころ（`spec.sourceMap` で状態変数の識別子から引けるユニット）から所在を作る。実装の名前が辞書の `implementation.names` と完全に一致したときだけ、`glossaryEntryId` にその項目の id を入れる。一致しなければ `null` にし、辞書には足さない（全体設計 2.2。2026-10-30 中瀬古様了承、C0AF4DJJK8A 1793354518.934329）。
-  - 状態変数の実装の名前は `StateVariable.name`（M1 の `ExtractionUnit.name` を M2 が写したもの。FormalTranspiler の設計 4.3）から取る。2026-10-30 に、この欄を足して決めた（8.8）。
+  - 状態変数の実装の名前は `StateVariable.name`（ContextExtractor の `ExtractionUnit.name` を FormalTranspiler が写したもの。FormalTranspiler の設計 4.3）から取る。2026-10-30 に、この欄を足して決めた（8.8）。
 - 論点: `internalId` は論点の識別子（`LEDGER-…`）。`implementation` は、論点に関わる操作ごとの出口のユニットの所在から作る（`names` は空）。辞書の項目とは結び付けない（`glossaryEntryId` は `null`）。
 - 状態変数の表示の id（`C-01-V-01`）は対応表のキーとしてだけ使い、PdM 向けのビューには出さない。
 
@@ -371,7 +371,7 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
 - **表示の役割の誤り**: 役割が `PdM`・`Eng` のどちらでもなければ `UNSUPPORTED_FORMAT` にする（7.7）。オーケストレーターは入口で既定の `PdM` を入れる。俯瞰図の射影はコマンドごとの段の外で呼ぶので、役割の誤りは実行全体を止める。
 
 ### 8.8 実装との対応表を実装したときに決めたこと（2026-10-30）
-- **状態変数の実装の名前**: `StateVariable` に `name`（M1 の `ExtractionUnit.name`。実装上の変数名）を足し、FormalTranspiler が状態変数を作るときに写すことにした（FormalTranspiler の設計 4.3）。入力に M1 の結果（`RawContextModel`）を足して `unitId` から名前を引く案もあったが、本モジュールが M1 の出力の型に依存することになるので採らなかった。`name` は内部の記録で、PdM 向けのビューには出さない。M4 の LLM の入力にも入らない（M4 の語彙は項目を名指しで写すため）。
+- **状態変数の実装の名前**: `StateVariable` に `name`（ContextExtractor の `ExtractionUnit.name`。実装上の変数名）を足し、FormalTranspiler が状態変数を作るときに写すことにした（FormalTranspiler の設計 4.3）。入力に ContextExtractor の結果（`RawContextModel`）を足して `unitId` から名前を引く案もあったが、本モジュールが ContextExtractor の出力の型に依存することになるので採らなかった。`name` は内部の記録で、PdM 向けのビューには出さない。LedgerSynthesizer の LLM の入力にも入らない（LedgerSynthesizer の語彙は項目を名指しで写すため）。
 - **入力に論点カタログを足した**: 論点の表示の id（`C-01-L-001`）と論点の識別子の対応を表に入れるため（8.7）、`ImplementationMapInput` に `ledger` を足し、項目の種類に `LEDGER_ISSUE` を足した（5 節）。
 - **番号の桁**: 状態変数の番号（`V-01`）は 2 桁を最小にし、100 件以上なら件数の桁数にそろえる（コマンドの表示の id と同じ規則。8.7）。曖昧さ（`A-001`）と論点（`L-001`）は、曖昧さの一覧と仕様書の表示に合わせて 3 桁に固定する。
 - **俯瞰図のノードの並び**: `n1`… はイベント → コマンド → ポリシーの順に振る。俯瞰図の描画と同じ振り方にし、同じ要素が表と俯瞰図で同じ番号になるようにした。
@@ -407,7 +407,7 @@ GlossaryBuilder と IntentSynthesizer を足し、利用者向けの出力から
   - 論点カタログが無いときは、検査をしていないので書かない。
 - **確定の状態（実装した）**: 表示名・用語・意図の候補・論点の文・曖昧さの質問の文に、記録された `ConfirmationStatus`（GlossaryBuilder 基本設計 5.1）に応じた印を付ける。仕様書の中の表示名すべてに「（候補）」を付けると読みにくくなるので、次のようにした。
   - 仕様書の題のすぐ後ろに、「この文書の表示名と用語は、人が確かめていない候補である。人が確定したものには「（確定）」、確定のあとで元の資料やコードが変わったものには「（要再確認）」を付けた。」と 1 回書く。候補の項目には個別の印を付けない。
-  - 印は、確定（`CONFIRMED`）に「（確定）」、要再確認（`NEEDS_RECHECK`）に「（要再確認）」を、文の後ろに付ける（`src/core/m5/labels.ts` の `statusMark`）。未生成（`NOT_GENERATED`）には新しい印を付けない。表示名は「〈識別子〉（表示名は未生成）」、文は「未生成（理由）」と、すでに書かれているためである。
+  - 印は、確定（`CONFIRMED`）に「（確定）」、要再確認（`NEEDS_RECHECK`）に「（要再確認）」を、文の後ろに付ける（`src/core/spec_projector/labels.ts` の `statusMark`）。未生成（`NOT_GENERATED`）には新しい印を付けない。表示名は「〈識別子〉（表示名は未生成）」、文は「未生成（理由）」と、すでに書かれているためである。
   - 表示名の印は、項目を定義する箇所にだけ付ける。状態の表の状態変数と列挙の値、環境が決める条件の一覧、操作の見出し、操作の「結果」の行である。条件と書き込みの文、実行列、検査の文、論点の「関わる操作」の中の表示名には付けない。文の途中に印が入ると読みにくく、定義の箇所を見れば状態が分かるためである。
   - 題の用語には辞書の `termStatus`、意図の候補には `intentStatus`、論点の主張・観測事実・判断質問にはそれぞれ `claimStatus`・`observationStatus`・`questionStatus`、曖昧さの質問の文（`Eng` のときだけ出る）には `questionStatus` の印を付ける。意図の候補は、これまでどおり「候補」と書く（7.2）。
   - 印は中間表現（3 節）の文字列に入れる。そのため、操作の一覧表と流れ図にも同じ印が出る。ビューどうしで表示が食い違わないようにするためである（1.3）。冒頭の 1 文は仕様書にだけ書く。

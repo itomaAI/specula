@@ -1,14 +1,14 @@
-// M4（LedgerSynthesizer）の出力の型（M4 の設計 6）。
+// LedgerSynthesizer の出力の型（LedgerSynthesizer の設計 6）。
 
 import type { ConfirmationStatus, LlmText } from "./index.js";
 import type { FindingKind, SolverConditions, SolverReport, TraceStep } from "./solver.js";
 
 /**
- * 検証の結果の分け方（M4 の設計 2 の表）。
+ * 検証の結果の分け方（LedgerSynthesizer の設計 2 の表）。
  * - UNVERIFIED: 報告が未検証。見つかったものがあれば論点にするが、「見つからなかった」とは扱わない。
  * - NONE_FOUND_WITHIN_SCOPE: 検査済みで、指定のスコープの中で、行った検査では見つからなかった。
  * - FOUND: 検査済みで、見つかったものが 1 件以上。
- * 定型の文はカタログに入れない（M5 がこの値から表示する）。
+ * 定型の文はカタログに入れない（SpecProjector がこの値から表示する）。
  */
 export type VerificationOutcome = "UNVERIFIED" | "NONE_FOUND_WITHIN_SCOPE" | "FOUND";
 
@@ -36,7 +36,7 @@ export type LedgerOptionId =
 
 export interface LedgerOption {
   id: LedgerOptionId;
-  /** M4 の設計 4 の表の文（固定。LLM で作らない）。 */
+  /** LedgerSynthesizer の設計 4 の表の文（固定。LLM で作らない）。 */
   meaning: string;
 }
 
@@ -53,13 +53,13 @@ export interface LedgerIssue {
   operations: string[];
   /** 本体の実行列。UNREACHABLE_OPERATION は null。 */
   trace: TraceStep[] | null;
-  /** 本来あるべき前提（LLM。task "m4.issue-text"）。 */
+  /** 本来あるべき前提（LLM。task "ledger.issue-text"）。 */
   claim: LlmText;
   /** 検査で見つかったこと（LLM）。 */
   observation: LlmText;
   /** 人に判断を求める問い（LLM）。 */
   question: LlmText;
-  /** 3 つの文の確定の状態（NOT_GENERATED か CANDIDATE。M4 の設計 8）。論点の decision とは別の欄。 */
+  /** 3 つの文の確定の状態（NOT_GENERATED か CANDIDATE。LedgerSynthesizer の設計 8）。論点の decision とは別の欄。 */
   claimStatus: ConfirmationStatus;
   observationStatus: ConfirmationStatus;
   questionStatus: ConfirmationStatus;
@@ -85,7 +85,7 @@ export interface DomainLedgerCatalog {
   issues: LedgerIssue[];
 }
 
-/** 本体の選び方の順（M4 の設計 3.1）。 */
+/** 本体の選び方の順（LedgerSynthesizer の設計 3.1）。 */
 export const ROOT_PRIORITY: readonly FindingKind[] = [
   "DEADLOCK",
   "UNHANDLED_TRANSITION",
@@ -94,14 +94,14 @@ export const ROOT_PRIORITY: readonly FindingKind[] = [
 ];
 
 
-/** M3 の報告と M2 の形式仕様の組が契約を破っている。オーケストレーターは「M4 で止まった」と理由付きで残す。 */
+/** FormalSolver の報告と FormalTranspiler の形式仕様の組が契約を破っている。オーケストレーターは「LedgerSynthesizer で止まった」と理由付きで残す。 */
 export class LedgerContractError extends Error {
   constructor(
     readonly commandId: string,
     readonly reason: "COMMAND_MISMATCH" | "SPEC_HASH_MISMATCH" | "UNKNOWN_OPERATION" | "UNKNOWN_STATE_VARIABLE",
     readonly detail: string,
   ) {
-    super(`M4 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
+    super(`LedgerSynthesizer の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "LedgerContractError";
   }
 }

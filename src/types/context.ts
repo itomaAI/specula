@@ -1,6 +1,6 @@
-// M1（ContextExtractor）の出力の型（M1 の設計 4）。
+// ContextExtractor の出力の型（ContextExtractor の設計 4）。
 
-/** コードの中の位置（M1 のユニット用）。line・column は 1 から数える。 */
+/** コードの中の位置（ContextExtractor のユニット用）。line・column は 1 から数える。 */
 export interface UnitLocation {
   file: string;
   line: number;
@@ -36,7 +36,7 @@ export interface ExtractionUnit {
   location: UnitLocation;
   /** たどった関数の名前（ユニットを含む関数）。 */
   componentScope?: string;
-  /** 種類ごとの項目（M1 の設計 4 の表）。式はすべて原文のまま。 */
+  /** 種類ごとの項目（ContextExtractor の設計 4 の表）。式はすべて原文のまま。 */
   details?: Record<string, string | number | boolean | null>;
 }
 

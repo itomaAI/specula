@@ -78,10 +78,10 @@ interface SolverOptions {
 
 | 順 | 検査 | Alloy のコマンド | 見つかったときの記録 |
 | :-- | :-- | :-- | :-- |
-| 1 | 未定義遷移: 到達できる状態と、その時点の命題の組み合わせで、どの操作も実行できないものがあるか | `check m3_cover { always (op1_guard or op2_guard or …) }` | `UNHANDLED_TRANSITION` |
-| 2 | 操作の重なり: 同じ状態と命題で、2 つの操作がどちらも実行できるか（操作の組ごと、番号の小さい順） | `check m3_overlap_op1_op2 { always not (op1_guard and op2_guard) }` | `OVERLAPPING_OPERATIONS` |
-| 3 | 到達不能な操作: その操作が一度でも実行される実行列があるか（操作ごと） | `run m3_reach_op1 { eventually op1 }` | 見つからなければ `UNREACHABLE_OPERATION` |
-| 4 | デッドロック: 1 で見つかった状態のそれぞれについて、命題をどう選んでもどの操作も実行できないか | `run m3_escape_<n> { eventually (<その状態> and (op1_guard or …)) }` | 見つからなければ `DEADLOCK` |
+| 1 | 未定義遷移: 到達できる状態と、その時点の命題の組み合わせで、どの操作も実行できないものがあるか | `check check_cover { always (op1_guard or op2_guard or …) }` | `UNHANDLED_TRANSITION` |
+| 2 | 操作の重なり: 同じ状態と命題で、2 つの操作がどちらも実行できるか（操作の組ごと、番号の小さい順） | `check check_overlap_op1_op2 { always not (op1_guard and op2_guard) }` | `OVERLAPPING_OPERATIONS` |
+| 3 | 到達不能な操作: その操作が一度でも実行される実行列があるか（操作ごと） | `run check_reach_op1 { eventually op1 }` | 見つからなければ `UNREACHABLE_OPERATION` |
+| 4 | デッドロック: 1 で見つかった状態のそれぞれについて、命題をどう選んでもどの操作も実行できないか | `run check_escape_<n> { eventually (<その状態> and (op1_guard or …)) }` | 見つからなければ `DEADLOCK` |
 
 - **1 と 4 の関係**: 1 の反例は「その状態で、その命題の組み合わせでは実行できる操作が無い」ことを示す。命題は環境が各時点で自由に決めるので、別の組み合わせなら実行できることがある。4 は、1 で見つかった状態の値（状態変数の値の組）について、実行できる組み合わせが 1 つも無いかを確かめる。無ければ、その状態は抜け出せない（デッドロック）。1 は反例が見つかるたびに 1 件だけ返すので、4 は 1 の反例 1 件ごとに 1 回行う。
 - **1 で見つかる反例は 1 件だけである。** `check` は反例を 1 つ返すと止まる。同じ検査で別の反例を探すために、見つかった状態の値を除く条件を足して繰り返すことはしない（初回の範囲外）。報告には「この検査の反例は 1 件目だけ」と書く（`exhaustive: false`）。
@@ -114,7 +114,7 @@ System.v1 = True and System.v2 = v2_3 and System.v3 = 2
 ```typescript
 interface SolverRequest {
   source: string;                       // FormalTranspiler のソース + FormalSolver のコマンド
-  command: string;                      // 実行するコマンドの名前（"m3_cover" など）
+  command: string;                      // 実行するコマンドの名前（"check_cover" など）
   steps: number;                        // このときのステップ数の上限
   bitwidth: number;
   preventOverflow: boolean;
@@ -144,7 +144,7 @@ interface SolverPort {
 | `LocalBridgeAlloyAdapter` | Itera OS | ローカルブリッジの `/api/exec` を通して、手元の PC の `java` で Alloy 6 を起動する（3.4）。ブラウザの中では Java 製の Alloy を動かせないためである |
 
 ### 3.3 Alloy 6.2.0 のコマンドラインで確かめた事実
-次は、GitHub Actions で Alloy 6.2.0 を実際に動かして確かめた（試しのジョブと、`tests/m3_alloy_integration.test.ts`）。
+次は、GitHub Actions で Alloy 6.2.0 を実際に動かして確かめた（試しのジョブと、`tests/formal_solver_alloy_integration.test.ts`）。
 
 - **版と取得**: Alloy 6.2.0（2025-01-09 のリリース）を使う。jar は `org.alloytools.alloy.dist.jar`、SHA-256 は `6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d`。CI は Java 17 を用意し、jar を取得して SHA-256 を照合してから、パスを `ALLOY_JAR` に渡す。`ALLOY_JAR` が無い環境では結合テストを飛ばす。
 - **Java の小さなランナーは置かない。** 6.2.0 の jar にはコマンドライン（`exec`）があり、必要な指定がすべて渡せるためである。`CliAlloyAdapter` は次の形で子プロセスを起動する。
@@ -229,7 +229,7 @@ interface SolverReport {
     partitioning: "NONE";
   };
   checks: Array<{
-    id: string;                         // "m3_cover" など。2.2 の順
+    id: string;                         // "check_cover" など。2.2 の順
     kind: "COVER" | "OVERLAP" | "REACH" | "ESCAPE";
     targets: string[];                  // 対象の操作の識別子
     result: "FOUND" | "NOT_FOUND_WITHIN_SCOPE";

@@ -1,18 +1,18 @@
-// M3（FormalSolver）: 形式仕様を Alloy 6 で検査する（M3 の設計・仕様 03）。LLM は使わない。
+// FormalSolver: 形式仕様を Alloy 6 で検査する（FormalSolver の設計・仕様 03）。LLM は使わない。
 //
 // 流れ: 契約の検査 → 検査の一覧（COVER・OVERLAP・REACH）→ 検査ごとにステップ数を 1 から上げて実行
 //       → COVER の反例があれば ESCAPE を 1 件足す → 報告。
 // エンジンに届かない・時間切れ・エンジンの誤りが出たら、そこで止めて、残りの検査を unexecutedChecks に並べる。
-// それまでに見つかったものは残す（M3 の設計 4.1）。
+// それまでに見つかったものは残す（FormalSolver の設計 4.1）。
 
 import { canonicalJson } from "../lib/canonical_json.js";
 import { sha256Hex } from "../lib/sha256.js";
 import type { EngineInfo, RawInstance, SolverPort } from "../ports/SolverPort.js";
 import type { FormalSpecification } from "../types/formal.js";
 import type { CheckResult, Finding, SolverConditions, SolverOptions, SolverReport, TraceStep, UnverifiedReason } from "../types/solver.js";
-import { checkSpecContract } from "./m3/contract.js";
-import { InstanceShapeError, toTrace } from "./m3/normalize.js";
-import { SCOPE, commandSource, planChecks, planEscape, type PlannedCheck } from "./m3/plan.js";
+import { checkSpecContract } from "./formal_solver/contract.js";
+import { InstanceShapeError, toTrace } from "./formal_solver/normalize.js";
+import { SCOPE, commandSource, planChecks, planEscape, type PlannedCheck } from "./formal_solver/plan.js";
 
 export const SOLVER_DEFAULTS = { maxSteps: 10, bitwidth: 4, timeoutMs: 60000 } as const;
 
@@ -76,7 +76,7 @@ export async function verifySpecification(
       const finding = findingOf(check, trace, coverTrace);
       if (finding !== null) findings.push(finding);
       if (check.kind === "COVER" && trace !== null) {
-        // 最短の反例では、どの操作も実行できない時点は最後の時点になる（M3 の設計 2.3）。
+        // 最短の反例では、どの操作も実行できない時点は最後の時点になる（FormalSolver の設計 2.3）。
         coverTrace = trace;
         const last = trace[trace.length - 1] as TraceStep;
         queue.push(planEscape(spec, 1, last.values));
@@ -167,6 +167,6 @@ function engineJson(engine: EngineInfo): { alloyVersion: string; satSolver: stri
 }
 
 function positiveInteger(name: string, value: number): number {
-  if (!Number.isInteger(value) || value < 1) throw new RangeError(`M3: ${name} は 1 以上の整数（${String(value)}）`);
+  if (!Number.isInteger(value) || value < 1) throw new RangeError(`FormalSolver: ${name} は 1 以上の整数（${String(value)}）`);
   return value;
 }

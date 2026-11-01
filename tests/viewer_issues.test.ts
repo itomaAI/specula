@@ -10,8 +10,8 @@ import { join } from "node:path";
 
 import { NodeFsAdapter } from "../src/adapters/NodeFsAdapter.js";
 import { main } from "../src/cli.js";
-import { statusMark } from "../src/core/m5/labels.js";
-import { issueDisplayIds, issueGroupsOf, llmText } from "../src/core/m5/view_model.js";
+import { statusMark } from "../src/core/spec_projector/labels.js";
+import { issueDisplayIds, issueGroupsOf, llmText } from "../src/core/spec_projector/view_model.js";
 import { readRunOutputs } from "../src/lib/read_outputs.js";
 import type { AmbiguityReport } from "../src/types/formal.js";
 import type { LedgerIssue } from "../src/types/ledger.js";

@@ -1,4 +1,4 @@
-// SolverPort の Itera OS 版（M3 の設計 3.2・3.4、全体設計 4.1）。
+// SolverPort の Itera OS 版（FormalSolver の設計 3.2・3.4、全体設計 4.1）。
 // ローカルブリッジのサーバーの `POST <serverUrl>/api/exec` を通して、手元の PC の `java` で Alloy 6 を起動する。
 // ブラウザ（Itera OS）の中では Java 製の Alloy を動かせないためである。
 //

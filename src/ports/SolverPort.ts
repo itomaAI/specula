@@ -1,10 +1,10 @@
-// Alloy 6 を実行する口（M3 の設計 3.1）。
+// Alloy 6 を実行する口（FormalSolver の設計 3.1）。
 // アダプター（CliAlloyAdapter・LocalBridgeAlloyAdapter）は例外を投げず、届かないことも値で返す。
 
 export interface SolverRequest {
-  /** M2 のソースに M3 のコマンドを足したもの。 */
+  /** FormalTranspiler のソースに FormalSolver のコマンドを足したもの。 */
   source: string;
-  /** 実行するコマンドの名前（"m3_cover" など）。 */
+  /** 実行するコマンドの名前（"check_cover" など）。 */
   command: string;
   /** このときのステップ数の上限。 */
   steps: number;
@@ -22,7 +22,7 @@ export interface EngineInfo {
 /**
  * エンジンが出した実例。時点ごとに、各フィールドの値を原子の名前の組で表す。
  * 形はアダプターがそろえ、コアは Alloy の出力の書式を知らない。
- * 形は Alloy 6.2.0 の CLI の JSON の出力（`"System$0": { "v1": [["False$0"]] }`）を見て決めた（M3 の設計 3.3）。
+ * 形は Alloy 6.2.0 の CLI の JSON の出力（`"System$0": { "v1": [["False$0"]] }`）を見て決めた（FormalSolver の設計 3.3）。
  */
 export interface RawInstance {
   /**

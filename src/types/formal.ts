@@ -1,28 +1,28 @@
-// M2（FormalTranspiler）の出力の型（M2 の設計 4.3・5）。
+// FormalTranspiler の出力の型（FormalTranspiler の設計 4.3・5）。
 
 import type { ConfirmationStatus, LlmText } from "./index.js";
 import type { OutletKind, UnitLocation } from "./context.js";
 
-/** 状態変数のドメイン（M2 の設計 2.1）。 */
+/** 状態変数のドメイン（FormalTranspiler の設計 2.1）。 */
 export type StateDomain = "BOOL" | "ENUM" | "INT";
 
 export interface StateVariable {
   /** "v1" */
   id: string;
-  /** M1 の STATE の識別子。 */
+  /** ContextExtractor の STATE の識別子。 */
   unitId: string;
-  /** 実装上の名前（M1 の STATE の name。変数名）。実装との対応表（M5）が使う。質問の文・M4 の LLM の入力と BUSINESS の出力には出さない。 */
+  /** 実装上の名前（ContextExtractor の STATE の name。変数名）。実装との対応表（SpecProjector）が使う。質問の文・LedgerSynthesizer の LLM の入力と BUSINESS の出力には出さない。 */
   name: string;
   domain: StateDomain;
   /** ENUM の値の識別子（"v1_1" …。初期値が決まらなければ "v1_unknown" を含む）。BOOL・INT は空。 */
   values: string[];
-  /** 値の識別子 → 元のリテラルの原文（ENUM だけ。"v1_unknown" は含まない）。M5 が表示に使う。 */
+  /** 値の識別子 → 元のリテラルの原文（ENUM だけ。"v1_unknown" は含まない）。SpecProjector が表示に使う。 */
   valueLiterals: Record<string, string>;
   /** 初期値: BOOL は "True"・"False"、ENUM は値の識別子、INT は整数の文字列。決まらなければ null。 */
   initial: string | null;
 }
 
-/** 環境が決める命題（M2 の設計 2.3）。出現ごとに 1 つ。 */
+/** 環境が決める命題（FormalTranspiler の設計 2.3）。出現ごとに 1 つ。 */
 export interface Proposition {
   /** "c1" */
   id: string;
@@ -32,7 +32,7 @@ export interface Proposition {
   expression: string;
 }
 
-/** 条件の式を訳した結果（M2 の設計 3.2）。変数は、その時点の値（それより前の書き込みを反映した値）を指す。 */
+/** 条件の式を訳した結果（FormalTranspiler の設計 3.2）。変数は、その時点の値（それより前の書き込みを反映した値）を指す。 */
 export type GuardExpr =
   | { op: "PROP"; prop: string }
   | { op: "IS"; variable: string; value: string }
@@ -43,7 +43,7 @@ export type GuardExpr =
 export type WriteChange = { op: "SET"; value: string | number } | { op: "ADD"; amount: number };
 
 /**
- * 書き込みの条件の 1 項（M1 の details.guardTerms の 1 つを訳したもの）。
+ * 書き込みの条件の 1 項（ContextExtractor の details.guardTerms の 1 つを訳したもの）。
  * 条件は、それを持つ最初の書き込みの直前の値で評価する（枝の条件は、枝の中のどの書き込みよりも前に評価されるため）。
  */
 export interface WriteCondition {
@@ -76,7 +76,7 @@ export interface Operation {
   /** "o1" */
   outcome: string;
   outletKind: OutletKind;
-  /** "op1_guard"（M2 の設計 3.1） */
+  /** "op1_guard"（FormalTranspiler の設計 3.1） */
   guardPredicate: string;
   /** 経路の順の条件と書き込み。 */
   steps: OperationStep[];
@@ -95,7 +95,7 @@ export interface FormalSpecification {
   sourceMap: Record<string, string[]>;
   /** Alloy の識別子 → 表示名。 */
   labels: Record<string, LlmText>;
-  /** labels と同じキー。表示名の確定の状態（NOT_GENERATED か CANDIDATE。M2 の設計 6）。 */
+  /** labels と同じキー。表示名の確定の状態（NOT_GENERATED か CANDIDATE。FormalTranspiler の設計 6）。 */
   labelStatus: Record<string, ConfirmationStatus>;
   previousDiff: { status: "NOT_COMPUTED"; reason: "FIRST_RUN" | "OUT_OF_SCOPE" };
 }
@@ -105,13 +105,13 @@ export type AmbiguityKind = "UNDETERMINED_VALUE" | "EXTERNAL_EFFECT" | "CONFLICT
 export interface AmbiguityIssue {
   kind: AmbiguityKind;
   unitIds: string[];
-  /** 最初のユニットの所在（M1 のユニットの所在。列を含む）。 */
+  /** 最初のユニットの所在（ContextExtractor のユニットの所在。列を含む）。 */
   location: UnitLocation;
   /** 式や呼び出しの原文。 */
   detail: string;
-  /** 人への質問の文（LLM。task: "m2.ambiguity-question"）。 */
+  /** 人への質問の文（LLM。task: "formal.ambiguity-question"）。 */
   question: LlmText;
-  /** 質問の文の確定の状態（NOT_GENERATED か CANDIDATE。M2 の設計 6）。 */
+  /** 質問の文の確定の状態（NOT_GENERATED か CANDIDATE。FormalTranspiler の設計 6）。 */
   questionStatus: ConfirmationStatus;
 }
 
@@ -124,14 +124,14 @@ export interface AmbiguityReport {
 
 export type TranspilerResult = { kind: "SPEC"; spec: FormalSpecification } | { kind: "AMBIGUITY"; report: AmbiguityReport };
 
-/** M1 の契約違反（曖昧性ではない）。オーケストレーターは「M2 で止まった」と理由付きで報告に残す。 */
+/** ContextExtractor の契約違反（曖昧性ではない）。オーケストレーターは「FormalTranspiler で止まった」と理由付きで報告に残す。 */
 export class TranspileContractError extends Error {
   constructor(
     readonly commandId: string,
     readonly reason: "NO_SLICES" | "WRITE_WITHOUT_EXPRESSION" | "UNKNOWN_UNIT" | "MALFORMED_DETAILS",
     readonly detail: string,
   ) {
-    super(`M2 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
+    super(`FormalTranspiler の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "TranspileContractError";
   }
 }

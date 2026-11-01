@@ -1,8 +1,8 @@
-// M3（FormalSolver）の入出力の型（M3 の設計 2.1・4.2）。
+// FormalSolver の入出力の型（FormalSolver の設計 2.1・4.2）。
 
 import type { EngineInfo } from "../ports/SolverPort.js";
 
-/** 検査のオプション。省いた項目は既定値（M3 の設計 2.4）。 */
+/** 検査のオプション。省いた項目は既定値（FormalSolver の設計 2.4）。 */
 export interface SolverOptions {
   /** 時相のステップ数の上限。既定 10。 */
   maxSteps?: number;
@@ -29,7 +29,7 @@ export interface SolverConditions {
 }
 
 export interface CheckResult {
-  /** "m3_cover" など。M3 の設計 2.2 の順。 */
+  /** "check_cover" など。FormalSolver の設計 2.2 の順。 */
   id: string;
   kind: CheckKind;
   /** 対象の操作の識別子。 */
@@ -64,15 +64,15 @@ export interface Finding {
 }
 
 export interface SolverReport {
-  /** specSourceHash・検査の一覧・conditions を正準化した JSON の SHA-256（M3 の設計 4.2）。 */
+  /** specSourceHash・検査の一覧・conditions を正準化した JSON の SHA-256（FormalSolver の設計 4.2）。 */
   reportId: string;
   commandId: string;
-  /** M2 のソースの SHA-256。 */
+  /** FormalTranspiler のソースの SHA-256。 */
   specSourceHash: string;
   status: "CHECKED" | "UNVERIFIED";
   reason: null | { kind: UnverifiedReason; detail: string };
   conditions: SolverConditions;
-  /** 実行した検査。M3 の設計 2.2 の順。 */
+  /** 実行した検査。FormalSolver の設計 2.2 の順。 */
   checks: CheckResult[];
   /** 実行しなかった検査の識別子。 */
   unexecutedChecks: string[];
@@ -81,14 +81,14 @@ export interface SolverReport {
   invariantChecks: { status: "NOT_APPLICABLE"; reason: "NO_ASSERTIONS_FIRST_RUN" };
 }
 
-/** M2 の契約違反。オーケストレーターは「M3 で止まった」と理由付きで報告に残す。 */
+/** FormalTranspiler の契約違反。オーケストレーターは「FormalSolver で止まった」と理由付きで報告に残す。 */
 export class SolverContractError extends Error {
   constructor(
     readonly commandId: string,
     readonly reason: "NO_OPERATIONS" | "MISSING_GUARD_PREDICATE" | "MISSING_STATE_VARIABLE" | "INVALID_IDENTIFIER",
     readonly detail: string,
   ) {
-    super(`M3 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
+    super(`FormalSolver の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "SolverContractError";
   }
 }
