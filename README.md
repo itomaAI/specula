@@ -90,16 +90,19 @@ npm run serve        # npm run build:itera, then node dist/src/server.js
 
 ### Itera OS
 
-The launcher `itera/specula.html` builds the Itera adapters and runs the same pipeline. Put `dist/specula.itera.js` (from `npm run build:itera` or the `specula-itera` CI artifact) and `itera/specula.html` in the VFS, then spawn the launcher with these arguments:
+The launcher `itera/specula.html` builds the Itera adapters and runs the same pipeline. Put `dist/specula.itera.js` (from `npm run build:itera` or the `specula-itera` CI artifact), `itera/specula.html` and `itera/spec_viewer.html` in the VFS, then open the launcher.
 
-| Argument | Required | Meaning |
-| :--- | :--- | :--- |
-| `repo` | yes | VFS directory of the repository to analyse |
-| `out` | yes | VFS directory for the outputs |
-| `bundle` | yes | VFS path of `specula.itera.js` |
-| `jar` | no | Path of the Alloy 6.2.0 jar **on the user's machine**. Without it, FormalSolver is skipped (`NO_SOLVER`) |
-| `java` | no | `java` command on the user's machine (default `java`) |
-| `connection` | no | Name of the Local Bridge connection (`connections[].name` in the `local_bridge` config). Default: the first enabled one |
+Opening the launcher does not start a run. It shows a dashboard: the status, the inputs for a run (with buttons to pick files and directories), a start button, the log of the run, and a button that opens the results in SpecViewer. The arguments below only fill the inputs; they can be changed on the dashboard. A run needs `repo`, `out` and `bundle`.
+
+| Argument | Meaning |
+| :--- | :--- |
+| `repo` | VFS directory of the repository to analyse |
+| `out` | VFS directory for the outputs |
+| `bundle` | VFS path of `specula.itera.js` |
+| `viewer` | VFS path of `spec_viewer.html`. Default: `<dir>/itera/spec_viewer.html` when `bundle` is `<dir>/dist/specula.itera.js` |
+| `jar` | Path of the Alloy 6.2.0 jar **on the user's machine**. Without it, FormalSolver is skipped (`NO_SOLVER`) |
+| `java` | `java` command on the user's machine (default `java`) |
+| `connection` | Name of the Local Bridge connection (`connections[].name` in the `local_bridge` config). Default: the first enabled one |
 
 - **LLM requests go to the Itera OS agent.** Each request is written to `<out>/llm_exchange/<key>.request.json` and handed to the agent with `MetaOS.ai.task`; the launcher waits (up to 5 minutes per request) for `<out>/llm_exchange/<key>.answer.txt`. Answers that pass the shape check are recorded in `<out>/llm_records`, so a second run asks nothing. An answer that failed the check is not recorded, but its file stays and is read again on the next run; delete that answer file to ask again.
 - **Verification uses the Local Bridge.** The machine needs Java 17 or later, the Alloy jar, and `bash`, `mktemp` and `base64` (Linux, macOS or WSL). When the connection's `execMode` is `ask`, the launcher asks once before the run; if you decline, FormalSolver is skipped. A model larger than about 100 KB after encoding is not sent and is reported as unreachable.
