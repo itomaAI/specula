@@ -4,115 +4,296 @@
 <meta charset="utf-8">
 <title>specula</title>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 16px; }
-  h1 { font-size: 1.1rem; margin: 0 0 8px; }
-  #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem; }
-  .error { color: #c62828; }
+  :root { --line: #c9ced6; --muted: #5f6b7a; --accent: #1e5bb8; --warn: #b26a00; --bad: #c62828; --ok: #2e7d32; --bg2: #f4f6f9; }
+  /* 色は明るい背景の前提で決めているので、OS のテーマに左右されないよう背景も固定する（spec_viewer.html と同じ）。 */
+  html, body { background: #fff; color-scheme: light; }
+  body { font-family: system-ui, sans-serif; margin: 0; color: #1d232b; font-size: 14px; }
+  header { border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 12px; align-items: baseline; }
+  header h1 { font-size: 1rem; margin: 0; }
+  main { padding: 12px 16px 48px; max-width: 960px; }
+  h2 { font-size: 1.05rem; margin: 18px 0 8px; }
+  .box { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--bg2); font-weight: 600; white-space: nowrap; }
+  label { display: block; margin: 6px 0; }
+  label span { display: inline-block; width: 13em; }
+  input[type=text] { width: 28em; padding: 3px 6px; color: #1d232b; background: #fff; }
+  button { border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+  button.plain { background: #fff; color: var(--accent); padding: 2px 8px; }
+  button:disabled { background: #9fb3d1; border-color: #9fb3d1; color: #fff; cursor: default; }
+  .muted { color: var(--muted); }
+  .ok { color: var(--ok); }
+  .warn { color: var(--warn); font-weight: 600; }
+  .error { color: var(--bad); }
+  pre { background: var(--bg2); padding: 8px; overflow: auto; font-size: 0.85rem; max-height: 22em; white-space: pre-wrap; }
 </style>
 </head>
 <body>
-<h1>specula（Itera OS 版）</h1>
-<div id="log"></div>
+<header><h1>specula（Itera OS 版）</h1><span class="muted" id="version"></span></header>
+<main>
+  <h2>ステータス</h2>
+  <div class="box"><table id="status"></table> <div style="margin-top:8px"><button class="plain" id="refresh">ステータスを読み直す</button></div></div>
+
+  <h2>ワークフロー</h2>
+  <div class="box" id="form"></div>
+
+  <h2>実行</h2>
+  <div class="box"><div id="runState" class="muted">まだ実行していない</div><div id="log"></div></div>
+</main>
 <script>
-// Itera OS の入口（全体設計 4.1）。src/cli.ts と同じく、アダプターを組み立ててオーケストレーターに渡し、出力をファイルに書く。
-// 解析の処理は持たない。処理の本体は build:itera で作る bundle（dist/specula.itera.js）にある。
+// Itera OS の入口（全体設計 4.1）。開くとダッシュボードを出し、画面のボタンでワークフローを始める（開いただけでは実行しない）。
+// 解析の処理は持たない。処理の本体は build:itera で作る bundle（dist/specula.itera.js）にあり、アダプターの組み立ては src/cli.ts と同じ。
 //
-// 引数（spawn の属性）:
-//   repo       （必須）解析するリポジトリの VFS のディレクトリ
-//   out        （必須）出力先の VFS のディレクトリ
-//   bundle     （必須）specula.itera.js の VFS のパス
-//   jar        （任意）手元の PC での Alloy の jar のパス。無ければ検証（FormalSolver）をしない（NO_SOLVER）
-//   java       （任意）手元の PC での java のコマンド。既定は "java"
-//   connection （任意）ローカルブリッジの接続の名前（設定 local_bridge の connections[].name）。無ければ有効な最初の接続
+// 引数（spawn の属性）。どれも入力欄の初めの値で、画面で変えてよい:
+//   repo       解析するリポジトリの VFS のディレクトリ
+//   out        出力先の VFS のディレクトリ
+//   bundle     specula.itera.js の VFS のパス
+//   viewer     spec_viewer.html の VFS のパス。無ければ、bundle が <dir>/dist/specula.itera.js のとき <dir>/itera/spec_viewer.html
+//   jar        手元の PC での Alloy の jar のパス。無ければ検証（FormalSolver）をしない（NO_SOLVER）
+//   java       手元の PC での java のコマンド。既定は "java"
+//   connection ローカルブリッジの接続の名前（設定 local_bridge の connections[].name）。無ければ有効な最初の接続
 //
-// 利用者向けの出力は両方の表示の役割で書く（<out>/views/business/ と views/implementation/。全体設計 4.1）。役割の引数は無い。
+// 利用者向けの出力は両方の表示の役割で書く（<out>/views/business/ と views/implementation/）。役割の引数は無い（渡されたら止める）。
 // - LLM の依頼は、この Itera OS の AI エージェントに内部のタスク（MetaOS.ai.task）として渡し、答えをファイルで受け取る（IteraLlmAdapter）。
-//   依頼と答えは <out>/llm_exchange、記録は <out>/llm_records に置く。記録があれば、次の実行ではタスクを出さずに記録を使う。
 // - 接続の execMode が "ask" のときは、実行の前に 1 回だけ確かめる。断られたら検証をしない（solver を渡さない）。
+// 文字はすべて textContent で入れる。
 (async () => {
-  const logEl = document.getElementById('log');
-  const log = (text, cls) => {
-    const line = document.createElement('div');
-    line.textContent = text;
-    if (cls) line.className = cls;
-    logEl.appendChild(line);
-  };
+  const MetaOS = window.MetaOS;
+  const $ = (id) => document.getElementById(id);
   const messageOf = (error) => (error instanceof Error ? error.message : String(error));
   const trim = (path) => String(path || '').trim().replace(/\/+$/, '');
+  let running = false;
+  let loaded = null; // { path, module }（読み込んだ bundle）
 
-  try {
-    const MetaOS = window.MetaOS;
-    const args = (await MetaOS.system.getArgs()) || {};
-    const repoDir = trim(args.repo);
-    const outDir = trim(args.out);
-    const bundlePath = trim(args.bundle);
-    const missing = [['repo', repoDir], ['out', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
+  function el(tag, props, ...children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props || {})) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === 'class') node.className = value;
+      else if (key === 'text') node.textContent = String(value);
+      else if (key === 'onclick') node.addEventListener('click', value);
+      else node.setAttribute(key, String(value));
+    }
+    for (const child of children.flat()) {
+      if (child === null || child === undefined || child === false) continue;
+      node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+    }
+    return node;
+  }
+  const row = (label, ...value) => el('tr', {}, el('th', { text: label }), el('td', {}, ...value));
+  const log = (text, cls) => $('log').appendChild(el('div', { class: cls, text, style: 'white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:0.85rem' }));
+
+  const args = (await MetaOS.system.getArgs()) || {};
+
+  // ---- 入力欄 ----
+  const FIELDS = [
+    { key: 'repo', label: '解析するリポジトリ', pick: 'directory' },
+    { key: 'out', label: '出力先', pick: 'directory' },
+    { key: 'bundle', label: 'bundle（specula.itera.js）', pick: 'file', filters: ['.js'] },
+    { key: 'viewer', label: '結果の画面（spec_viewer.html）', pick: 'file', filters: ['.html'] },
+    { key: 'jar', label: 'Alloy の jar（手元の PC。任意）' },
+    { key: 'java', label: 'java のコマンド（任意）' },
+    { key: 'connection', label: 'ローカルブリッジの接続（任意）' },
+  ];
+  const inputs = {};
+  for (const f of FIELDS) {
+    inputs[f.key] = el('input', { type: 'text' });
+    inputs[f.key].value = typeof args[f.key] === 'string' ? args[f.key] : '';
+  }
+  if (inputs.java.value === '') inputs.java.placeholder = 'java';
+  if (inputs.jar.value === '') inputs.jar.placeholder = '空なら検証をしない';
+  const startButton = el('button', { text: '解析を始める', onclick: () => start() });
+  const startMessage = el('span', {});
+  $('form').replaceChildren(
+    ...FIELDS.map((f) => el('label', {}, el('span', { text: f.label }), inputs[f.key],
+      f.pick ? el('button', { class: 'plain', text: '選ぶ', onclick: () => pick(f) }) : null)),
+    el('div', { style: 'margin-top:10px' }, startButton, ' ', startMessage),
+  );
+  for (const key of ['out', 'bundle', 'viewer', 'jar', 'connection']) inputs[key].addEventListener('change', () => refresh());
+  $('refresh').addEventListener('click', () => refresh());
+
+  async function pick(f) {
+    if (!MetaOS.host || typeof MetaOS.host.showOpenDialog !== 'function') return;
+    const path = await MetaOS.host.showOpenDialog({ title: f.label, mode: f.pick, filters: f.filters || [] });
+    if (path) {
+      inputs[f.key].value = path;
+      refresh();
+    }
+  }
+
+  const value = (key) => trim(inputs[key].value);
+  function viewerPath() {
+    if (value('viewer') !== '') return value('viewer');
+    const bundle = value('bundle');
+    const suffix = 'dist/specula.itera.js';
+    return bundle.endsWith(suffix) ? `${bundle.slice(0, -suffix.length)}itera/spec_viewer.html` : '';
+  }
+
+  // ---- ステータス ----
+  async function exists(path) {
+    try { return path !== '' && (await MetaOS.fs.exists(path)); } catch (_) { return false; }
+  }
+
+  async function loadBundle(path) {
+    if (loaded !== null && loaded.path === path) return loaded.module;
+    const text = await MetaOS.fs.read(path);
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
+    try {
+      const module = await import(url);
+      loaded = { path, module };
+      return module;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function connectionOf() {
+    const config = (await MetaOS.system.getConfig('local_bridge')) || {};
+    const enabled = (config.connections || []).filter((c) => c && c.enabled !== false);
+    const wanted = value('connection');
+    return { conn: wanted === '' ? enabled[0] : enabled.find((c) => c.name === wanted), wanted };
+  }
+
+  async function refresh() {
+    const rows = [];
+    // bundle
+    let specula = null;
+    const bundle = value('bundle');
+    if (bundle === '') rows.push(row('bundle', el('span', { class: 'warn', text: '指定が無い（ワークフローの欄で選ぶ）' })));
+    else if (!(await exists(bundle))) rows.push(row('bundle', el('span', { class: 'warn', text: `${bundle} が無い` })));
+    else {
+      try {
+        specula = await loadBundle(bundle);
+        $('version').textContent = `v${specula.VERSION}`;
+        rows.push(row('bundle', el('span', { class: 'ok', text: `${bundle}（specula ${specula.VERSION}）` })));
+      } catch (error) {
+        rows.push(row('bundle', el('span', { class: 'error', text: `読み込めない: ${messageOf(error)}` })));
+      }
+    }
+    // Alloy
+    const jar = value('jar');
+    if (jar === '') rows.push(row('検証（Alloy）', el('span', { class: 'muted', text: 'jar の指定が無いので、検証をしない' })));
+    else {
+      try {
+        const { conn, wanted } = await connectionOf();
+        rows.push(row('検証（Alloy）', conn && conn.serverUrl
+          ? el('span', { class: 'ok', text: `ローカルブリッジ ${conn.serverUrl} で ${jar} を使う（実行の確かめ: ${(conn.execMode || 'ask') === 'ask' ? '毎回訊く' : conn.execMode}）` })
+          : el('span', { class: 'warn', text: `ローカルブリッジの接続が無い${wanted ? `（接続 ${wanted}）` : ''}。このままでは検証をしない` })));
+      } catch (error) {
+        rows.push(row('検証（Alloy）', el('span', { class: 'error', text: `設定を読めない: ${messageOf(error)}` })));
+      }
+    }
+    // LLM
+    rows.push(row('LLM', el('span', { class: 'muted', text: 'この Itera OS の AI エージェントに依頼する（記録があれば記録を使う）' })));
+    // 前回の結果
+    const out = value('out');
+    const reportPath = `${out}/run_report.json`;
+    if (out === '') rows.push(row('前回の結果', el('span', { class: 'muted', text: '出力先の指定が無い' })));
+    else if (!(await exists(reportPath))) rows.push(row('前回の結果', el('span', { class: 'muted', text: `${out} にはまだ結果が無い` })));
+    else {
+      let totals = null;
+      let problem = null;
+      try { totals = JSON.parse(await MetaOS.fs.read(reportPath)).totals ?? null; } catch (error) { problem = messageOf(error); }
+      const viewer = viewerPath();
+      const canOpen = problem === null && bundle !== '' && (await exists(viewer));
+      rows.push(row('前回の結果',
+        el('div', { text: out }),
+        problem !== null ? el('div', { class: 'error', text: `run_report.json を読めない: ${problem}` }) : el('pre', { text: JSON.stringify(totals, null, 2) }),
+        canOpen
+          ? el('button', { class: 'plain', text: '結果の画面を開く', onclick: () => openViewer(viewer, out, bundle) })
+          : el('span', { class: 'muted', text: viewer === '' ? '結果の画面（spec_viewer.html）の指定が無い' : `${viewer} が無い` })));
+    }
+    $('status').replaceChildren(...rows);
+    startButton.disabled = running;
+  }
+
+  async function openViewer(viewer, out, bundle) {
+    try {
+      await MetaOS.system.spawn(viewer, { show: true, args: { out, bundle } });
+    } catch (error) {
+      startMessage.className = 'error';
+      startMessage.textContent = `結果の画面を開けなかった: ${messageOf(error)}`;
+    }
+  }
+
+  // ---- 実行 ----
+  async function start() {
+    if (running) return;
+    startMessage.textContent = '';
+    const repoDir = value('repo');
+    const outDir = value('out');
+    const bundlePath = value('bundle');
+    const missing = [['解析するリポジトリ', repoDir], ['出力先', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
     if (missing.length > 0) {
-      log(`引数が足りない: ${missing.join(', ')}`, 'error');
-      log('使い方: spawn の属性に repo（リポジトリ）・out（出力先）・bundle（specula.itera.js）を渡す。jar・java・connection は任意。', 'error');
+      startMessage.className = 'error';
+      startMessage.textContent = `足りない: ${missing.join('、')}`;
       return;
     }
-    // 役割は両方で書くので受け取らない。渡されたら、黙って無視せずに止める（コマンドラインの --view-role と同じ）。
-    if (args.viewRole !== undefined) {
-      log('引数の誤り: viewRole は使わない（利用者向けの出力は両方の役割で書く）。画面の役割は spec_viewer.html で選ぶ。', 'error');
+    if (outDir === repoDir) {
+      startMessage.className = 'error';
+      startMessage.textContent = '出力先をリポジトリと同じにしない';
       return;
     }
+    running = true;
+    startButton.disabled = true;
+    $('log').replaceChildren();
+    $('runState').className = '';
+    $('runState').textContent = `実行中（${new Date().toLocaleString()} に開始）`;
+    try {
+      log(`bundle を読み込む: ${bundlePath}`);
+      const specula = await loadBundle(bundlePath);
+      log(`specula ${specula.VERSION}`);
 
-    // 1. bundle を読み込む（VFS のファイルなので、Blob の URL にして import する）。
-    log(`bundle を読み込む: ${bundlePath}`);
-    const bundleText = await MetaOS.fs.read(bundlePath);
-    const bundleUrl = URL.createObjectURL(new Blob([bundleText], { type: 'text/javascript' }));
-    const specula = await import(bundleUrl);
-    URL.revokeObjectURL(bundleUrl);
-    log(`specula ${specula.VERSION}`);
+      const fs = new specula.IteraVfsAdapter(MetaOS.fs);
+      const source = {
+        list: (dir) => MetaOS.fs.list(dir),
+        isDirectory: async (path) => (await MetaOS.fs.stat(path)).kind === 'directory',
+        read: (path) => MetaOS.fs.read(path),
+      };
+      const client = new specula.IteraLlmAdapter({
+        fs,
+        postTask: async (instruction, context) => { await MetaOS.ai.task(instruction, context); },
+        exchangeDir: `${outDir}/llm_exchange`,
+      });
+      const llm = new specula.RecordingLanguageModel(client, fs, `${outDir}/llm_records`);
+      const solver = await buildSolver(specula);
 
-    // 2. アダプターを組み立てる。
-    const fs = new specula.IteraVfsAdapter(MetaOS.fs);
-    const source = {
-      list: (dir) => MetaOS.fs.list(dir),
-      isDirectory: async (path) => (await MetaOS.fs.stat(path)).kind === 'directory',
-      read: (path) => MetaOS.fs.read(path),
-    };
-    const client = new specula.IteraLlmAdapter({
-      fs,
-      postTask: async (instruction, context) => { await MetaOS.ai.task(instruction, context); },
-      exchangeDir: `${outDir}/llm_exchange`,
-    });
-    const llm = new specula.RecordingLanguageModel(client, fs, `${outDir}/llm_records`);
-    const solver = await buildSolver(specula, MetaOS, args, log);
+      log(`リポジトリを読む: ${repoDir}`);
+      const repo = await specula.readIteraRepository(source, repoDir);
+      log(`ファイル ${repo.files.length} 件、仕様の資料 ${repo.documents.length} 件（合計の上限で外した資料 ${repo.omittedDocuments.length} 件）`);
+      log('解析を始める（利用者向けの出力は両方の役割で書く。LLM の依頼があれば、AI エージェントの答えを待つ）');
+      const result = await specula.runPipeline(repo, { fs: specula.withRoot(fs, repoDir), llm, solver });
 
-    // 3. リポジトリを読み、オーケストレーターに渡す。
-    log(`リポジトリを読む: ${repoDir}`);
-    const repo = await specula.readIteraRepository(source, repoDir);
-    log(`ファイル ${repo.files.length} 件、仕様の資料 ${repo.documents.length} 件（合計の上限で外した資料 ${repo.omittedDocuments.length} 件）`);
-    log('解析を始める（利用者向けの出力は両方の役割で書く。LLM の依頼があれば、AI エージェントの答えを待つ）');
-    const result = await specula.runPipeline(repo, { fs: specula.withRoot(fs, repoDir), llm, solver });
-
-    // 4. 出力を書く。
-    const written = await specula.writeOutputs(fs, outDir, result);
-    log(`出力 ${written.length} 件を書いた: ${outDir}`);
-    log(`集計: ${JSON.stringify(result.report.totals)}`);
-  } catch (error) {
-    log(`実行を止めた（環境の故障）: ${messageOf(error)}`, 'error');
+      const written = await specula.writeOutputs(fs, outDir, result);
+      log(`出力 ${written.length} 件を書いた: ${outDir}`);
+      log(`集計: ${JSON.stringify(result.report.totals)}`);
+      $('runState').className = 'ok';
+      $('runState').textContent = `終わった（${new Date().toLocaleString()}）`;
+    } catch (error) {
+      log(`実行を止めた（環境の故障）: ${messageOf(error)}`, 'error');
+      $('runState').className = 'error';
+      $('runState').textContent = '止まった（環境の故障）';
+    } finally {
+      running = false;
+      await refresh();
+    }
   }
 
   // jar が無い・接続が無い・断られたときは null（FormalSolver は NO_SOLVER）。
-  async function buildSolver(specula, MetaOS, args, log) {
-    const jarPath = String(args.jar || '').trim();
+  async function buildSolver(specula) {
+    const jarPath = value('jar');
     if (jarPath === '') {
       log('jar の指定が無いので、検証（FormalSolver）はしない');
       return null;
     }
-    const config = (await MetaOS.system.getConfig('local_bridge')) || {};
-    const enabled = (config.connections || []).filter((c) => c && c.enabled !== false);
-    const wanted = String(args.connection || '').trim();
-    const conn = wanted === '' ? enabled[0] : enabled.find((c) => c.name === wanted);
+    const { conn, wanted } = await connectionOf();
     if (!conn || !conn.serverUrl) {
       log(`ローカルブリッジの接続が無いので、検証（FormalSolver）はしない${wanted ? `（接続 ${wanted}）` : ''}`);
       return null;
     }
     const serverUrl = String(conn.serverUrl).replace(/\/+$/, '');
-    const javaPath = String(args.java || '').trim() || 'java';
+    const javaPath = value('java') || 'java';
     if ((conn.execMode || 'ask') === 'ask') {
       const res = await MetaOS.host.showMessageBox({
         title: 'specula: 手元の PC で Alloy を動かす',
@@ -130,13 +311,17 @@
       }
     }
     log(`検証（FormalSolver）はローカルブリッジ ${serverUrl} で行う`);
-    return new specula.LocalBridgeAlloyAdapter({
-      fetch: (url, init) => fetch(url, init),
-      serverUrl,
-      jarPath,
-      javaPath,
-    });
+    return new specula.LocalBridgeAlloyAdapter({ fetch: (url, init) => fetch(url, init), serverUrl, jarPath, javaPath });
   }
+
+  // 役割は両方で書くので受け取らない。渡されたら、黙って無視せずに止める（コマンドラインの --view-role と同じ）。
+  if (args.viewRole !== undefined) {
+    startButton.disabled = true;
+    running = true;
+    startMessage.className = 'error';
+    startMessage.textContent = '引数の誤り: viewRole は使わない（利用者向けの出力は両方の役割で書く）。画面の役割は spec_viewer.html で選ぶ。';
+  }
+  await refresh();
 })();
 </script>
 </body>
