@@ -99,7 +99,7 @@ test("実際の出力: 俯瞰図の要素と文をそのまま使い、地図 2 
     if (view.contextMap.nodes.length === 1) {
       assert.equal(view.contextMap.nodes[0]!.popup.commandTargetCount, report.commands.length);
     }
-    // コマンドとポリシーの起点にしたコマンドの単位は、実行の報告にある表示の id だけ
+    // コマンドの起点にしたコマンドの単位は、実行の報告にある表示の id だけ
     const known = new Set(report.commands.map((row) => row.displayId));
     const starts = view.details.flatMap((detail) => detail.core.nodes).flatMap((node) => node.popup.commands ?? []);
     assert.ok(starts.length > 0, "起点にしたコマンドの単位が 1 つも引けない");
@@ -249,7 +249,9 @@ test("地図 1 と地図 2: またぐポリシーのつながり、箱のポッ�
     assert.deepEqual(command!.popup.commands, ["C-01"]);
     assert.equal(command!.popup.entry?.meaning, "出荷を指示するの説明。");
     assert.deepEqual(policy!.crossing, { from: "c1", to: "c2" });
-    assert.deepEqual(policy!.popup.commands, []);
+    // 起点になるのはコマンドだけなので、ポリシーは一覧を持たない（設計 3.4。2026-11-01 改定）
+    assert.equal(policy!.popup.commands, null);
+    assert.equal(policy!.popup.lookupNote, null);
     // またぎは要素の crossing で持ち、ポップアップの項目には持たない
     assert.equal(policy!.popup.entry?.crossing, null);
 

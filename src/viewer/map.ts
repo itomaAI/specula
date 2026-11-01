@@ -242,7 +242,8 @@ function popupFactory(outputs: RunOutputs, viewRole: ViewRole): PopupOf {
         commandTargetCount: sources.report.commands.filter((row) => row.boundedContext === entryId).length,
       };
     }
-    if (node.kind === "COMMAND" || node.kind === "POLICY") {
+    // 起点になるのはコマンドだけなので、一覧を持つのもコマンドだけ。ポリシーは用語と意味だけを出す（設計 3.4・6.10。2026-11-01 改定）。
+    if (node.kind === "COMMAND") {
       if (entryId === null) return { ...empty, entry, entryNote, lookupNote: `${COMMAND_LOOKUP}: ${missing}` };
       return { ...empty, entry, entryNote, commands: [...(commandsOf.get(entryId) ?? [])] };
     }

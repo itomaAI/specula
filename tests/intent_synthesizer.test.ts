@@ -127,7 +127,7 @@ test("呼ぶ順と処理の名前: Bounded Context、続いてコマンド、そ
   const contextCalls = map.boundedContexts.length;
   assert.deepEqual(
     llm.calls.map((call) => call.task),
-    [...Array(contextCalls).fill("intent.context"), ...Array(slice.commands.length).fill("intent.scenario")],
+    [...Array(contextCalls).fill("intent.context"), ...Array(slice.commands.length).fill("intent.command")],
   );
   assert.ok(llm.calls.every((call) => call.promptVersion === "1"));
   const commandInlets = llm.calls.slice(contextCalls).map((call) => inputOf(call)["inlet"]);
@@ -141,7 +141,7 @@ test("手がかり: 単位の抜粋は起点の項目の節を先に、期待イ
   const { repo, map, slice, glossary } = await inputsOf();
   const llm = intentLlm();
   await synthesizeIntents(map, slice, glossary, repo, { llm });
-  const commandCalls = llm.calls.filter((call) => call.task === "intent.scenario");
+  const commandCalls = llm.calls.filter((call) => call.task === "intent.command");
   const sorted = [...slice.commands].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   for (const [index, commandTarget] of sorted.entries()) {
     const call = commandCalls[index];

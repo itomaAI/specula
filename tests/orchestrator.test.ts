@@ -297,7 +297,7 @@ test("意図の候補を 1 回だけ作り、すべての Bounded Context とコ
   }
   assert.deepEqual(result.intents.basis, result.glossary.basis);
   assert.equal(tasks.filter((task) => task === "intent.context").length, 1);
-  assert.equal(tasks.filter((task) => task === "intent.scenario").length, 3);
+  assert.equal(tasks.filter((task) => task === "intent.command").length, 3);
 });
 
 test("同じ入力から同じ報告とビューができる", async () => {
