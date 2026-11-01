@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>specula</title>
+<style>
+  :root { --line: #c9ced6; --muted: #5f6b7a; --accent: #1e5bb8; --warn: #b26a00; --bad: #c62828; --ok: #2e7d32; --bg2: #f4f6f9; }
+  html, body { background: #fff; color-scheme: light; }
+  body { font-family: system-ui, sans-serif; margin: 0; color: #1d232b; font-size: 14px; }
+  header { border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 12px; align-items: baseline; }
+  header h1 { font-size: 1rem; margin: 0; }
+  main { padding: 12px 16px 48px; max-width: 960px; }
+  h2 { font-size: 1.05rem; margin: 18px 0 8px; }
+  .box { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--bg2); font-weight: 600; white-space: nowrap; }
+  label { display: block; margin: 6px 0; }
+  label span { display: inline-block; width: 11em; }
+  input[type=text] { width: 32em; padding: 3px 6px; }
+  button { border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
+  button:disabled { background: #9fb3d1; border-color: #9fb3d1; cursor: default; }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); }
+  .ok { color: var(--ok); }
+  .warn { color: var(--warn); font-weight: 600; }
+  .error { color: var(--bad); }
+  pre { background: var(--bg2); padding: 8px; overflow: auto; font-size: 0.85rem; max-height: 22em; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header><h1>specula</h1><span class="muted" id="version"></span></header>
+<main>
+  <h2>ステータス</h2>
+  <div class="box"><table id="status"></table></div>
+
+  <h2>ワークフロー</h2>
+  <div class="box">
+    <label><span>解析するリポジトリ</span><input type="text" id="repo" placeholder="/path/to/repository"></label>
+    <label><span>出力先</span><input type="text" id="out" placeholder="/path/to/output"></label>
+    <label><span>Alloy の jar（任意）</span><input type="text" id="jar" placeholder="空なら検証をしない"></label>
+    <div style="margin-top:10px"><button id="start">解析を始める</button> <span id="startMessage"></span></div>
+  </div>
+
+  <h2>実行</h2>
+  <div class="box" id="run"></div>
+</main>
+<script>
+// standalone 版のダッシュボード（src/server.ts が配る）。ステータスを出し、ワークフローを始め、結果の画面（/viewer）へ渡す。
+// 文字はすべて textContent で入れる（SpecViewer と同じ）。
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const STATE_TEXT = { IDLE: 'まだ実行していない', RUNNING: '実行中', DONE: '終わった', FAILED: '止まった（環境の故障）' };
+  let filled = false;
+  let timer = null;
+
+  function el(tag, props, ...children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props || {})) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === 'class') node.className = value;
+      else if (key === 'text') node.textContent = String(value);
+      else node.setAttribute(key, String(value));
+    }
+    for (const child of children.flat()) {
+      if (child === null || child === undefined || child === false) continue;
+      node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+    }
+    return node;
+  }
+  const row = (label, ...value) => el('tr', {}, el('th', { text: label }), el('td', {}, ...value));
+
+  async function refresh() {
+    let s;
+    try {
+      const res = await fetch('/api/status', { cache: 'no-store' });
+      s = await res.json();
+    } catch (error) {
+      $('status').replaceChildren(row('サーバー', el('span', { class: 'error', text: `つながらない: ${error.message || error}` })));
+      schedule(5000);
+      return;
+    }
+    $('version').textContent = `v${s.version}`;
+    if (!filled) {
+      $('repo').value = s.defaults.repo;
+      $('out').value = s.defaults.out;
+      $('jar').value = s.defaults.alloyJar;
+      filled = true;
+    }
+    renderStatus(s);
+    renderRun(s.run);
+    $('start').disabled = s.run.state === 'RUNNING';
+    schedule(s.run.state === 'RUNNING' ? 1000 : 5000);
+  }
+
+  function schedule(ms) {
+    clearTimeout(timer);
+    timer = setTimeout(refresh, ms);
+  }
+
+  function renderStatus(s) {
+    const last = s.lastRun;
+    const canView = s.bundle.ready && last !== null && !last.error;
+    $('status').replaceChildren(
+      row('結果の画面の部品（bundle）', s.bundle.ready
+        ? el('span', { class: 'ok', text: '用意できている' })
+        : el('span', { class: 'warn', text: '無い。npm run build:itera を実行してから、このページを開き直す' })),
+      row('検証（Alloy）', s.solver.jar === null
+        ? el('span', { class: 'muted', text: '起動時の jar の指定は無い（ワークフローの欄で指定できる）' })
+        : el('span', { class: s.solver.jarExists ? 'ok' : 'warn', text: `${s.solver.jar}${s.solver.jarExists ? '' : '（ファイルが無い）'}` })),
+      row('LLM', el('span', { class: 'muted', text: '記録の再生だけ（記録が無い項目は「未生成」になる）' })),
+      row('前回の結果', last === null
+        ? el('span', { class: 'muted', text: 'まだ無い' })
+        : el('div', {},
+          el('div', { text: last.out }),
+          last.error ? el('div', { class: 'error', text: last.error }) : el('pre', { text: JSON.stringify(last.totals, null, 2) }),
+          canView ? el('a', { href: '/viewer?out=.&bundle=/bundle.js', text: '結果の画面を開く' }) : null)),
+    );
+  }
+
+  function renderRun(run) {
+    $('run').replaceChildren(
+      el('div', { class: run.state === 'FAILED' ? 'error' : null, text: `状態: ${STATE_TEXT[run.state] || run.state}` }),
+      run.startedAt ? el('div', { class: 'muted', text: `開始 ${run.startedAt}${run.finishedAt ? `・終了 ${run.finishedAt}` : ''}` }) : null,
+      run.repo ? el('div', { class: 'muted', text: `リポジトリ ${run.repo} → 出力先 ${run.out}` }) : null,
+      run.error ? el('div', { class: 'error', text: run.error }) : null,
+      run.log.length > 0 ? el('pre', { text: run.log.join('\n') }) : null,
+    );
+  }
+
+  $('start').addEventListener('click', async () => {
+    $('start').disabled = true;
+    $('startMessage').textContent = '';
+    try {
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ repo: $('repo').value, out: $('out').value, alloyJar: $('jar').value }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        $('startMessage').className = 'error';
+        $('startMessage').textContent = body.error || `始められなかった（${res.status}）`;
+      }
+    } catch (error) {
+      $('startMessage').className = 'error';
+      $('startMessage').textContent = `始められなかった: ${error.message || error}`;
+    }
+    refresh();
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>
