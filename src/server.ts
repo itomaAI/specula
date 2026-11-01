@@ -8,7 +8,8 @@
 // - 既定では 127.0.0.1 だけで待つ。
 // - Host ヘッダーが自分の待ち受けの名前でなければ断る（DNS rebinding で別のサイトから読まれないため）。
 // - POST は Content-Type が application/json のときだけ受ける。CORS の許可は返さないので、別のサイトのページからは送れない。
-// - 出力を読む口（/api/out/...）は、いまの出力先の中だけを読む。書く口は無い。
+// - 出力を読む口（/api/out/...）は、いまの出力先の中だけを読む。
+// - 書き出しと読み込み（/api/export・/api/import）は、画面で指定した 2 つのディレクトリだけに書く。互いの中に入るディレクトリは断る。
 //
 // このファイルは Itera 向けの bundle（index.ts から）に入らないので、node: のモジュールを静的に import してよい。
 
@@ -25,6 +26,7 @@ import { readRepository } from "./adapters/NodeRepositoryReader.js";
 import { RecordingLanguageModel } from "./adapters/RecordingLanguageModel.js";
 import { runPipeline } from "./core/orchestrator.js";
 import { withRoot } from "./lib/rooted_file_system.js";
+import { exportRun, importRun } from "./lib/transfer_outputs.js";
 import { writeOutputs } from "./lib/write_outputs.js";
 
 const USAGE =
@@ -199,6 +201,41 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
       if (typeof settings === "string") return sendJson(res, 400, { error: settings });
       void startRun(settings);
       return sendJson(res, 202, { ok: true });
+    }
+
+    // 書き出しと読み込み（standalone 版の C）。本文は { dir, out, replace? }。dir は書き出し先（読み込みでは読み込み元）。
+    if (path === "/api/export" || path === "/api/import") {
+      if (req.method !== "POST") return sendJson(res, 405, { error: "POST だけを受ける" });
+      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+        return sendJson(res, 415, { error: "Content-Type は application/json" });
+      }
+      if (run.state === "RUNNING") return sendJson(res, 409, { error: "実行中" });
+      let body: unknown;
+      try {
+        body = JSON.parse(await readBody(req, BODY_LIMIT));
+      } catch (error) {
+        return sendJson(res, 400, { error: `本文を読めない: ${messageOf(error)}` });
+      }
+      const record = (body !== null && typeof body === "object" ? body : {}) as Record<string, unknown>;
+      const text = (key: string): string => (typeof record[key] === "string" ? (record[key] as string).trim() : "");
+      if (text("dir") === "") return sendJson(res, 400, { error: "dir（書き出し先・読み込み元のディレクトリ）が無い" });
+      if (text("out") === "") return sendJson(res, 400, { error: "out（出力先）が無い" });
+      const dir = resolve(text("dir"));
+      const out = resolve(text("out"));
+      // 片方がもう片方の中にあると、書いたファイルを読み直したり、出力先の中身を壊したりするので断る。
+      if (dir === out || dir.startsWith(out + sep) || out.startsWith(dir + sep)) {
+        return sendJson(res, 400, { error: "書き出し先と出力先は、互いの中に入らない別のディレクトリにする" });
+      }
+      const fs = new NodeFsAdapter();
+      const transfer = recordsOption === null ? {} : { recordsDir: resolve(recordsOption) };
+      if (path === "/api/export") {
+        const result = await exportRun(fs, out, dir, transfer);
+        return sendJson(res, result.ok ? 200 : 422, result);
+      }
+      if (!(await isDirectory(dir))) return sendJson(res, 400, { error: `読み込み元がディレクトリではない: ${dir}` });
+      const result = await importRun(fs, dir, out, { ...transfer, replace: record.replace === true });
+      if (result.ok) currentOut = out;
+      return sendJson(res, result.ok ? 200 : 422, result);
     }
 
     if (req.method === "GET" && path.startsWith("/api/out/")) {

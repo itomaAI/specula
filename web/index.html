@@ -44,7 +44,64 @@
 
   <h2>実行</h2>
   <div class="box" id="run"></div>
+
+  <h2>書き出しと読み込み</h2>
+  <div class="box">
+    <div class="muted">出力先の一式（実行の出力と LLM の記録）を、GitHub で管理できるディレクトリとして書き出します。JSON はキーの順を固定し、インデントして書きます。読み込みでは、目録（specula_export.json）の SHA-256 と basis を確かめてから、上の「出力先」へ写します。</div>
+    <label><span>書き出し先・読み込み元</span><input type="text" id="transferDir" placeholder="/path/to/exported"></label>
+    <label><span></span><input type="checkbox" id="replace"> 読み込みで、出力先にある前の出力を置き換える</label>
+    <div style="margin-top:10px"><button id="exportButton">書き出す</button> <button id="importButton">読み込む</button></div>
+    <div id="transferResult"></div>
+  </div>
 </main>
+<script>
+// 書き出しと読み込み（src/server.ts の /api/export・/api/import）。出力先は「ワークフロー」の欄の値を使う。文字はすべて textContent で入れる。
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const show = (cls, lines) => {
+    const box = $('transferResult');
+    box.replaceChildren();
+    for (const [i, line] of lines.entries()) {
+      const div = document.createElement('div');
+      if (i === 0) div.className = cls;
+      div.textContent = line;
+      box.appendChild(div);
+    }
+  };
+  async function transfer(kind) {
+    $('exportButton').disabled = true;
+    $('importButton').disabled = true;
+    show('muted', [kind === 'export' ? '書き出しています' : '読み込んでいます']);
+    try {
+      const res = await fetch(`/api/${kind}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ dir: $('transferDir').value, out: $('out').value, replace: $('replace').checked }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.ok) {
+        const lines = [`${kind === 'export' ? '書き出した' : '読み込んだ'}: ${body.files.length} 件`];
+        if (body.stale && body.stale.length > 0) {
+          lines.push(`前の書き出しにあって今回は無いファイルが ${body.stale.length} 件あります（消していません。コミットの前に消してください）:`);
+          lines.push(...body.stale);
+        }
+        show('ok', lines);
+      } else if (Array.isArray(body.problems)) {
+        show('error', [`${kind === 'export' ? '書き出せなかった' : '読み込めなかった'}（何も書いていません）:`, ...body.problems]);
+      } else {
+        show('error', [body.error || `失敗した（${res.status}）`]);
+      }
+    } catch (error) {
+      show('error', [`失敗した: ${error.message || error}`]);
+    } finally {
+      $('exportButton').disabled = false;
+      $('importButton').disabled = false;
+    }
+  }
+  $('exportButton').addEventListener('click', () => transfer('export'));
+  $('importButton').addEventListener('click', () => transfer('import'));
+})();
+</script>
 <script>
 // standalone 版のダッシュボード（src/server.ts が配る）。ステータスを出し、ワークフローを始め、結果の画面（/viewer）へ渡す。
 // 文字はすべて textContent で入れる（SpecViewer と同じ）。

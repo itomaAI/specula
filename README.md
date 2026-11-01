@@ -88,6 +88,16 @@ npm run serve        # npm run build:itera, then node dist/src/server.js
 - The viewer is the same file as in Itera OS (`itera/spec_viewer.html`). Without `MetaOS` it reads its arguments from the URL, imports the bundle from `/bundle.js`, reads the outputs through the server and uses the browser history for back and forward.
 - The server only listens on `127.0.0.1` by default, refuses requests whose `Host` header is not its own address, accepts `POST` only with `Content-Type: application/json` (it sends no CORS headers), and reads files only inside the current output directory. It has no endpoint that writes files other than running the pipeline.
 
+#### Export and import
+
+The dashboard can write the outputs of one run as a directory that can be kept in a Git repository, and read such a directory back.
+
+- **Export** writes the files that `run_report.json` refers to (both view roles) and the LLM records (`llm_records/<key>.json`). It refuses outputs that do not pass the same check as SpecViewer (one run, same `basis`). JSON files are written with sorted keys and an indent of 2, so a commit shows only what changed between runs. Markdown, Mermaid and Alloy files are copied as they are. The manifest `specula_export.json` holds the `basis` and the SHA-256 of every file, and is written last.
+- The export directory must be empty or a previous export (it has `specula_export.json`). Files of a previous export that are not part of the new one are not deleted; the dashboard lists them so that they can be removed before a commit.
+- **Import** checks the manifest (format, paths, SHA-256 of every file), runs the same check on the directory, and refuses files that the check reads but the manifest does not list. Nothing is written when a problem is found. If the output directory already holds a run, it is replaced only when "replace" is ticked. The records go to `<out>/llm_records` (or `--records`).
+- The library is `src/lib/transfer_outputs.ts` (`exportRun`, `importRun`); the server exposes it as `POST /api/export` and `POST /api/import` with `{ dir, out, replace }`. The two directories must not be inside each other.
+- Inputs entered by a person are not part of the export yet, because specula does not store them in a file yet.
+
 ### Itera OS
 
 The launcher `itera/specula.html` builds the Itera adapters and runs the same pipeline. Put `dist/specula.itera.js` (from `npm run build:itera` or the `specula-itera` CI artifact), `itera/specula.html` and `itera/spec_viewer.html` in the VFS, then open the launcher.
