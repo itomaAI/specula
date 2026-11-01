@@ -398,7 +398,7 @@ export interface MapPopupView {
   intent: string | null;
   /** Bounded Context だけ: 属するコマンドの数。 */
   commandTargetCount: number | null;
-  /** コマンドとポリシーだけ: その要素を起点にしたコマンドの単位の表示の id（"C-01"）。 */
+  /** コマンドだけ: そのコマンドを起点にしたコマンドの単位の表示の id（"C-01"）。起点になるのはコマンドだけなので、ポリシーは null（2026-11-01 改定）。 */
   commands: string[] | null;
   /** intent・commandTargetCount・commands を引けなかったときの理由（実装との対応表が無いとき）。ほかは null。 */
   lookupNote: string | null;

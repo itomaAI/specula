@@ -38,7 +38,7 @@ synthesizeIntents(
 | 処理の種類（`task`） | 対象 | 指示の要点 |
 | :-- | :-- | :-- |
 | `intent.context` | Bounded Context ごと | この範囲のコードが業務の中で受け持つこと（存在理由）を書く |
-| `intent.scenario` | コマンドごと | この操作で、操作する人（または呼び出す側）が達成したいことを書く |
+| `intent.command` | コマンドごと | この操作で、操作する人（または呼び出す側）が達成したいことを書く |
 
 - `promptVersion` は `"1"`。識別子の辞書順に 1 件ずつ呼ぶ。
 - 出力は日本語の 1 文（改行しない、200 字以内）。合わなければ `INVALID_OUTPUT`（`CommandExtractor` で使っていた検査と同じ）。

@@ -49,7 +49,7 @@ const TASKS = {
     what: "Write what this part of the code is responsible for in the business (why it exists).",
   },
   commandTarget: {
-    task: "intent.scenario",
+    task: "intent.command",
     what: "Write what the person who performs this operation (or the caller) wants to achieve with it.",
   },
 } as const;
