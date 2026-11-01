@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "build:itera": "npm run build && esbuild dist/src/index.js --bundle --format=esm --platform=browser --target=es2022 --external:node:* --outfile=dist/specula.itera.js",
-    "test": "node --test \"dist/tests/**/*.test.js\""
+    "test": "node --test \"dist/tests/**/*.test.js\"",
+    "start": "node dist/src/server.js",
+    "serve": "npm run build:itera && node dist/src/server.js"
   },
   "dependencies": {
     "@babel/parser": "8.0.10"

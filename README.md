@@ -72,6 +72,22 @@ node dist/src/cli.js <repository dir> --out <output dir> [--alloy-jar <alloy jar
 
 Without `--alloy-jar`, verification (FormalSolver) is skipped and reported as unverified (`NO_SOLVER`). The readable outputs are written for both view roles in one run: `BUSINESS` (shown as 業務) shows no file paths, function names, line numbers or code; `IMPLEMENTATION` (shown as 実装) adds the implementation names and locations next to the same text and appends the formal specification source to each `spec.md`. Exit codes: `0` the run finished (findings and ambiguities still give 0), `1` the environment failed, `2` wrong arguments (including `--view-role`, which no longer exists).
 
+### Standalone (Node.js, operated in the browser)
+
+`src/server.ts` serves a dashboard and the SpecViewer screens on the local machine, so the whole workflow can be operated from the browser.
+
+```sh
+npm install
+npm run serve        # npm run build:itera, then node dist/src/server.js
+# or, after a build: node dist/src/server.js [--port 8787] [--host 127.0.0.1] [--repo <dir>] [--out <dir>] [--alloy-jar <jar>] [--records <dir>]
+```
+
+- Open the printed URL (default `http://127.0.0.1:8787/`). The first screen is the dashboard: the status (whether the bundle for the viewer is built, the Alloy jar, the LLM mode and the totals of the last run), the inputs for a run (repository, output directory, Alloy jar) and the button that starts the workflow. The run log is shown while it runs. When it has finished, "結果の画面を開く" opens the SpecViewer on that output.
+- `--repo`, `--out` and `--alloy-jar` only fill the inputs; they can be changed on the dashboard. Without a jar, verification is skipped (`NO_SOLVER`).
+- The LLM only replays records for now (`<out>/llm_records`, or `--records`). Items without a record are reported as not generated.
+- The viewer is the same file as in Itera OS (`itera/spec_viewer.html`). Without `MetaOS` it reads its arguments from the URL, imports the bundle from `/bundle.js`, reads the outputs through the server and uses the browser history for back and forward.
+- The server only listens on `127.0.0.1` by default, refuses requests whose `Host` header is not its own address, accepts `POST` only with `Content-Type: application/json` (it sends no CORS headers), and reads files only inside the current output directory. It has no endpoint that writes files other than running the pipeline.
+
 ### Itera OS
 
 The launcher `itera/specula.html` builds the Itera adapters and runs the same pipeline. Put `dist/specula.itera.js` (from `npm run build:itera` or the `specula-itera` CI artifact) and `itera/specula.html` in the VFS, then spawn the launcher with these arguments:

@@ -71,7 +71,55 @@
 //   viewRole （任意）初めに開く表示の役割。"BUSINESS"（既定。画面では「業務」）か "IMPLEMENTATION"（「実装」）。小文字でもよい
 //            出力は両方の役割で書かれている（<out>/views/business/ と views/implementation/）。役割は Global Menu で切り替える。
 (async () => {
-  const MetaOS = window.MetaOS;
+  // 実行環境は 2 つ: Itera OS（MetaOS がある）と、standalone 版のサーバー（src/server.ts）が配るブラウザの画面。
+  // 違いはこの host にだけ置く（引数・bundle の読み込み・ファイル・画面の場所の 4 つ）。画面を描く処理は両方で同じ。
+  // ブラウザの画面では、引数は URL の ?out=…&bundle=… から読み、ファイルはサーバーの /api/out/…（出力先の中だけを読む口）から読む。
+  const MetaOS = window.MetaOS || null;
+  const host = MetaOS ? iteraHost(MetaOS) : webHost();
+
+  function iteraHost(os) {
+    return {
+      getArgs: async () => (await os.system.getArgs()) || {},
+      importBundle: async (path) => {
+        const text = await os.fs.read(path);
+        const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
+        try { return await import(url); } finally { URL.revokeObjectURL(url); }
+      },
+      fs: os.fs,
+      declare: (route) => (os.nav && typeof os.nav.declare === 'function' ? os.nav.declare(route) : undefined),
+      onRoute: (handler) => { if (os.system.on) os.system.on('route_changed', handler); },
+    };
+  }
+
+  function webHost() {
+    const argsOf = () => Object.fromEntries(new URLSearchParams(location.search));
+    const api = async (kind, path) => {
+      const res = await fetch(`/api/out/${kind}?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${path} を読めない（${res.status}）`);
+      return res;
+    };
+    const readOnly = () => Promise.reject(new Error('この画面からは書かない'));
+    let first = true;
+    return {
+      getArgs: async () => argsOf(),
+      importBundle: (path) => import(new URL(path, location.href).href),
+      fs: {
+        read: async (path) => (await api('read', path)).text(),
+        exists: async (path) => (await (await api('exists', path)).json()).exists === true,
+        list: async (path) => (await (await api('list', path)).json()).entries,
+        write: readOnly,
+        mkdir: readOnly,
+      },
+      // 初めの 1 回は置き換え、あとは履歴に積む（ブラウザの戻る・進むに載る）。
+      declare: (route) => {
+        const next = `${location.pathname}${route}`;
+        if (first) { history.replaceState(null, '', next); first = false; }
+        else if (`${location.pathname}${location.search}` !== next) history.pushState(null, '', next);
+      },
+      onRoute: (handler) => window.addEventListener('popstate', () => handler({ args: argsOf() })),
+    };
+  }
+
   const mainEl = document.getElementById('main');
   const menuEl = document.getElementById('menu');
   const trim = (path) => String(path || '').trim().replace(/\/+$/, '');
@@ -114,7 +162,7 @@
   let vfs = null;
 
   try {
-    const args = (await MetaOS.system.getArgs()) || {};
+    const args = await host.getArgs();
     const outDir = trim(args.out);
     const bundlePath = trim(args.bundle);
     const missing = [['out', outDir], ['bundle', bundlePath]].filter(([, v]) => v === '').map(([k]) => k);
@@ -128,12 +176,9 @@
       return;
     }
 
-    const bundleText = await MetaOS.fs.read(bundlePath);
-    const bundleUrl = URL.createObjectURL(new Blob([bundleText], { type: 'text/javascript' }));
-    specula = await import(bundleUrl);
-    URL.revokeObjectURL(bundleUrl);
+    specula = await host.importBundle(bundlePath);
 
-    vfs = new specula.IteraVfsAdapter(MetaOS.fs);
+    vfs = new specula.IteraVfsAdapter(host.fs);
     launch = { out: outDir, bundle: bundlePath };
     const problems = await loadRole(viewRole);
     if (problems !== null) {
@@ -142,7 +187,7 @@
     }
     // 起動の引数に場所（screen など）があれば、そこから開く（host が履歴から開き直したとき）。
     state = stateFromArgs(args);
-    if (MetaOS.system.on) MetaOS.system.on('route_changed', onRouteChanged);
+    host.onRoute(onRouteChanged);
     render();
   } catch (error) {
     fail([`画面を作れなかった（環境の故障）: ${messageOf(error)}`]);
@@ -247,12 +292,12 @@
   }
 
   function declareRoute() {
-    if (launch === null || !MetaOS.nav || typeof MetaOS.nav.declare !== 'function') return;
+    if (launch === null) return;
     const route = routeOf(state);
     if (route === declared) return;
     declared = route;
     try {
-      Promise.resolve(MetaOS.nav.declare(route)).catch(() => {});
+      Promise.resolve(host.declare(route)).catch(() => {});
     } catch (_) {}
   }
 
