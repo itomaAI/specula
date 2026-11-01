@@ -1,24 +1,24 @@
-// M2（FormalTranspiler）: RawContextModel から Alloy 6 の FormalSpecification か AmbiguityReport を作る（M2 の設計 1.3）。
+// FormalTranspiler: RawContextModel から Alloy 6 の FormalSpecification か AmbiguityReport を作る（FormalTranspiler の設計 1.3）。
 // ファイルを読み書きしない。LLM は表示名と質問の文にだけ使い、ソースは LLM の結果によらず同じ入力から同じものになる。
 
 import type { ConfirmationStatus, LlmText } from "../types/index.js";
 import type { RawContextModel } from "../types/context.js";
 import type { FormalSpecification, TranspilerResult } from "../types/formal.js";
 import type { LanguageModelPort } from "../ports/LanguageModelPort.js";
-import { collectAmbiguity } from "./m2/ambiguity.js";
-import { printAlloy } from "./m2/alloy.js";
-import { checkContract } from "./m2/contract.js";
-import { translateGuards } from "./m2/guards.js";
-import { type VocabularyItem, askQuestions, labelVocabulary } from "./m2/labels.js";
-import { translatePaths } from "./m2/paths.js";
-import { buildStates } from "./m2/states.js";
+import { collectAmbiguity } from "./formal_transpiler/ambiguity.js";
+import { printAlloy } from "./formal_transpiler/alloy.js";
+import { checkContract } from "./formal_transpiler/contract.js";
+import { translateGuards } from "./formal_transpiler/guards.js";
+import { type VocabularyItem, askQuestions, labelVocabulary } from "./formal_transpiler/labels.js";
+import { translatePaths } from "./formal_transpiler/paths.js";
+import { buildStates } from "./formal_transpiler/states.js";
 
-export { M2_PROMPT_VERSION } from "./m2/labels.js";
+export { FORMAL_PROMPT_VERSION } from "./formal_transpiler/labels.js";
 
 /**
  * @param deps.llm 無ければ表示名と質問の文は NOT_GENERATED（UNREACHABLE）になる。
  * @param previous 前版の正本。差分は現在の範囲外なので使わない（null なら FIRST_RUN、そうでなければ OUT_OF_SCOPE）。
- * @throws TranspileContractError M1 の契約が破れているとき。
+ * @throws TranspileContractError ContextExtractor の契約が破れているとき。
  */
 export async function transpileFormal(
   facts: RawContextModel,
@@ -101,7 +101,7 @@ function initialText(details: Record<string, string | number | boolean | null> |
   return typeof initial === "string" ? initial : "";
 }
 
-/** 確定の状態。確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（M2 の設計 6。GlossaryBuilder・IntentSynthesizer と同じ規則）。 */
+/** 確定の状態。確定の操作は無いので、書くのは NOT_GENERATED と CANDIDATE だけ（FormalTranspiler の設計 6。GlossaryBuilder・IntentSynthesizer と同じ規則）。 */
 function statusOf(text: LlmText): ConfirmationStatus {
   return text.status === "GENERATED" ? "CANDIDATE" : "NOT_GENERATED";
 }

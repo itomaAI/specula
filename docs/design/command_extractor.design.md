@@ -274,7 +274,7 @@ interface SliceResult {
 | ポリシー | `on`・`once`・`addListener`・`addEventListener`・`subscribe` によるリスナーの登録で、名前がイベントの発行の最初の文字列と一致し、渡された関数がコマンドのハンドラであるもの |
 | ポリシーと単位 | ポリシーは単位の起点にしない（2026-10-31 改定）。ポリシーが起動するコマンドの単位の `invokedBy` に、ポリシーの識別子、きっかけのイベント、リスナーの登録の所在を入れる。改定前は、リスナーの登録の場所を起点の所在とする単位を別に作っていた |
 | アグリゲート | 初回は付けない |
-| LLM の処理 | なし（2026-10-30 に外した）。それまでの 5 つの処理（`m0.context-intent`・`m0.name-event`・`m0.name-command`・`m0.name-policy`・`m0.scenario-intent`）のうち、名前の 3 つは `GlossaryBuilder`、意図の 2 つは `IntentSynthesizer` へ移す。処理の名前と記録のキーは移した先の設計書で定める |
+| LLM の処理 | なし（2026-10-30 に外した）。それまでの 5 つの処理（`command-extractor.context-intent`・`command-extractor.name-event`・`command-extractor.name-command`・`command-extractor.name-policy`・`command-extractor.scenario-intent`）のうち、名前の 3 つは `GlossaryBuilder`、意図の 2 つは `IntentSynthesizer` へ移す。処理の名前と記録のキーは移した先の設計書で定める |
 
 ---
 

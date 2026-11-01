@@ -1,4 +1,4 @@
-// M5（SpecProjector）の入出力の型（M5 の設計 5）。
+// SpecProjector の入出力の型（SpecProjector の設計 5）。
 
 import type { AmbiguityReport, FormalSpecification } from "./formal.js";
 import type { Glossary, GlossaryLocation } from "./glossary.js";
@@ -57,7 +57,7 @@ export interface SystemProjectionRequest {
   includeSupporting?: boolean;
 }
 
-/** コマンドの射影で、表示の用語と意図の候補を引くための入力（M5 の設計 5）。 */
+/** コマンドの射影で、表示の用語と意図の候補を引くための入力（SpecProjector の設計 5）。 */
 export interface ProjectionContext {
   /** 起点のコマンドまたはポリシーの、辞書の項目を引くため。 */
   commandTarget: CommandTarget;
@@ -82,7 +82,7 @@ export interface SpecificationView {
     specSourceHash: string | null;
     /** 元にした論点カタログの basis.reportId。カタログが無ければ null。 */
     ledgerReportId: string | null;
-    /** カタログが古いか（M5 の設計 3.3）。カタログが無ければ null。 */
+    /** カタログが古いか（SpecProjector の設計 3.3）。カタログが無ければ null。 */
     ledgerIsStale: boolean | null;
   };
 }
@@ -133,7 +133,7 @@ export interface ImplementationMap {
 }
 
 /**
- * 形式仕様と論点カタログの組が契約を破っている（M5 の設計 1.2・7.7）。
+ * 形式仕様と論点カタログの組が契約を破っている（SpecProjector の設計 1.2・7.7）。
  * カタログが古いことは契約違反ではない（ビューの中で知らせる）。
  */
 export class ProjectionContractError extends Error {
@@ -151,7 +151,7 @@ export class ProjectionContractError extends Error {
       | "UNKNOWN_CONTEXT",
     readonly detail: string,
   ) {
-    super(`M5 の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
+    super(`SpecProjector の入力の契約が破れている（${commandId}）: ${reason}: ${detail}`);
     this.name = "ProjectionContractError";
   }
 }

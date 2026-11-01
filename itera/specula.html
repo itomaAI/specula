@@ -21,7 +21,7 @@
 //   repo       （必須）解析するリポジトリの VFS のディレクトリ
 //   out        （必須）出力先の VFS のディレクトリ
 //   bundle     （必須）specula.itera.js の VFS のパス
-//   jar        （任意）手元の PC での Alloy の jar のパス。無ければ検証（M3）をしない（NO_SOLVER）
+//   jar        （任意）手元の PC での Alloy の jar のパス。無ければ検証（FormalSolver）をしない（NO_SOLVER）
 //   java       （任意）手元の PC での java のコマンド。既定は "java"
 //   connection （任意）ローカルブリッジの接続の名前（設定 local_bridge の connections[].name）。無ければ有効な最初の接続
 //
@@ -96,11 +96,11 @@
     log(`実行を止めた（環境の故障）: ${messageOf(error)}`, 'error');
   }
 
-  // jar が無い・接続が無い・断られたときは null（M3 は NO_SOLVER）。
+  // jar が無い・接続が無い・断られたときは null（FormalSolver は NO_SOLVER）。
   async function buildSolver(specula, MetaOS, args, log) {
     const jarPath = String(args.jar || '').trim();
     if (jarPath === '') {
-      log('jar の指定が無いので、検証（M3）はしない');
+      log('jar の指定が無いので、検証（FormalSolver）はしない');
       return null;
     }
     const config = (await MetaOS.system.getConfig('local_bridge')) || {};
@@ -108,7 +108,7 @@
     const wanted = String(args.connection || '').trim();
     const conn = wanted === '' ? enabled[0] : enabled.find((c) => c.name === wanted);
     if (!conn || !conn.serverUrl) {
-      log(`ローカルブリッジの接続が無いので、検証（M3）はしない${wanted ? `（接続 ${wanted}）` : ''}`);
+      log(`ローカルブリッジの接続が無いので、検証（FormalSolver）はしない${wanted ? `（接続 ${wanted}）` : ''}`);
       return null;
     }
     const serverUrl = String(conn.serverUrl).replace(/\/+$/, '');
@@ -116,7 +116,7 @@
     if ((conn.execMode || 'ask') === 'ask') {
       const res = await MetaOS.host.showMessageBox({
         title: 'specula: 手元の PC で Alloy を動かす',
-        message: `検証（M3）のために、${serverUrl} のローカルブリッジで java を実行します。`,
+        message: `検証（FormalSolver）のために、${serverUrl} のローカルブリッジで java を実行します。`,
         detail: `jar: ${jarPath}\njava: ${javaPath}\n\n実行は、コマンドの数と検査の数だけ繰り返します。確かめるのはこの 1 回だけです。`,
         type: 'question',
         buttons: [
@@ -125,11 +125,11 @@
         ],
       });
       if (!res || res.action !== true) {
-        log('ローカルでの実行が許可されなかったので、検証（M3）はしない');
+        log('ローカルでの実行が許可されなかったので、検証（FormalSolver）はしない');
         return null;
       }
     }
-    log(`検証（M3）はローカルブリッジ ${serverUrl} で行う`);
+    log(`検証（FormalSolver）はローカルブリッジ ${serverUrl} で行う`);
     return new specula.LocalBridgeAlloyAdapter({
       fetch: (url, init) => fetch(url, init),
       serverUrl,

@@ -1,14 +1,14 @@
-// M1（ContextExtractor）の公開する関数（M1 の設計 1.2）。
+// ContextExtractor の公開する関数（ContextExtractor の設計 1.2）。
 // 起点の関数から呼び出しをたどり、出口ごとにユースケーススライスを作る。LLM は使わない。
 // パスはリポジトリのルートからの相対パス。ルートの付け足しは呼び出し元が withRoot（src/lib/rooted_file_system.ts）で行う。
 
 import type { FileSystemPort } from "../ports/FileSystemPort.js";
 import type { ExtractionCoverage, RawContextModel, UseCaseSlice } from "../types/context.js";
 import type { CommandTarget } from "../types/command.js";
-import { locateInlet } from "./m1/locate.js";
-import { PathWalker } from "./m1/paths.js";
-import { SourceLoader } from "./m1/source_loader.js";
-import { UnitCollector } from "./m1/units.js";
+import { locateInlet } from "./context_extractor/locate.js";
+import { PathWalker } from "./context_extractor/paths.js";
+import { SourceLoader } from "./context_extractor/source_loader.js";
+import { UnitCollector } from "./context_extractor/units.js";
 
 /**
  * コマンド 1 つの事実を抜き出す。

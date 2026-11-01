@@ -112,7 +112,7 @@ synthesizeLedger(
 
 ## 5. 論点の文（IssueWriter）
 
-- 論点ごとに LLM を 1 回呼ぶ（`task: "m4.issue-text"`）。
+- 論点ごとに LLM を 1 回呼ぶ（`task: "ledger.issue-text"`）。
 - 入力: 反例の種類、関わる操作（識別子・出口の種類・表示名）、実行列（時点ごとの状態変数の値・出口・成り立つ命題）、命題の原文の式（`spec.propositions[].expression`）、従属する反例の種類。表示名は `spec.labels` の `GENERATED` の文だけを渡し、`NOT_GENERATED` の項目は識別子のまま渡して、表示名が無いことを伝える。
 - 出力: `claim`（本来あるべき前提の文）、`observation`（検査で見つかったことの平易な文）、`question`（人に判断を求める問いの文）の 3 つを持つ JSON。
 - 出力の検査: 3 つがすべてあり、それぞれ空でなく 400 文字以内であること。合わなければ `INVALID_OUTPUT` として、3 つとも未生成にする。
@@ -169,7 +169,7 @@ interface LedgerIssue {
 
 ## 7. 初回の実装で決めたこと
 
-設計の 1〜6 節に書かれていなかったことを、初回の実装（`src/core/ledger_synthesizer.ts` と `src/core/m4/`）で次のように決めた。
+設計の 1〜6 節に書かれていなかったことを、初回の実装（`src/core/ledger_synthesizer.ts` と `src/core/ledger_synthesizer/`）で次のように決めた。
 
 ### 7.1 入力の契約（1.2 の補足）
 - `LedgerContractError` の理由は `COMMAND_MISMATCH`・`SPEC_HASH_MISMATCH`・`UNKNOWN_OPERATION`・`UNKNOWN_STATE_VARIABLE` の 4 つとする。
@@ -189,12 +189,12 @@ interface LedgerIssue {
 - LLM への入力は、機械的に決まる値だけにする。中身は、反例の種類、本体と従属する反例（種類と操作）、実行列、関わる識別子の語彙である。語彙には、状態変数と値（値の元のリテラルを含む）、実行列と操作の条件に出てくる命題（原文の式を含む）、関わる操作（出口の種類と条件を含む）、出口を入れる。表示名は `GENERATED` の文だけを渡し、無ければ `null` にする。
 - 識別子が文に出たかどうかは、形式仕様の識別子（状態変数・値・命題・操作・guard の述語・出口）を、英数字と `_` で区切られた語として 3 つの文の中に探して確かめる。
 - 400 文字以内の検査は前後の空白を除いて数える。改行は許す。
-- プロンプトの版は `M4_PROMPT_VERSION = "1"` とする。
+- プロンプトの版は `LEDGER_PROMPT_VERSION = "1"` とする。
 - 論点ごとの呼び出しは、1 件ずつ順に行う。
 
 ### 7.5 確かめたこと
-- 偽の報告と偽の LLM で、0 件・未検証・同じ状態のまとめ方・単独の論点・決定性・表示名の渡し方・LLM が届かないとき・出力の検査・契約の違反・元の記録を書き換えないことを確かめる（`tests/m4_ledger_synthesizer.test.ts`）。
-- 本物の Alloy 6 で、ContextExtractor → FormalTranspiler → FormalSolver → LedgerSynthesizer を 2 つの例で通す（`tests/m3_alloy_integration.test.ts`）。真偽値の例は論点 0 件になる。false だけを書く旗で分かれる例は、届かない出口の操作が到達できない操作の論点 1 件になる。
+- 偽の報告と偽の LLM で、0 件・未検証・同じ状態のまとめ方・単独の論点・決定性・表示名の渡し方・LLM が届かないとき・出力の検査・契約の違反・元の記録を書き換えないことを確かめる（`tests/ledger_synthesizer.test.ts`）。
+- 本物の Alloy 6 で、ContextExtractor → FormalTranspiler → FormalSolver → LedgerSynthesizer を 2 つの例で通す（`tests/formal_solver_alloy_integration.test.ts`）。真偽値の例は論点 0 件になる。false だけを書く旗で分かれる例は、届かない出口の操作が到達できない操作の論点 1 件になる。
 - 旗に書き込みが 1 つも無い例では、到達できない操作は出なかった。ContextExtractor は書き込みのある変数だけを状態変数にするため、書き込みの無い旗を読む条件は環境が決める命題になり、どちらの出口にも届くからである。読むだけのモジュールの変数を定数として扱うかどうかは ContextExtractor・FormalTranspiler の範囲の話で、LedgerSynthesizer では変えない。
 - 同じ状態の反例をまとめる場面（未定義遷移とデッドロック）は、本物のエンジンではまだ確かめていない。関数 1 つのコマンドでは、経路の条件が互いに補い合うので、どの操作も実行できない状態が作りにくいためである（`count = count + 1` の例は、あふれを禁じても操作の guard は常に成り立つので、未定義遷移にならなかった）。
 

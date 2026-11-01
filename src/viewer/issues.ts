@@ -4,9 +4,9 @@
 // BUSINESS には曖昧さの質問・箇所・原文を出さず、コマンドごとの件数だけにする（仕様 3.2、設計 3.3）。
 // ビューモデルには内部の識別子を入れない。コマンド・論点・曖昧さは表示の id で指す（設計 6.7）。
 
-import { statusMark } from "../core/m5/labels.js";
-import { AMBIGUITY_KIND_TEXT } from "../core/m5/render_ambiguities.js";
-import { issueDisplayIds, issueGroupsOf, llmText } from "../core/m5/view_model.js";
+import { statusMark } from "../core/spec_projector/labels.js";
+import { AMBIGUITY_KIND_TEXT } from "../core/spec_projector/render_ambiguities.js";
+import { issueDisplayIds, issueGroupsOf, llmText } from "../core/spec_projector/view_model.js";
 import type { ViewRole } from "../types/projection.js";
 import { ambiguityCountText, ambiguityTotal, commandTitleOf, sourcesOf, valueOf } from "./commands.js";
 import type { AmbiguityItemView, IssueListView, RunOutputs, CommandAmbiguitiesView, CommandIssuesView } from "./types.js";

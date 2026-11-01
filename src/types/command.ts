@@ -1,7 +1,7 @@
-// M0（CommandExtractor）の入出力の型（M0 の設計 4.1・4.2）。
+// CommandExtractor の入出力の型（CommandExtractor の設計 4.1・4.2）。
 
 /**
- * M0 に渡すリポジトリの中身。読み込みは呼び出し元（アダプターの側）が行い、コアはファイルを読まない。
+ * CommandExtractor に渡すリポジトリの中身。読み込みは呼び出し元（アダプターの側）が行い、コアはファイルを読まない。
  * - files: テキストのファイルだけ。path はリポジトリのルートからの相対パス（"/" 区切り、先頭に "./" を付けない）。
  *   package.json と tsconfig.json も、ここに入っていれば読む。
  * - documents: 仕様の資料（README・docs/ の Markdown・スキーマ定義）。CommandExtractor は読まない。GlossaryBuilder の入力。
@@ -120,7 +120,7 @@ export interface ExtractionDiagnostics {
 }
 
 /**
- * コマンドの単位（M1 への入力）。全体マップのコマンドノード 1 つにつき 1 つ作る。
+ * コマンドの単位（ContextExtractor への入力）。全体マップのコマンドノード 1 つにつき 1 つ作る。
  * ポリシーは単位の起点にしない。コマンドを起動するポリシーは invokedBy に補助情報として持つ（2026-10-31 T-0070）。
  */
 export interface CommandTarget {
@@ -136,7 +136,7 @@ export interface CommandTarget {
   inletTrigger: {
     /** コマンドの識別子。 */
     id: string;
-    /** コマンドのハンドラの所在。M1 はここから追跡を始める。 */
+    /** コマンドのハンドラの所在。ContextExtractor はここから追跡を始める。 */
     handler: SourceLocation;
   };
   actor: Actor;

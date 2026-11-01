@@ -12,11 +12,11 @@ import type { Actor, EventStormingMap, ExtractionDiagnostics, CommandSelection, 
 import type { SolverOptions, SolverReport, UnverifiedReason } from "./solver.js";
 
 export interface PipelineDeps {
-  /** M1 がソースを読む口。リポジトリのルートを根にしたもの（withRoot）を渡す。 */
+  /** ContextExtractor がソースを読む口。リポジトリのルートを根にしたもの（withRoot）を渡す。 */
   fs: FileSystemPort;
   /** LLM が無いときも、クライアント無しの RecordingLanguageModel を渡す。 */
   llm: LanguageModelPort;
-  /** 無ければ M3 は UNVERIFIED（NO_SOLVER）。 */
+  /** 無ければ FormalSolver は UNVERIFIED（NO_SOLVER）。 */
   solver: SolverPort | null;
 }
 
@@ -26,7 +26,7 @@ export interface PipelineOptions {
 }
 
 /** 契約のエラーで止まった段。 */
-export type StoppedStage = "M1" | "M2" | "M3" | "M4" | "M5";
+export type StoppedStage = "CONTEXT_EXTRACTOR" | "FORMAL_TRANSPILER" | "FORMAL_SOLVER" | "LEDGER_SYNTHESIZER" | "SPEC_PROJECTOR";
 
 /** コマンドの単位の行の 3 通りに共通する欄（全体設計 2.1）。アクターから下は CommandTarget の欄を写したもの。 */
 export interface CommandRunBase {
@@ -107,7 +107,7 @@ export interface RunReport {
     commandTargetCount: number;
     rejected: Array<{ inlet: string; reason: string }>;
   };
-  /** M0 の切り出しの順。 */
+  /** CommandExtractor の切り出しの順。 */
   commands: CommandRunResult[];
   totals: {
     completed: number;

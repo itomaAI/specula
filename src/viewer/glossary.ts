@@ -4,7 +4,7 @@
 // 対応表は俯瞰図と同じ順で番号を振る（implementation_map.ts の先頭のコメント、render_system.ts）。
 // ビューモデルには地図の識別子（内部の識別子）を入れない（設計 4 節）。
 
-import { statusMark } from "../core/m5/labels.js";
+import { statusMark } from "../core/spec_projector/labels.js";
 import type { Glossary, GlossaryEntry, PresentedEntryKind } from "../types/glossary.js";
 import type { ImplementationMap, ViewRole } from "../types/projection.js";
 import { labelOfEntry, sourcesOf } from "./commands.js";

@@ -1,5 +1,5 @@
 // コマンドラインの入口（全体設計 4.1）のテスト。main を直接呼び、一時ディレクトリに置いた小さなリポジトリにかける。
-// エンジンは渡さない（--alloy-jar 無し → M3 は UNVERIFIED）。LLM のクライアントも無いので、LLM の項目は NOT_GENERATED。
+// エンジンは渡さない（--alloy-jar 無し → FormalSolver は UNVERIFIED）。LLM のクライアントも無いので、LLM の項目は NOT_GENERATED。
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

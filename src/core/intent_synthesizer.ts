@@ -13,7 +13,7 @@ import type { Glossary } from "../types/glossary.js";
 import type { ContextIntent, IntentCatalog, CommandIntent } from "../types/intent.js";
 import { IntentContractError } from "../types/intent.js";
 import type { LanguageModelPort, OutputCheck } from "../ports/LanguageModelPort.js";
-import { compareIds } from "./m0/boundary.js";
+import { compareIds } from "./command_extractor/boundary.js";
 import { documentsHashOf, mapHashOf } from "./glossary_builder.js";
 import { excerptOf } from "./glossary/match.js";
 import { splitSections } from "./glossary/sections.js";
@@ -26,7 +26,7 @@ export const MAX_INTENT_CHARS = 200;
 /** コマンドの抜粋の節の数の上限（起点の項目の節を先に）。 */
 export const MAX_COMMAND_SECTIONS = 3;
 
-/** 出力の検査: 1 行、空でない、200 字以内（CommandExtractor の m0.context-intent で使っていたものと同じ）。 */
+/** 出力の検査: 1 行、空でない、200 字以内（CommandExtractor の command-extractor.context-intent で使っていたものと同じ）。 */
 export const intentCheck: OutputCheck = (text) => {
   const trimmed = text.trim();
   if (trimmed === "") return { ok: false, detail: "空" };

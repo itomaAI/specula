@@ -42,7 +42,7 @@ The core never touches the runtime environment directly. It talks to three ports
 | `SolverPort` | Runs Alloy 6 as an external process | `CliAlloyAdapter` (Alloy 6.2.0 command line via `java`) | `LocalBridgeAlloyAdapter` (runs `java` on the user's machine through the Itera Local Bridge `/api/exec`) |
 
 - **LLM output is recorded.** `RecordingLanguageModel` wraps a real LLM client. It stores each output under `<out>/llm_records/<sha256 of task, prompt version and input>.json` and reuses it on the next run, so a run can be repeated without calling the LLM again. Outputs that never arrived or failed the shape check are not recorded; the result says "not generated" instead of being filled with a guess.
-- **The core modules M0–M5 follow the designs in `docs/design/`.** They were rewritten one module at a time, and the orchestrator (`runPipeline`) connects them. The command line and the Itera OS launcher only assemble adapters and write the outputs.
+- **The core modules follow the designs in `docs/design/`.** They were rewritten one module at a time, and the orchestrator (`runPipeline`) connects them. The command line and the Itera OS launcher only assemble adapters and write the outputs.
 
 ---
 
@@ -70,7 +70,7 @@ npm run build:itera # bundle for Itera OS → dist/specula.itera.js
 node dist/src/cli.js <repository dir> --out <output dir> [--alloy-jar <alloy jar>] [--records <llm records dir>]
 ```
 
-Without `--alloy-jar`, verification (M3) is skipped and reported as unverified (`NO_SOLVER`). The readable outputs are written for both view roles in one run: `BUSINESS` (shown as 業務) shows no file paths, function names, line numbers or code; `IMPLEMENTATION` (shown as 実装) adds the implementation names and locations next to the same text and appends the formal specification source to each `spec.md`. Exit codes: `0` the run finished (findings and ambiguities still give 0), `1` the environment failed, `2` wrong arguments (including `--view-role`, which no longer exists).
+Without `--alloy-jar`, verification (FormalSolver) is skipped and reported as unverified (`NO_SOLVER`). The readable outputs are written for both view roles in one run: `BUSINESS` (shown as 業務) shows no file paths, function names, line numbers or code; `IMPLEMENTATION` (shown as 実装) adds the implementation names and locations next to the same text and appends the formal specification source to each `spec.md`. Exit codes: `0` the run finished (findings and ambiguities still give 0), `1` the environment failed, `2` wrong arguments (including `--view-role`, which no longer exists).
 
 ### Itera OS
 
@@ -81,12 +81,12 @@ The launcher `itera/specula.html` builds the Itera adapters and runs the same pi
 | `repo` | yes | VFS directory of the repository to analyse |
 | `out` | yes | VFS directory for the outputs |
 | `bundle` | yes | VFS path of `specula.itera.js` |
-| `jar` | no | Path of the Alloy 6.2.0 jar **on the user's machine**. Without it, M3 is skipped (`NO_SOLVER`) |
+| `jar` | no | Path of the Alloy 6.2.0 jar **on the user's machine**. Without it, FormalSolver is skipped (`NO_SOLVER`) |
 | `java` | no | `java` command on the user's machine (default `java`) |
 | `connection` | no | Name of the Local Bridge connection (`connections[].name` in the `local_bridge` config). Default: the first enabled one |
 
 - **LLM requests go to the Itera OS agent.** Each request is written to `<out>/llm_exchange/<key>.request.json` and handed to the agent with `MetaOS.ai.task`; the launcher waits (up to 5 minutes per request) for `<out>/llm_exchange/<key>.answer.txt`. Answers that pass the shape check are recorded in `<out>/llm_records`, so a second run asks nothing. An answer that failed the check is not recorded, but its file stays and is read again on the next run; delete that answer file to ask again.
-- **Verification uses the Local Bridge.** The machine needs Java 17 or later, the Alloy jar, and `bash`, `mktemp` and `base64` (Linux, macOS or WSL). When the connection's `execMode` is `ask`, the launcher asks once before the run; if you decline, M3 is skipped. A model larger than about 100 KB after encoding is not sent and is reported as unreachable.
+- **Verification uses the Local Bridge.** The machine needs Java 17 or later, the Alloy jar, and `bash`, `mktemp` and `base64` (Linux, macOS or WSL). When the connection's `execMode` is `ask`, the launcher asks once before the run; if you decline, FormalSolver is skipped. A model larger than about 100 KB after encoding is not sent and is reported as unreachable.
 - The outputs have the same layout as the command line. The records that do not depend on the view role are at the top: `run_report.json`, `glossary.json`, `intents.json`, `implementation_map.json` (from the display ids such as `C-01` to the internal ids and the implementation), and `commands/<internal id>/…` (`spec.json`, `spec.als`, `solver_report.json` and `ledger.json`, or `ambiguity.json` for a command stopped by ambiguities). The readable outputs are under `views/business/` and `views/implementation/` with the same relative paths: `system_map.mmd` (one overview diagram), `system_map.json` (map 1, and map 2 for each bounded context with and without the supporting elements) and `commands/<internal id>/…` (`spec.md`, `matrix.md` and `flow.mmd`, or `ambiguity.md`).
 - The launcher takes no `viewRole`; it stops if one is given, because both roles are written.
 

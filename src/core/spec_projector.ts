@@ -1,4 +1,4 @@
-// M5: SpecProjector（M5 の設計 1.2・1.3）。
+// SpecProjector（SpecProjector の設計 1.2・1.3）。
 //
 // 形式仕様正本と論点カタログから、人が読むビューを決定論的に作る。LLM は呼ばない。ファイルの読み書きもしない。
 // 流れ: ContractGuard → ViewModelBuilder（中間表現 1 つ）→ 描画（仕様書・操作の一覧表・操作の流れ図）。
@@ -22,14 +22,14 @@ import type {
 import { ProjectionContractError } from "../types/projection.js";
 import type { EventStormingMap } from "../types/command.js";
 import { mapHashOf } from "./glossary_builder.js";
-import { checkAmbiguityContract, checkProjectionContract, isViewRole } from "./m5/contract.js";
-import { buildImplementationMap } from "./m5/implementation_map.js";
-import { renderAmbiguities } from "./m5/render_ambiguities.js";
-import { renderDocument } from "./m5/render_document.js";
-import { renderFlow } from "./m5/render_flow.js";
-import { renderMatrix } from "./m5/render_matrix.js";
-import { renderSystemJson, renderSystemMermaid, type SystemRenderOptions } from "./m5/render_system.js";
-import { buildViewModel } from "./m5/view_model.js";
+import { checkAmbiguityContract, checkProjectionContract, isViewRole } from "./spec_projector/contract.js";
+import { buildImplementationMap } from "./spec_projector/implementation_map.js";
+import { renderAmbiguities } from "./spec_projector/render_ambiguities.js";
+import { renderDocument } from "./spec_projector/render_document.js";
+import { renderFlow } from "./spec_projector/render_flow.js";
+import { renderMatrix } from "./spec_projector/render_matrix.js";
+import { renderSystemJson, renderSystemMermaid, type SystemRenderOptions } from "./spec_projector/render_system.js";
+import { buildViewModel } from "./spec_projector/view_model.js";
 
 export async function projectSpecification(
   spec: FormalSpecification,

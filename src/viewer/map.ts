@@ -5,9 +5,9 @@
 // 要素の文は JSON の label をそのまま使う。ポップアップの用語・意味は用語辞典のビューモデルを表示の id で引く（同じ文を 2 か所で作らない）。
 // ビューモデルには地図の識別子（内部の識別子）を入れない（設計 4 節）。辞書の項目の id は、引くためだけに使う。
 
-import { statusMark } from "../core/m5/labels.js";
-import { EDGE_TEXT } from "../core/m5/render_system.js";
-import { llmText } from "../core/m5/view_model.js";
+import { statusMark } from "../core/spec_projector/labels.js";
+import { EDGE_TEXT } from "../core/spec_projector/render_system.js";
+import { llmText } from "../core/spec_projector/view_model.js";
 import type { GlossaryLocation } from "../types/glossary.js";
 import type { ViewRole } from "../types/projection.js";
 import { buildGlossaryView, displayIdsOf } from "./glossary.js";

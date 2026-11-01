@@ -14,7 +14,7 @@
 
 import type { EventStormingMap, RepositoryDocument } from "../../types/command.js";
 import type { EntryKind, GlossaryEntry, GlossaryLocation } from "../../types/glossary.js";
-import { compareIds } from "../m0/boundary.js";
+import { compareIds } from "../command_extractor/boundary.js";
 
 /** 集めた項目。sources・term・所属・確定の状態・抜粋は後で付ける。 */
 export type CollectedEntry = Omit<GlossaryEntry, "term" | "sources" | "contextId" | "crossesTo" | "termStatus" | "excerpt">;

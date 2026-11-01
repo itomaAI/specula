@@ -44,7 +44,7 @@ const nonEmpty: OutputCheck = (text) => (text.trim().length > 0 ? { ok: true } :
 
 function request(overrides: Partial<LlmRequest> = {}): LlmRequest {
   return {
-    task: "m0.name-event",
+    task: "command-extractor.name-event",
     promptVersion: "1",
     instructions: "イベントに名前を付ける",
     input: { handler: "onSubmit", file: "src/a.ts" },

@@ -1,8 +1,8 @@
 // 画面（SpecViewer）の入力と事前条件、画面ごとのビューモデルの型（SpecViewer 基本設計 6.1〜6.3・6.5）。
-// src/types/ と、SpecProjector の表示の型（src/core/m5/view_model.ts）だけを参照する（設計 6.3）。
+// src/types/ と、SpecProjector の表示の型（src/core/spec_projector/view_model.ts）だけを参照する（設計 6.3）。
 // 画面ごとのビューモデルの型は、その画面を実装するときにここへ足す。
 
-import type { IssueGroupView, VerificationView } from "../core/m5/view_model.js";
+import type { IssueGroupView, VerificationView } from "../core/spec_projector/view_model.js";
 import type { AmbiguityKind, AmbiguityReport, FormalSpecification } from "../types/formal.js";
 import type { Glossary, GlossaryLocation, PresentedEntryKind } from "../types/glossary.js";
 import type { ConfirmationStatus } from "../types/index.js";

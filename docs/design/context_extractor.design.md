@@ -7,7 +7,7 @@
 ## 1. アーキテクチャと全体設計制約の継承
 
 ### 1.1 全体設計制約の適用
-- **配置場所**: `specula/src/core/context_extractor.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。内部の部品は `src/core/m1/` に置く。
+- **配置場所**: `specula/src/core/context_extractor.ts`（ビルド後は `dist/` の JS）（Pure ESM, Target: ES2022+）。内部の部品は `src/core/context_extractor/` に置く。
 - **Zero-I/O Core の遵守**: 本モジュールは `node:fs` や `window.MetaOS.fs` を直接インポートしてはならない。ソースは `FileSystemPort` から読み取り専用で取得する（追跡で必要になったファイルだけを読む）。
 - **依存方向の一方向性**: 本モジュールは `src/ports/` のインターフェースのみに依存し、`src/adapters/` の具象環境実装を一切参照しない。
 - **LLM を使わない**: 事実の抽出はすべて AST から決定論的に行う。
@@ -45,17 +45,17 @@ extractContext(target: CommandTarget, deps: { fs: FileSystemPort }): Promise<Raw
 | ファイル | 役割 |
 | :-- | :-- |
 | `src/types/context.ts` | 出力の型と、2 つの例外（`SyntaxExtractionError`・`InletNotFoundError`） |
-| `src/core/m1/source_loader.ts` | ファイルの読み込み・パース・結果の使い回し、import の解決、原文の切り出し |
-| `src/core/m1/locate.ts` | 起点の関数を見つけることと、呼び出し先を関数の定義まで解決すること |
-| `src/core/m1/units.ts` | ユニットの登録（識別子・層・details）と状態変数の判定 |
-| `src/core/m1/paths.ts` | 経路のたどり方、関数の要約、出口ごとの経路の組み立て |
+| `src/core/context_extractor/source_loader.ts` | ファイルの読み込み・パース・結果の使い回し、import の解決、原文の切り出し |
+| `src/core/context_extractor/locate.ts` | 起点の関数を見つけることと、呼び出し先を関数の定義まで解決すること |
+| `src/core/context_extractor/units.ts` | ユニットの登録（識別子・層・details）と状態変数の判定 |
+| `src/core/context_extractor/paths.ts` | 経路のたどり方、関数の要約、出口ごとの経路の組み立て |
 | `src/core/context_extractor.ts` | `extractContext`。ユニットとスライスの並び、`unresolved`、`coverage` |
 
 ---
 
 ## 2. 各部の詳細設計 (Detailed Design)
 
-構文解析はすべて `@babel/parser`（Plugins: `typescript`, `jsx`）で行う。外部バイナリやネイティブCLIを使わず、Node.js と Itera OS で同じに動く。AST の基本的な道具（子の列挙、識別子の名前、呼び出しの分類）は CommandExtractor のもの（`src/core/m0/ast.ts`・`signals.ts`）を使う。同じ規則を 2 か所に書かないためである。
+構文解析はすべて `@babel/parser`（Plugins: `typescript`, `jsx`）で行う。外部バイナリやネイティブCLIを使わず、Node.js と Itera OS で同じに動く。AST の基本的な道具（子の列挙、識別子の名前、呼び出しの分類）は CommandExtractor のもの（`src/core/command_extractor/ast.ts`・`signals.ts`）を使う。同じ規則を 2 か所に書かないためである。
 
 ### 2.1 CallTracer（呼び出しの追跡）
 - **読み込み**: 追跡でたどり着いたファイルだけを `fs.read` で読み、パースした結果をその実行の中で使い回す。パースに失敗したら `SyntaxExtractionError`（ファイル・行・列・原因）を投げる。

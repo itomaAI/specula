@@ -1,5 +1,5 @@
 // Specula の入口。Node.js と Itera（build:itera の bundle）の両方から読む。
-// M0〜M5 の公開コマンドは、各モジュールを書き直すときに足す。
+// 各モジュールの公開コマンドは、各モジュールを書き直すときに足す。
 // 補助の関数（記録のキー・受け取りの解釈・正準化 JSON・SHA-256・ルートの付け替え・リポジトリの読み込み）は公開しない。
 // 使うときは元のファイルから読む。
 
@@ -34,7 +34,7 @@ export type { IteraLlmOptions, IteraLlmRequestFile, PostTask } from "./adapters/
 export { readIteraRepository } from "./adapters/IteraRepositoryReader.js";
 export type { RepositorySource } from "./adapters/IteraRepositoryReader.js";
 
-// M0（CommandExtractor）
+// CommandExtractor
 export type {
   Actor,
   BoundedContext,
@@ -70,7 +70,7 @@ export type { ContextIntent, IntentCatalog, CommandIntent } from "./types/intent
 export { IntentContractError } from "./types/intent.js";
 export { INTENT_PROMPT_VERSION, synthesizeIntents } from "./core/intent_synthesizer.js";
 
-// M1（ContextExtractor）
+// ContextExtractor
 export type {
   ExtractionCoverage,
   ExtractionLayer,
@@ -84,7 +84,7 @@ export type {
 export { InletNotFoundError, SyntaxExtractionError } from "./types/context.js";
 export { extractContext } from "./core/context_extractor.js";
 
-// M2（FormalTranspiler）
+// FormalTranspiler
 export type {
   AmbiguityIssue,
   AmbiguityKind,
@@ -100,9 +100,9 @@ export type {
   WriteChange,
 } from "./types/formal.js";
 export { TranspileContractError } from "./types/formal.js";
-export { M2_PROMPT_VERSION, transpileFormal } from "./core/formal_transpiler.js";
+export { FORMAL_PROMPT_VERSION, transpileFormal } from "./core/formal_transpiler.js";
 
-// M3（FormalSolver）
+// FormalSolver
 export type {
   CheckKind,
   CheckResult,
@@ -117,7 +117,7 @@ export type {
 export { SolverContractError } from "./types/solver.js";
 export { SOLVER_DEFAULTS, verifySpecification } from "./core/formal_solver.js";
 
-// M4（LedgerSynthesizer）
+// LedgerSynthesizer
 export type {
   DomainLedgerCatalog,
   LedgerIssue,
@@ -127,9 +127,9 @@ export type {
   VerificationOutcome,
 } from "./types/ledger.js";
 export { LedgerContractError, ROOT_PRIORITY } from "./types/ledger.js";
-export { M4_PROMPT_VERSION, synthesizeLedger } from "./core/ledger_synthesizer.js";
+export { LEDGER_PROMPT_VERSION, synthesizeLedger } from "./core/ledger_synthesizer.js";
 
-// M5（SpecProjector）
+// SpecProjector
 export type {
   AmbiguityProjectionRequest,
   ImplementationMap,

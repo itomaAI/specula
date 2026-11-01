@@ -137,20 +137,20 @@ fact Steps { always (op1 or op2 or ... or stutter) }
 - 識別子は、ContextExtractor のユニットの並び（ファイル → 行 → 列 → 種類）に従って番号を振る。状態変数は `v<n>`、列挙の値は `v<n>_<m>`、命題は `c<n>`、述語は `op<n>`、出口は `o<n>`（スライスの並び順）。
 - ソースは、モジュール宣言 → `Bool` → 値の `sig` → `Prop` → `Outcome` → `System`・`Env` → `Init` → 述語（番号順。各操作の `op<n>_guard` の直後に `op<n>`）→ `stutter` → `Steps` の順に書く。同じ入力からは 1 バイトも違わないソースになる。
 - 各要素の直上に、元のユニットの識別子を `-- @source: <ユニットの識別子>` として書く（仕様 3.3 のトレーサビリティ）。複数あれば空白で区切る（`op<n>` はスライスの `unitIds`、`op<n>_guard` は条件のユニット）。`sourceMap` も同じユニットを持つ。射影と論点カタログでは取り除く。
-- モジュール名は `specula_m2`。`Bool` と `Prop` は、使われていなくても必ず宣言する（ソースの形を入力によらず一定にするため）。
+- モジュール名は `specula_formal`。`Bool` と `Prop` は、使われていなくても必ず宣言する（ソースの形を入力によらず一定にするため）。
 - 命題が 1 つも無いときは、`Prop` の宣言の直後に `fact NoProp { no Prop }` を書く。子の無い abstract sig は空に制約されないため、書かないとエンジンが `Env.holds` に名前の無い原子を入れる（FormalSolver の結合テストで確かめた）。
 - 真と偽の定数は `(no none)` と `(some none)` と書く（AND の引数が空なら真、OR の引数が空なら偽）。負の整数はリテラル（`-8`）で書く。`minus[0, n]` は、いちばん小さい整数（4 Int なら -8）で範囲の外の `8` を使うので、FormalSolver があふれを禁じて走ると充足できなくなる（FormalSolver の結合テストで確かめた）。リテラルは、あふれを許しても禁じても正しい値になる。
 
 ### 4.2 表示名（VocabularyLabeler）
-- コマンドごとに LLM を 1 回呼ぶ（`task: "m2.label-vocabulary"`）。入力は、識別子ごとの種類・実装上の名前・条件や代入の式の原文。出力は、識別子から表示名への JSON のオブジェクト。
+- コマンドごとに LLM を 1 回呼ぶ（`task: "formal.label-vocabulary"`）。入力は、識別子ごとの種類・実装上の名前・条件や代入の式の原文。出力は、識別子から表示名への JSON のオブジェクト。
 - 出力の検査: すべての識別子に表示名があり、各表示名が 1 行で 40 文字以内であること。合わなければ `INVALID_OUTPUT` として、すべての表示名を未生成にする。
 - 届かないときや検査に通らないときは、`labels` の各項目を `NOT_GENERATED` にする。識別子は機械的なので、ソースはそのまま使える。表示名を実装の名前で埋めない。
-- 曖昧性の質問の文（5 節）も、コマンドごとに 1 回で全部の論点の分を頼む（`task: "m2.ambiguity-question"`）。出力は論点の番号から質問の文への JSON のオブジェクトで、検査は「すべての論点に文があり、各文が 1 行で 200 文字以内」。1 つでも欠ければ、すべての質問の文を未生成にする。論点ごとに呼ぶと、論点の数だけ LLM を呼ぶことになるためである。
+- 曖昧性の質問の文（5 節）も、コマンドごとに 1 回で全部の論点の分を頼む（`task: "formal.ambiguity-question"`）。出力は論点の番号から質問の文への JSON のオブジェクトで、検査は「すべての論点に文があり、各文が 1 行で 200 文字以内」。1 つでも欠ければ、すべての質問の文を未生成にする。論点ごとに呼ぶと、論点の数だけ LLM を呼ぶことになるためである。
 - 質問の文の検査（2026-10-30 に足した）: 質問の文は利用者向けの表示（曖昧さの一覧）にそのまま出るので、実装の名前が入っていたら `INVALID_OUTPUT` にし、上と同じくすべての質問の文を未生成にする（全体設計 2.2）。照合する名前は、そのコマンドの `RawContextModel` から機械的に集める: 起点の `handler` のファイルのパスと関数名、ユニットの所在のファイルのパス（パス全体と、最後の `/` より後ろのファイル名）、`componentScope`、`details` の文字列の値のうち識別子の形（英字か `_`・`$` で始まり、英数字と `_`・`$` だけ）のもの。
   - 照合は大文字小文字を区別し、識別子は前後が英数字・`_`・`$` でないときだけ当たりとする（`status` は `statusCode` の一部としては当たらない）。2 文字以下の名前は照合しない（`id`・`ok` のような語が、ふつうの文に出るため）。
   - 辞書（`Glossary`）は受け取らない。辞書を受け取るのは SpecProjector だけとしたためである（全体設計 2）。辞書にしか無い名前（スキーマの項目など）が質問の文に入る可能性は残る。これは、実装のあとに specula 自身にかけたときの件数を見てから扱いを決める。
-  - 指示の文にも「ファイル名・関数名・変数名などの実装の名前とコードの断片を書かず、業務の言葉で問う」を足す。指示を変えるので `M2_PROMPT_VERSION` を `"2"` に上げる（それまでの記録は使わない）。
-- LLM の出力が ```` ```json ```` の囲みで返ってきたときは、囲みを外して読む。プロンプトの版は `M2_PROMPT_VERSION`（いまは `"1"`）。指示の文を変えたら版を上げる。
+  - 指示の文にも「ファイル名・関数名・変数名などの実装の名前とコードの断片を書かず、業務の言葉で問う」を足す。指示を変えるので `FORMAL_PROMPT_VERSION` を `"2"` に上げる（それまでの記録は使わない）。
+- LLM の出力が ```` ```json ```` の囲みで返ってきたときは、囲みを外して読む。プロンプトの版は `FORMAL_PROMPT_VERSION`（いまは `"1"`）。指示の文を変えたら版を上げる。
 
 ### 4.3 型
 ```typescript
@@ -212,7 +212,7 @@ type TranspilerResult =
 ```
 - 既存の型からの変更: `isSound` を外した（検証していない段で健全かどうかは言えない）。`signatures`・`predicates`・`assertions` を、FormalSolver と LedgerSynthesizer が使う `stateVariables`・`propositions`・`operations` に置き換えた。`sourceCode` を `source` にした。
 - `steps` と `dataMutations` は、SpecProjector が操作の中身を表示するために持つ。SpecProjector が Alloy のソースを読み直さずに済むよう、PathTranslator が訳した結果をそのまま構造で残す。`steps` は Alloy のソースの述語と同じ内容を持つので、どちらも同じ訳し方（3.1・3.2）から作る。真偽値と列挙の状態変数とリテラルの比較（`===`・`==`・`!==`・`!=`）は、ドメインの値ごとに JavaScript の意味で評価し、成り立つ値の `IS` の `OR` とする（`!==` も同じ。`NOT` と `IS` の組と同じ意味で、値ごとの評価に 1 本化した）。列挙で初期値が決まらない値 `v<n>_unknown` については、その値のとき比較が成り立つかを命題にし、`AND(IS v<n>_unknown, 命題)` を `OR` に足す（推測しない）。整数では `CMP` の `eq`・`neq` とし、整数と整数でない値の比較は命題にする。
-- `stateVariables` の `name` は 2026-10-30 に足した。SpecProjector の実装との対応表（SpecProjector の設計 5・8.5）が状態変数の実装上の名前を出すためである。名前は StateBuilder が状態変数を作るときに STATE のユニットから写す。SpecProjector が ContextExtractor の出力を読まずに済むので、モジュールどうしの依存を増やさない。質問の文の入力と LedgerSynthesizer の語彙には入れない（4.2 の「実装の名前を問いに書かない」を守るため）。表示名を付ける入力（`m2.label-vocabulary`）は、表示名を決めるのに実装の名前が要るので、これまでどおり STATE のユニットの name を渡している（この変更で入力は変わらない）。
+- `stateVariables` の `name` は 2026-10-30 に足した。SpecProjector の実装との対応表（SpecProjector の設計 5・8.5）が状態変数の実装上の名前を出すためである。名前は StateBuilder が状態変数を作るときに STATE のユニットから写す。SpecProjector が ContextExtractor の出力を読まずに済むので、モジュールどうしの依存を増やさない。質問の文の入力と LedgerSynthesizer の語彙には入れない（4.2 の「実装の名前を問いに書かない」を守るため）。表示名を付ける入力（`formal.label-vocabulary`）は、表示名を決めるのに実装の名前が要るので、これまでどおり STATE のユニットの name を渡している（この変更で入力は変わらない）。
 
 ---
 
@@ -231,7 +231,7 @@ type TranspilerResult =
   - 受け手は、参照だけを見る。状態変数、それを持つオブジェクト、`this` のどれかがあれば当たりとする。受け手の中の関数（`a.map((x) => …).join(",")` の `(x) => …`）は、それを受け取った呼び出し（`a.map(…)`）のユニットが判定するので、ここでは見ない。
   - 引数にその場で書いた関数（アロー関数・関数式）があれば、その本体を見る。本体が状態変数か `this` を参照するとき、または本体の中に、状態を変えない組み込みのメソッドではない呼び出しがあるときは、当たりとする。ContextExtractor はコールバックの中に入らないため、本体の中の呼び出しは経路に出てこない。そこで慎重側に倒す。その場で書いた関数ではない引数は、これまでどおり見る（引数の式の奥にある関数は、本体を見ずに当たりとする）。
   - 受け手に状態変数か `this` があれば、名前が一覧にあっても当たりのままとする。独自のクラスが同じ名前のメソッドを持つことがあるためである。
-- 状態を変えない組み込みのメソッドの一覧（`src/core/m2/pure_calls.ts`）:
+- 状態を変えない組み込みのメソッドの一覧（`src/core/formal_transpiler/pure_calls.ts`）:
   - 配列: `map`・`filter`・`reduce`・`reduceRight`・`slice`・`concat`・`join`・`some`・`every`・`find`・`findIndex`・`findLast`・`findLastIndex`・`indexOf`・`lastIndexOf`・`includes`・`flat`・`flatMap`・`at`・`entries`・`keys`・`values`・`forEach`・`toSorted`・`toReversed`・`toSpliced`・`with`
   - 文字列: `trim`・`trimStart`・`trimEnd`・`toLowerCase`・`toUpperCase`・`split`・`replace`・`replaceAll`・`startsWith`・`endsWith`・`padStart`・`padEnd`・`charAt`・`charCodeAt`・`codePointAt`・`substring`・`localeCompare`・`normalize`・`repeat`・`match`・`matchAll`・`search`・`toString`
   - `Map`・`Set`: `get`・`has`
@@ -249,7 +249,7 @@ interface AmbiguityIssue {
   unitIds: string[];
   location: UnitLocation;         // 最初のユニットの所在（ContextExtractor のユニットの所在。列を含む。ContextExtractor のユニットに symbol が無いため）
   detail: string;                 // 式や呼び出しの原文
-  question: LlmText;              // 人への質問の文（LLM。task: "m2.ambiguity-question"）
+  question: LlmText;              // 人への質問の文（LLM。task: "formal.ambiguity-question"）
   questionStatus: ConfirmationStatus; // 質問の文の確定の状態（6 節）
 }
 

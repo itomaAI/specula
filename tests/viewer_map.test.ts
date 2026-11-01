@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { NodeFsAdapter } from "../src/adapters/NodeFsAdapter.js";
 import { main } from "../src/cli.js";
-import { EDGE_TEXT } from "../src/core/m5/render_system.js";
+import { EDGE_TEXT } from "../src/core/spec_projector/render_system.js";
 import { readRunOutputs } from "../src/lib/read_outputs.js";
 import type { Glossary, GlossaryEntry, PresentedEntryKind } from "../src/types/glossary.js";
 import type { IntentCatalog } from "../src/types/intent.js";

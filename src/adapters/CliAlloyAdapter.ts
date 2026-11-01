@@ -1,4 +1,4 @@
-// SolverPort の CLI 版（M3 の設計 3.1・3.3）。Alloy 6.2.0 の `java -jar <jar> exec` を子プロセスで呼ぶ。
+// SolverPort の CLI 版（FormalSolver の設計 3.1・3.3）。Alloy 6.2.0 の `java -jar <jar> exec` を子プロセスで呼ぶ。
 //
 // CLI の振る舞い（2026-10-30 に CI の試しのジョブで確かめた。Alloy 6.2.0・Temurin 17）:
 // - `exec -f -q [-n] -s <ソルバ> -c <コマンド> -o <ディレクトリ> -t json <ファイル>` で、出力先に receipt.json と
@@ -59,7 +59,7 @@ export class CliAlloyAdapter implements SolverPort {
 
     let dir: string | null = null;
     try {
-      dir = await fs.mkdtemp(nodePath.join(os.tmpdir(), "specula-m3-"));
+      dir = await fs.mkdtemp(nodePath.join(os.tmpdir(), "specula-solver-"));
       const modelPath = nodePath.join(dir, "model.als");
       const outDir = nodePath.join(dir, "out");
       await fs.writeFile(modelPath, request.source, "utf8");

@@ -4,8 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { renderFlow } from "../src/core/m5/render_flow.js";
-import type { ViewModel } from "../src/core/m5/view_model.js";
+import { renderFlow } from "../src/core/spec_projector/render_flow.js";
+import type { ViewModel } from "../src/core/spec_projector/view_model.js";
 import { buildFlowView, layoutLayers, parseFlow, unescapeMermaidLabel } from "../src/viewer/graph.js";
 import type { GraphEdge, GraphLayout } from "../src/viewer/types.js";
 

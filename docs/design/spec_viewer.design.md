@@ -8,7 +8,7 @@
 
 ### 1.1 全体設計制約の適用
 - **2 つに分ける**: 出力のファイルから画面の中間表現（ビューモデル）を作る部分と、ビューモデルを画面に描く部分に分ける。
-  - **ビューモデルを作る部分**: `specula/src/viewer/`（Pure ESM, Target: ES2022+）。ファイルの読み書きも画面の操作もしない（Zero-I/O Core）。出力のファイルの中身（パース済みの JSON と、Markdown・Mermaid の文字列）と表示の役割を受け取り、画面ごとのビューモデルを返す。参照するのは `src/types/` と、SpecProjector の表示の純粋な関数（`src/core/m5/` の `labels.ts`・`view_model.ts` のうち、I/O を持たない文の組み立て）だけとする。SpecProjector と同じ項目を同じ文で出すため（仕様 3.3）、文を組み立てる処理を写し直さない（6.5）。
+  - **ビューモデルを作る部分**: `specula/src/viewer/`（Pure ESM, Target: ES2022+）。ファイルの読み書きも画面の操作もしない（Zero-I/O Core）。出力のファイルの中身（パース済みの JSON と、Markdown・Mermaid の文字列）と表示の役割を受け取り、画面ごとのビューモデルを返す。参照するのは `src/types/` と、SpecProjector の表示の純粋な関数（`src/core/spec_projector/` の `labels.ts`・`view_model.ts` のうち、I/O を持たない文の組み立て）だけとする。SpecProjector と同じ項目を同じ文で出すため（仕様 3.3）、文を組み立てる処理を写し直さない（6.5）。
   - **画面に描く部分**: 起動アプリ（Itera OS の app）。出力先のファイルを `FileSystemPort` で読み、ビューモデルを作る部分を呼び、結果を描く。表示の判定（役割による出し分け、未決・未検証・候補の判定）を描く側に書かない。
 - **分ける理由**: 役割による出し分けと状態の判定を、テストのできる純粋な関数に閉じ込めるためである。描く側に判定を書くと、画面ごとに表示が食い違い、仕様 3.3 の「同じ項目は同じ表示」をテストで確かめられない。
 - **LLM を使わない**: ビューモデルは決定論的に作る（全体設計 1.2）。
@@ -229,7 +229,7 @@ checkRunOutputs(outputs: RunOutputs): RunOutputsCheck;   // 仕様 3.1 の事前
 - 表示の役割: `system_map.json` の `viewRole` が、読んだ置き場所の役割（`RunOutputs.viewRole`）と違えば、画面を作れないもの（`VIEW_ROLE_MISMATCH`）とする。`views/` の下のコマンドのファイルが無いときは、役割ごとに書き出す前の古い出力のことがあるので、理由に「実行し直してください」と添える（`COMMAND_FILE_MISSING`）。
 
 ### 6.3 ビューモデルの型の方針
-- 型は `src/viewer/types.ts` に置き、`src/types/` と、SpecProjector の表示の型（`src/core/m5/view_model.ts` の `VerificationView`・`IssueView`）だけを参照する。SpecProjector と同じ項目は同じ型で持ち、写し直さない（1.1）。
+- 型は `src/viewer/types.ts` に置き、`src/types/` と、SpecProjector の表示の型（`src/core/spec_projector/view_model.ts` の `VerificationView`・`IssueView`）だけを参照する。SpecProjector と同じ項目は同じ型で持ち、写し直さない（1.1）。
 - 確定の状態の印は、SpecProjector と同じく文の後ろに足した文字列で持つ（`statusMark`。6.5）。描く側は文をそのまま出し、状態を判定しない（1.1）。2026-10-31 の PR #31 の時点では「本文の文と確定の状態は組で持ち、描く側が印を付ける」としていたが、SpecProjector の文（`IssueView` など）を使うと印は文に入っているので、こちらに合わせた。
 - 画面どうしのリンクの鍵（内部の識別子）は、ビューモデルの中のリンクの表だけに置き、描く文字列には入れない（4 節）。
 
