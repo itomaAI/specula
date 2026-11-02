@@ -110,9 +110,10 @@ export function classifyCall(call: AstNode, firebaseNames: ReadonlySet<string>):
     return null;
   }
   if (EMITTERS.has(name)) return "EVENT_EMIT";
-  if (FIRESTORE_CHAINED.has(name) && (chain.includes("collection()") || chain.includes("doc()"))) return "DB_MUTATION";
-  if (QUERY_BUILDER.has(name) && chain.includes("from()")) return "DB_MUTATION";
-  if (PRISMA.has(name) && chain[0] === "prisma") return "DB_MUTATION";
+  // 要因2の制約を完全に撤廃: チェーンに collection() / doc() / from() / prisma が無くても、名前だけで DB_MUTATION とみなす
+  if (FIRESTORE_CHAINED.has(name)) return "DB_MUTATION";
+  if (QUERY_BUILDER.has(name)) return "DB_MUTATION";
+  if (PRISMA.has(name)) return "DB_MUTATION";
   return null;
 }
 
