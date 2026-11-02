@@ -4,36 +4,143 @@
 <meta charset="utf-8">
 <title>specula</title>
 <style>
-  :root { --line: #c9ced6; --muted: #5f6b7a; --accent: #1e5bb8; --warn: #b26a00; --bad: #c62828; --ok: #2e7d32; --bg2: #f4f6f9; }
-  /* 色は明るい背景の前提で決めているので、OS のテーマに左右されないよう背景も固定する（spec_viewer.html と同じ）。 */
-  html, body { background: #fff; color-scheme: light; }
-  body { font-family: system-ui, sans-serif; margin: 0; color: #1d232b; font-size: 14px; }
-  header { border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 12px; align-items: baseline; }
-  header h1 { font-size: 1rem; margin: 0; }
+  :root {
+    --line: rgb(var(--c-border-main, 201 206 214));
+    --muted: rgb(var(--c-text-muted, 95 107 122));
+    --accent: rgb(var(--c-accent-primary, 59 130 246));
+    --warn: rgb(var(--c-accent-warning, 245 158 11));
+    --bad: rgb(var(--c-accent-error, 239 68 68));
+    --ok: rgb(var(--c-accent-success, 16 185 129));
+    --bg-app: rgb(var(--c-bg-app, 255 255 255));
+    --bg-panel: rgb(var(--c-bg-panel, 255 255 255));
+    --bg-card: rgb(var(--c-bg-card, 255 255 255));
+    --bg-hover: rgb(var(--c-bg-hover, 238 244 255));
+    --bg2: rgb(var(--c-bg-card, 244 246 249));
+    --text-main: rgb(var(--c-text-main, 29 35 43));
+  }
+  html, body {
+    background: var(--bg-app);
+    color: var(--text-main);
+    font-family: var(--font-sans, system-ui, sans-serif);
+    margin: 0;
+    font-size: 14px;
+    color-scheme: dark light;
+  }
+  header { border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 12px; align-items: baseline; background: var(--bg-panel); }
+  header h1 { font-size: 1rem; margin: 0; color: var(--text-main); }
   main { padding: 12px 16px 48px; max-width: 960px; }
-  h2 { font-size: 1.05rem; margin: 18px 0 8px; }
-  .box { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
-  table { border-collapse: collapse; }
-  th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
-  th { background: var(--bg2); font-weight: 600; white-space: nowrap; }
-  label { display: block; margin: 6px 0; }
-  label span { display: inline-block; width: 13em; }
-  input[type=text] { width: 28em; padding: 3px 6px; color: #1d232b; background: #fff; }
-  button { border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
-  button.plain { background: #fff; color: var(--accent); padding: 2px 8px; }
-  button:disabled { background: #9fb3d1; border-color: #9fb3d1; color: #fff; cursor: default; }
+  h2 { font-size: 1.05rem; margin: 18px 0 8px; color: var(--text-main); }
+  .box { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin: 8px 0; background: var(--bg-panel); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; color: var(--text-main); }
+  th { background: var(--bg2); font-weight: 600; white-space: nowrap; width: 200px; }
+  td > * + * { margin-top: 8px; }
+
+  /* ワークフロー入力欄の行レイアウト */
+  .form-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .form-row:last-of-type { margin-bottom: 0; }
+  .field-label {
+    width: 220px;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main);
+  }
+  input[type=text] {
+    flex: 1;
+    max-width: 480px;
+    height: 32px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    font-size: 13px;
+    line-height: 30px;
+    color: var(--text-main);
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+
+  /* ボタン */
+  button {
+    height: 32px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    padding: 0 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  button.plain {
+    height: 32px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    color: var(--text-main);
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+  button.plain:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  button:disabled {
+    background: var(--bg-hover);
+    border-color: var(--line);
+    color: var(--muted);
+    cursor: default;
+  }
+
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
   .muted { color: var(--muted); }
   .ok { color: var(--ok); }
   .warn { color: var(--warn); font-weight: 600; }
   .error { color: var(--bad); }
-  pre { background: var(--bg2); padding: 8px; overflow: auto; font-size: 0.85rem; max-height: 22em; white-space: pre-wrap; }
+  pre {
+    background: var(--bg2);
+    color: var(--text-main);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 8px;
+    overflow: auto;
+    font-size: 0.85rem;
+    max-height: 22em;
+    white-space: pre-wrap;
+    font-family: var(--font-mono, monospace);
+  }
 </style>
 </head>
 <body>
 <header><h1>specula（Itera OS 版）</h1><span class="muted" id="version"></span></header>
 <main>
   <h2>ステータス</h2>
-  <div class="box"><table id="status"></table> <div style="margin-top:8px"><button class="plain" id="refresh">ステータスを読み直す</button></div></div>
+  <div class="box"><table id="status"></table> <div style="margin-top:12px"><button class="plain" id="refresh">ステータスを読み直す</button></div></div>
 
   <h2>ワークフロー</h2>
   <div class="box" id="form"></div>
@@ -106,9 +213,12 @@
   const startButton = el('button', { text: '解析を始める', onclick: () => start() });
   const startMessage = el('span', {});
   $('form').replaceChildren(
-    ...FIELDS.map((f) => el('label', {}, el('span', { text: f.label }), inputs[f.key],
-      f.pick ? el('button', { class: 'plain', text: '選ぶ', onclick: () => pick(f) }) : null)),
-    el('div', { style: 'margin-top:10px' }, startButton, ' ', startMessage),
+    ...FIELDS.map((f) => el('div', { class: 'form-row' },
+      el('span', { class: 'field-label', text: f.label }),
+      inputs[f.key],
+      f.pick ? el('button', { class: 'plain', text: '選ぶ', onclick: () => pick(f) }) : null
+    )),
+    el('div', { class: 'action-row' }, startButton, startMessage),
   );
   for (const key of ['out', 'bundle', 'viewer', 'jar', 'connection']) inputs[key].addEventListener('change', () => refresh());
   $('refresh').addEventListener('click', () => refresh());
